@@ -14,7 +14,9 @@
   ],
   "host_permissions": [
     "*://www.youtube.com/*",
-    "*://youtube.com/*"
+    "*://youtube.com/*",
+    "https://dropatrack.vercel.app/*",
+    "http://localhost:3000/*"
   ],
   "action": {
     "default_popup": "popup.html",

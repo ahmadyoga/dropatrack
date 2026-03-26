@@ -43,7 +43,6 @@ let videoInfo = null;
         return slug && slug !== '' ? { slug, title: t.title, tabId: t.id } : null;
       })
       .filter(Boolean)
-      // Deduplicate by slug
       .filter((room, idx, arr) => arr.findIndex(r => r.slug === room.slug) === idx);
 
     // 4. Render UI
@@ -92,7 +91,7 @@ function render(roomTabs) {
     html += `<div class="room-tabs" id="room-tabs">`;
     roomTabs.forEach((room, idx) => {
       html += `
-        <div class="room-tab ${idx === 0 ? 'selected' : ''}" data-slug="${room.slug}" onclick="selectRoom(this, '${room.slug}')">
+        <div class="room-tab ${idx === 0 ? 'selected' : ''}" data-slug="${room.slug}">
           <div class="dot"></div>
           <div class="slug">${room.slug}</div>
         </div>
@@ -116,7 +115,7 @@ function render(roomTabs) {
 
   if (videoInfo.currentVideo && roomTabs.length > 0) {
     html += `
-      <button class="btn btn-primary" id="btn-add-video" onclick="addVideo()">
+      <button class="btn btn-primary" id="btn-add-video">
         ➕ Add Current Video
       </button>
     `;
@@ -124,24 +123,38 @@ function render(roomTabs) {
 
   if (videoInfo.isPlaylist && videoInfo.playlistVideos.length > 0 && roomTabs.length > 0) {
     html += `
-      <button class="btn btn-secondary" id="btn-add-playlist" onclick="addPlaylist()">
+      <button class="btn btn-secondary" id="btn-add-playlist">
         📋 Add All ${videoInfo.playlistVideos.length} Videos
       </button>
     `;
   }
 
   html += `</div>`;
-
-  // Status area
   html += `<div id="status-area" style="margin-top:10px"></div>`;
 
   contentEl.innerHTML = html;
-}
 
-function selectRoom(el, slug) {
-  document.querySelectorAll('.room-tab').forEach(t => t.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedRoom = slug;
+  // ─── Attach event listeners (CSP-safe, no inline handlers) ───────
+  // Room tab selection
+  document.querySelectorAll('.room-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.room-tab').forEach(t => t.classList.remove('selected'));
+      tab.classList.add('selected');
+      selectedRoom = tab.dataset.slug;
+    });
+  });
+
+  // Add single video button
+  const btnVideo = document.getElementById('btn-add-video');
+  if (btnVideo) {
+    btnVideo.addEventListener('click', addVideo);
+  }
+
+  // Add playlist button
+  const btnPlaylist = document.getElementById('btn-add-playlist');
+  if (btnPlaylist) {
+    btnPlaylist.addEventListener('click', addPlaylist);
+  }
 }
 
 async function addVideo() {
@@ -187,8 +200,9 @@ async function addPlaylist() {
   if (!selectedRoom || !videoInfo?.playlistVideos?.length) return;
 
   const btn = document.getElementById('btn-add-playlist');
+  const count = videoInfo.playlistVideos.length;
   btn.disabled = true;
-  btn.innerHTML = `<div class="spinner"></div> Adding ${videoInfo.playlistVideos.length} videos...`;
+  btn.innerHTML = `<div class="spinner"></div> Adding ${count} videos...`;
 
   try {
     const res = await fetch(`${API_BASE}/api/queue/add-external`, {
@@ -208,17 +222,17 @@ async function addPlaylist() {
       btn.innerHTML = `✅ Added!`;
       setTimeout(() => {
         btn.disabled = false;
-        btn.innerHTML = `📋 Add All ${videoInfo.playlistVideos.length} Videos`;
+        btn.innerHTML = `📋 Add All ${count} Videos`;
       }, 2000);
     } else {
       showStatus('error', `❌ ${data.error}`);
       btn.disabled = false;
-      btn.innerHTML = `📋 Add All ${videoInfo.playlistVideos.length} Videos`;
+      btn.innerHTML = `📋 Add All ${count} Videos`;
     }
   } catch (err) {
     showStatus('error', `❌ Network error: ${err.message}`);
     btn.disabled = false;
-    btn.innerHTML = `📋 Add All ${videoInfo.playlistVideos.length} Videos`;
+    btn.innerHTML = `📋 Add All ${count} Videos`;
   }
 }
 
