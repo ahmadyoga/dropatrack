@@ -76,27 +76,43 @@ export interface UserIdentity {
 }
 
 const STORAGE_KEY = 'dropatrack_user';
+const EXPIRY_MS = 12 * 60 * 60 * 1000; // 12 jam
+type StoredUser = UserIdentity & {
+  expiresAt: number;
+};
 
 export function getOrCreateUser(): (UserIdentity & { isNew: boolean }) | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
+  if (typeof window === 'undefined') return null;
 
   const stored = localStorage.getItem(STORAGE_KEY);
+
   if (stored) {
     try {
-      return { ...(JSON.parse(stored) as UserIdentity), isNew: false };
+      const parsed = JSON.parse(stored) as StoredUser;
+
+      // cek apakah masih valid
+      if (Date.now() < parsed.expiresAt) {
+        const { expiresAt, ...user } = parsed;
+        return { ...user, isNew: false };
+      }
+
+      // kalau expired, hapus data lama
+      localStorage.removeItem(STORAGE_KEY);
     } catch {
-      // Invalid stored data, generate new
+      localStorage.removeItem(STORAGE_KEY);
     }
   }
 
-  const user: UserIdentity = {
+  // generate user baru
+  const user: StoredUser = {
     user_id: generateUserId(),
     username: generateRandomName(),
     avatar_color: generateAvatarColor(),
+    expiresAt: Date.now() + EXPIRY_MS,
   };
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-  return { ...user, isNew: true };
+
+  const { expiresAt, ...plainUser } = user;
+  return { ...plainUser, isNew: true };
 }
