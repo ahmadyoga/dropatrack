@@ -87,6 +87,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [myRole, setMyRole] = useState<UserRole>('listener');
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragItemRef = useRef<number | null>(null);
+  const [showExtensionPopup, setShowExtensionPopup] = useState(false);
 
   const playerRef = useRef<YTPlayer | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -108,6 +109,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   useEffect(() => {
     const user = getOrCreateUser();
     setCurrentUser(user);
+
+    // Show extension install popup for new users
+    if (user?.isNew) {
+      setShowExtensionPopup(true);
+    }
 
     // Restore speaker mode from localStorage
     const savedSpeaker = localStorage.getItem(`dropatrack_speaker_${initialRoom.slug}`);
@@ -1276,6 +1282,85 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           </div>
         </div>
       </div>
+
+      {/* Extension Install Popup */}
+      {showExtensionPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
+          <div className="p-6 max-w-md w-full animate-fade-in rounded-2xl" style={{ background: '#1a1a1a', border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 0 40px rgba(34,197,94,0.15)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: '#fff' }}>
+                <span>🧩</span>
+                Install DropATrack Extension
+              </h3>
+              <button
+                onClick={() => setShowExtensionPopup(false)}
+                className="text-xl leading-none px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
+                style={{ color: '#999' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-sm mb-4" style={{ color: '#d4d4d4' }}>
+              Add YouTube videos to this room directly from YouTube! Install our Chrome extension in 3 easy steps:
+            </p>
+
+            <div className="space-y-3">
+              {/* Step 1 */}
+              <div className="flex gap-3 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#22c55e', color: '#000' }}>1</span>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#fff' }}>Download the extension</p>
+                  <a
+                    href="/extension.zip"
+                    download
+                    className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
+                    style={{ background: '#22c55e', color: '#000' }}
+                  >
+                    📦 Download ZIP
+                  </a>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex gap-3 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#22c55e', color: '#000' }}>2</span>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#fff' }}>Unzip &amp; open Extensions page</p>
+                  <p className="text-sm mt-1.5" style={{ color: '#d4d4d4' }}>
+                    Extract the ZIP file, then go to <code className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: 'rgba(255,255,255,0.15)', color: '#86efac' }}>chrome://extensions</code>
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: '#d4d4d4' }}>
+                    Turn on <strong style={{ color: '#fff' }}>Developer mode</strong> (toggle at top right)
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex gap-3 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#22c55e', color: '#000' }}>3</span>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: '#fff' }}>Load the extension</p>
+                  <p className="text-sm mt-1.5" style={{ color: '#d4d4d4' }}>
+                    Click <strong style={{ color: '#fff' }}>&quot;Load unpacked&quot;</strong> and select the unzipped <code className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: 'rgba(255,255,255,0.15)', color: '#86efac' }}>extension</code> folder
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: '#86efac' }}>
+                    Done! Open any YouTube playlist and the DropATrack buttons will appear 🎉
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowExtensionPopup(false)}
+              className="w-full mt-5 py-2.5 rounded-xl font-semibold text-sm transition-all hover:scale-[1.02]"
+              style={{ background: '#22c55e', color: '#000' }}
+            >
+              Got it, let&apos;s go! 🎵
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@ const contentEl = document.getElementById('content');
 
 let selectedRoom = null;
 let videoInfo = null;
+let allRoomSlugs = [];
 
 // Initialize
 (async () => {
@@ -45,7 +46,16 @@ let videoInfo = null;
       .filter(Boolean)
       .filter((room, idx, arr) => arr.findIndex(r => r.slug === room.slug) === idx);
 
-    // 4. Render UI
+    // 4. Load saved room from storage
+    try {
+      const stored = await chrome.storage.local.get(['selectedRoom']);
+      if (stored.selectedRoom) {
+        const match = roomTabs.find(r => r.slug === stored.selectedRoom);
+        if (match) selectedRoom = match.slug;
+      }
+    } catch { /* ignore */ }
+
+    // 5. Render UI
     render(roomTabs);
   } catch (err) {
     contentEl.innerHTML = `
@@ -98,8 +108,16 @@ function render(roomTabs) {
       `;
     });
     html += `</div>`;
-    selectedRoom = roomTabs[0].slug;
+    if (!selectedRoom) selectedRoom = roomTabs[0].slug;
+    allRoomSlugs = roomTabs.map(r => r.slug);
+    // Persist to storage for content script
+    persistRoomSelection();
   } else {
+    // Clear storage so inline buttons disappear
+    selectedRoom = null;
+    allRoomSlugs = [];
+    persistRoomSelection();
+
     html += `
       <div class="no-rooms">
         No DropATrack rooms open.<br>
@@ -141,8 +159,16 @@ function render(roomTabs) {
       document.querySelectorAll('.room-tab').forEach(t => t.classList.remove('selected'));
       tab.classList.add('selected');
       selectedRoom = tab.dataset.slug;
+      persistRoomSelection();
     });
   });
+
+  // Pre-select the saved room
+  if (selectedRoom) {
+    document.querySelectorAll('.room-tab').forEach(t => {
+      t.classList.toggle('selected', t.dataset.slug === selectedRoom);
+    });
+  }
 
   // Add single video button
   const btnVideo = document.getElementById('btn-add-video');
@@ -246,4 +272,22 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+async function persistRoomSelection() {
+  try {
+    await chrome.storage.local.set({
+      selectedRoom,
+      rooms: allRoomSlugs,
+    });
+    // Also notify the active YouTube tab's content script
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id && tab.url?.includes('youtube.com')) {
+      chrome.tabs.sendMessage(tab.id, {
+        action: 'roomUpdated',
+        selectedRoom,
+        rooms: allRoomSlugs,
+      }).catch(() => { });
+    }
+  } catch { /* ignore */ }
 }

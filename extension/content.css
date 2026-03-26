@@ -1,0 +1,197 @@
+/* DropATrack — Inline YouTube Playlist Buttons */
+
+/* ─── Banner at top of playlist panel ─── */
+.dropatrack-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #15803d, #16a34a);
+    border-radius: 8px;
+    margin: 8px 12px;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    position: relative;
+    z-index: 100;
+}
+
+.dropatrack-banner-logo {
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.3px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.dropatrack-banner-logo span {
+    color: #bbf7d0;
+}
+
+.dropatrack-banner-divider {
+    width: 1px;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+
+.dropatrack-room-select {
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    padding: 4px 8px;
+    min-width: 0;
+    flex: 1;
+    cursor: pointer;
+    font-family: inherit;
+    outline: none;
+}
+
+.dropatrack-room-select:hover {
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.dropatrack-room-select option {
+    background: #1a1a1a;
+    color: #e5e5e5;
+}
+
+.dropatrack-btn-add-all {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-family: inherit;
+    transition: background 0.15s;
+}
+
+.dropatrack-btn-add-all:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+
+.dropatrack-btn-add-all:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.dropatrack-no-room {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    flex: 1;
+    text-align: center;
+}
+
+.dropatrack-no-room a {
+    color: #bbf7d0;
+    text-decoration: underline;
+}
+
+/* ─── Per-item add button ─── */
+.dropatrack-item-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    margin-left: 4px;
+    padding: 0;
+    line-height: 1;
+    position: relative;
+}
+
+.dropatrack-item-btn:hover {
+    background: rgba(34, 197, 94, 0.35);
+    transform: scale(1.1);
+}
+
+.dropatrack-item-btn:active {
+    transform: scale(0.95);
+}
+
+.dropatrack-item-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.dropatrack-item-btn.success {
+    background: rgba(34, 197, 94, 0.3);
+    color: #86efac;
+}
+
+.dropatrack-item-btn.error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+/* Spinner inside button */
+.dropatrack-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(34, 197, 94, 0.3);
+    border-top-color: #22c55e;
+    border-radius: 50%;
+    animation: dropatrack-spin 0.6s linear infinite;
+}
+
+@keyframes dropatrack-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Tooltip */
+.dropatrack-item-btn[title] {
+    position: relative;
+}
+
+/* ─── Context menu item (three-dot popup) ─── */
+.dropatrack-context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    font-family: 'Roboto', 'Arial', sans-serif;
+    font-size: 14px;
+    color: #e5e5e5;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dropatrack-context-menu-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.dropatrack-ctx-icon {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.dropatrack-ctx-text {
+    flex: 1;
+    line-height: 1.4;
+    white-space: nowrap;
+    color: #22c55e;
+    font-weight: 500;
+}

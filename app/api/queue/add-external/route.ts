@@ -115,6 +115,36 @@ export async function POST(request: NextRequest) {
       return jsonResponse({ error: 'No videos found' }, 404);
     }
 
+    // Fetch missing durations from YouTube API
+    const needDuration = videosToAdd.filter(v => !v.duration_seconds);
+    if (needDuration.length > 0) {
+      const ids = needDuration.map(v => v.youtube_id).join(',');
+      try {
+        const res = await fetch(
+          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${ids}&key=${YOUTUBE_API_KEY}`,
+          { headers: { Referer: REFERER } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const durationMap: Record<string, number> = {};
+          for (const item of data.items || []) {
+            durationMap[item.id] = parseISO8601Duration(item.contentDetails.duration);
+          }
+          for (const v of videosToAdd) {
+            if (!v.duration_seconds && durationMap[v.youtube_id]) {
+              v.duration_seconds = durationMap[v.youtube_id];
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch durations:', e);
+      }
+      // Default any still-missing durations to 0
+      for (const v of videosToAdd) {
+        if (!v.duration_seconds) v.duration_seconds = 0;
+      }
+    }
+
     // Get current max position
     const { data: lastItem } = await supabase
       .from('queue_items')
