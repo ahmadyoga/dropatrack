@@ -8,6 +8,7 @@ import { parseISO8601Duration } from '@/lib/youtube';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const maxResults = searchParams.get('maxResults') || '10';
+  const regionCode = searchParams.get('regionCode') || 'ID';
 
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Fetch most popular music videos — we'll sort by newest publish date
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&videoCategoryId=10&regionCode=US&maxResults=6&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&videoCategoryId=10&regionCode=${encodeURIComponent(regionCode)}&maxResults=${encodeURIComponent(maxResults)}&key=${apiKey}`;
 
     const res = await fetch(url, {
       headers: { Referer: referer },

@@ -13,56 +13,56 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Missing room_id or current_song_index' }, { status: 400 });
   }
 
-  // Fetch all queue items for this room
-  const { data: queue, error } = await supabase
+  // Fetch only upcoming queue items (skip already-played + current)
+  const { data: allQueue, error } = await supabase
     .from('queue_items')
-    .select('*')
+    .select('id, position')
     .eq('room_id', room_id)
     .order('position', { ascending: true });
 
-  if (error || !queue) {
+  if (error || !allQueue) {
     return Response.json({ error: 'Failed to fetch queue' }, { status: 500 });
   }
 
-  if (queue.length <= 1) {
-    return Response.json({ message: 'Nothing to shuffle' });
-  }
-
-  // Split: keep songs up to current_song_index, shuffle only upcoming
-  const before = queue.slice(0, current_song_index + 1);
-  const upcoming = queue.slice(current_song_index + 1);
+  // Only shuffle upcoming items (after current_song_index)
+  const upcoming = allQueue.filter(item => item.position > current_song_index);
 
   if (upcoming.length <= 1) {
     return Response.json({ message: 'Not enough upcoming songs to shuffle' });
   }
 
-  // Fisher-Yates shuffle
-  for (let i = upcoming.length - 1; i > 0; i--) {
+  // Fisher-Yates shuffle on positions only
+  const positions = upcoming.map(item => item.position);
+  for (let i = positions.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [upcoming[i], upcoming[j]] = [upcoming[j], upcoming[i]];
+    [positions[i], positions[j]] = [positions[j], positions[i]];
   }
 
-  const shuffled = [...before, ...upcoming];
-
-  // Update all positions in DB
-  const updates = shuffled.map((item, idx) => ({
-    id: item.id,
-    room_id: item.room_id,
-    youtube_id: item.youtube_id,
-    title: item.title,
-    thumbnail_url: item.thumbnail_url,
-    duration_seconds: item.duration_seconds,
-    added_by: item.added_by,
-    position: idx,
-    played: item.played,
-  }));
-
-  const { error: upsertError } = await supabase.from('queue_items').upsert(updates);
-
-  if (upsertError) {
-    console.error('Shuffle upsert error:', upsertError);
-    return Response.json({ error: 'Failed to update queue' }, { status: 500 });
+  // Build minimal updates — only id + position, skip unchanged
+  const updates: { id: string; position: number }[] = [];
+  for (let i = 0; i < upcoming.length; i++) {
+    if (upcoming[i].position !== positions[i]) {
+      updates.push({ id: upcoming[i].id, position: positions[i] });
+    }
   }
 
-  return Response.json({ success: true, count: upcoming.length });
+  if (updates.length === 0) {
+    return Response.json({ message: 'Shuffle resulted in same order' });
+  }
+
+  // Batch update only changed positions using parallel updates
+  const batchSize = 20;
+  for (let i = 0; i < updates.length; i += batchSize) {
+    const batch = updates.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map(u =>
+        supabase
+          .from('queue_items')
+          .update({ position: u.position })
+          .eq('id', u.id)
+      )
+    );
+  }
+
+  return Response.json({ success: true, count: updates.length });
 }

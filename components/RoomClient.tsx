@@ -7,6 +7,7 @@ import { formatDuration, extractYouTubeId } from '@/lib/youtube';
 import { useAntiDebug } from '@/lib/antiDebug';
 import ThemeToggle from '@/components/ThemeToggle';
 import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, TrendingVideo, ChatMessage } from '@/lib/types';
+import type { CuratedSection } from '@/lib/curatedPlaylists';
 import '@/app/room.css';
 
 // ─── YouTube IFrame API types ────────────────────────────────────────
@@ -64,15 +65,35 @@ interface RoomClientProps {
 
 // ─── Tabs ────────────────────────────────────────────────────────────
 type RpTabType = 'users' | 'chat';
+// Detect region from timezone first (more accurate), then fallback to language
+const TIMEZONE_TO_REGION: Record<string, string> = {
+  'Asia/Jakarta': 'ID', 'Asia/Makassar': 'ID', 'Asia/Jayapura': 'ID', 'Asia/Pontianak': 'ID',
+  'Asia/Seoul': 'KR', 'Asia/Tokyo': 'JP', 'Asia/Shanghai': 'CN', 'Asia/Hong_Kong': 'HK',
+  'Asia/Taipei': 'TW', 'Asia/Singapore': 'SG', 'Asia/Kuala_Lumpur': 'MY', 'Asia/Bangkok': 'TH',
+  'Asia/Manila': 'PH', 'Asia/Ho_Chi_Minh': 'VN', 'Asia/Kolkata': 'IN', 'Asia/Karachi': 'PK',
+  'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA',
+  'Europe/London': 'GB', 'Europe/Paris': 'FR', 'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES',
+  'Europe/Rome': 'IT', 'Europe/Amsterdam': 'NL', 'Europe/Moscow': 'RU', 'Europe/Istanbul': 'TR',
+  'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US',
+  'America/Sao_Paulo': 'BR', 'America/Mexico_City': 'MX', 'America/Toronto': 'CA',
+  'America/Buenos_Aires': 'AR', 'America/Bogota': 'CO', 'America/Lima': 'PE',
+  'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Pacific/Auckland': 'NZ',
+  'Africa/Lagos': 'NG', 'Africa/Cairo': 'EG', 'Africa/Johannesburg': 'ZA',
+};
 
 function detectRegion(): string {
-  if (typeof navigator === 'undefined') return 'US';
+  if (typeof Intl !== 'undefined') {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz && TIMEZONE_TO_REGION[tz]) return TIMEZONE_TO_REGION[tz];
+    } catch { /* fallback */ }
+  }
+  if (typeof navigator === 'undefined') return 'ID';
   const lang = navigator.language || '';
   const parts = lang.split('-');
   const country = (parts[1] || parts[0]).toUpperCase();
-  // Accept any valid 2-letter country code
   if (country.length === 2) return country;
-  return 'US';
+  return 'ID';
 }
 
 function formatViewCount(count: number): string {
@@ -130,11 +151,20 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const isResizingRef = useRef(false);
 
   // ─── Trending & Latest state ───────────────────────────────────────
-  const trendingRegion = detectRegion();
+  const [trendingRegion] = useState(() => detectRegion());
   const [trendingVideos, setTrendingVideos] = useState<TrendingVideo[]>([]);
   const [latestVideos, setLatestVideos] = useState<TrendingVideo[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [latestLoading, setLatestLoading] = useState(true);
+
+  // ─── Curated Playlists state ────────────────────────────────────────
+  interface EnrichedPlaylist { id: string; title: string; description: string; thumbnail: string; itemCount: number; }
+  interface EnrichedSection extends Omit<CuratedSection, 'playlists'> { playlists: EnrichedPlaylist[]; }
+  const [curatedSections, setCuratedSections] = useState<EnrichedSection[]>([]);
+  const [curatedLoading, setCuratedLoading] = useState(true);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; title: string } | null>(null);
+  const [playlistVideos, setPlaylistVideos] = useState<TrendingVideo[]>([]);
+  const [playlistVideosLoading, setPlaylistVideosLoading] = useState(false);
 
   // ─── Chat state ────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -147,6 +177,19 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const timeIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const [showPlayerOverlay, setShowPlayerOverlay] = useState(true);
+  const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-hide play button overlay after 2s when playing
+  useEffect(() => {
+    if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
+    if (room.is_playing) {
+      overlayTimerRef.current = setTimeout(() => setShowPlayerOverlay(false), 2000);
+    } else {
+      setShowPlayerOverlay(true);
+    }
+    return () => { if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current); };
+  }, [room.is_playing]);
   const [playerReady, setPlayerReady] = useState(false);
   const loadedVideoIdRef = useRef<string | null>(null);
   const handleNextRef = useRef<() => void>(() => { });
@@ -311,7 +354,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     setCurrentTime(0);
     setDuration(0);
     playerRef.current.loadVideoById(currentSong.youtube_id);
-  }, [room.current_song_index, currentSong?.youtube_id, isSpeaker, playerReady]);
+  }, [room.current_song_index, currentSong?.youtube_id, isSpeaker, playerReady, currentSong]);
 
   // ─── Supabase Realtime Channel ──────────────────────────────────────
   useEffect(() => {
@@ -455,7 +498,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     // Then every 60 seconds
     const interval = setInterval(ping, 60_000);
     return () => clearInterval(interval);
-  }, [room.id]);
+  }, [isSpeaker, playerReady, room.id]);
 
   // ─── Playback controls ─────────────────────────────────────────────
   const broadcastPlayback = useCallback(
@@ -492,7 +535,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         .eq('id', room.id)
         .then();
     },
-    [currentUser, room.id]
+    [currentUser, playerReady, room.id]
   );
 
   const handlePlayPause = useCallback(() => {
@@ -791,7 +834,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ─── Progress bar ───────────────────────────────────────────────────
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  const totalQueueDuration = queue.reduce((sum, item) => sum + item.duration_seconds, 0);
   // ─── Resize Handler ───
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -827,7 +869,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const fetchTrending = useCallback(async (region: string) => {
     setTrendingLoading(true);
     try {
-      const res = await fetch(`/api/youtube/trending?regionCode=${encodeURIComponent(region)}&maxResults=20`);
+      const res = await fetch(`/api/youtube/trending?regionCode=${encodeURIComponent(region)}&maxResults=10`);
       const data = await res.json();
       if (data.results) setTrendingVideos(data.results);
     } catch (err) {
@@ -845,7 +887,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const fetchLatest = useCallback(async () => {
     setLatestLoading(true);
     try {
-      const res = await fetch('/api/youtube/latest?maxResults=10');
+      const res = await fetch(`/api/youtube/latest?maxResults=10&regionCode=${trendingRegion}`);
       const data = await res.json();
       if (data.results) setLatestVideos(data.results);
     } catch (err) {
@@ -858,6 +900,39 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   useEffect(() => {
     fetchLatest();
   }, [fetchLatest]);
+
+  // ─── Fetch Curated Sections from YouTube Music channel ─────────────
+  useEffect(() => {
+    const fetchCurated = async () => {
+      setCuratedLoading(true);
+      try {
+        const res = await fetch(`/api/youtube/curated?regionCode=${trendingRegion}`);
+        const data = await res.json();
+        if (data.sections) setCuratedSections(data.sections);
+      } catch (err) {
+        console.error('Curated sections fetch failed:', err);
+      } finally {
+        setCuratedLoading(false);
+      }
+    };
+    fetchCurated();
+  }, [trendingRegion]);
+
+  // ─── Fetch videos for a selected playlist ──────────────────────────
+  const openPlaylist = useCallback(async (playlistId: string, title: string) => {
+    setSelectedPlaylist({ id: playlistId, title });
+    setPlaylistVideosLoading(true);
+    setPlaylistVideos([]);
+    try {
+      const res = await fetch(`/api/youtube/playlists/${playlistId}?maxResults=20`);
+      const data = await res.json();
+      if (data.videos) setPlaylistVideos(data.videos);
+    } catch (err) {
+      console.error('Playlist items fetch failed:', err);
+    } finally {
+      setPlaylistVideosLoading(false);
+    }
+  }, []);
 
   // ─── Chat: Load initial messages + subscribe ───────────────────────
   const roomId = initialRoom.id; // Stable ref — won't change on room state updates
@@ -971,7 +1046,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 </div>
               )}
 
-              <div className="np-play-overlay">
+              <div
+                className={`np-play-overlay ${showPlayerOverlay ? '' : 'np-overlay-hidden'}`}
+                onMouseEnter={() => setShowPlayerOverlay(true)}
+                onMouseLeave={() => { if (room.is_playing) { overlayTimerRef.current = setTimeout(() => setShowPlayerOverlay(false), 1500); } }}
+              >
                 <div className="np-play-circle" onClick={handlePlayPause}>
                   {room.is_playing ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
@@ -1000,11 +1079,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 style={{
                   background: 'none', border: 'none', cursor: (shuffling || queue.length <= 2) ? 'not-allowed' : 'pointer',
                   display: 'flex', alignItems: 'center', padding: 0,
-                  color: shuffling ? '#1db954' : 'rgba(255,255,255,0.45)',
+                  color: shuffling ? 'var(--accent-primary)' : 'var(--theme-text-muted)',
                   opacity: (shuffling || queue.length <= 2) ? 0.4 : 1, transition: 'color 0.15s'
                 }}
-                onMouseEnter={(e) => { if (!shuffling && queue.length > 2) e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; }}
-                onMouseLeave={(e) => { if (!shuffling) e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+                onMouseEnter={(e) => { if (!shuffling && queue.length > 2) e.currentTarget.style.color = 'var(--theme-text-primary)'; }}
+                onMouseLeave={(e) => { if (!shuffling) e.currentTarget.style.color = 'var(--theme-text-muted)'; }}
                 title="Shuffle Queue"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
@@ -1154,12 +1233,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                           </div>
                         ))
                       ) : (
-                        latestVideos.map((video) => {
+                        latestVideos.map((video, index) => {
                           const isAdded = queuedVideoIds.has(video.id);
+                          const isHero = index === 0;
                           return (
                             <div
                               key={video.id}
-                              className="music-card"
+                              className={`music-card ${isHero ? 'mc-hero' : ''}`}
                               onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
                             >
                               <div className="mc-thumb">
@@ -1199,10 +1279,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                   ) : (
                     trendingVideos.map((video, index) => {
                       const isAdded = queuedVideoIds.has(video.id);
+                      const isHero = index === 0;
                       return (
                         <div
                           key={video.id}
-                          className={`trend-item ${isAdded ? 'trend-added' : ''}`}
+                          className={`trend-item ${isHero ? 'ti-hero' : ''} ${isAdded ? 'trend-added' : ''}`}
                           onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
                         >
                           <div className="ti-rank">{index + 1}</div>
@@ -1227,6 +1308,124 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     })
                   )}
                 </div>
+
+                {/* 🎵 Curated YouTube Music Sections */}
+                {selectedPlaylist ? (
+                  <>
+                    <div className="section-header" style={{ marginTop: 18 }}>
+                      <span className="sec-title" style={{ cursor: 'pointer' }} onClick={() => setSelectedPlaylist(null)}>
+                        ← {selectedPlaylist.title}
+                      </span>
+                      <span className="sec-see" onClick={() => setSelectedPlaylist(null)}>Back</span>
+                    </div>
+                    <div className="trending-grid">
+                      {playlistVideosLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="trend-item">
+                            <div className="ti-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
+                            <div className="skeleton-box" style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0 }} />
+                            <div className="ti-info">
+                              <div className="skeleton-text" style={{ width: '70%', height: 10 }} />
+                              <div className="skeleton-text" style={{ width: '50%', height: 8, marginTop: 4 }} />
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        playlistVideos.map((video, index) => {
+                          const isAdded = queuedVideoIds.has(video.id);
+                          const isHero = index === 0;
+                          return (
+                            <div
+                              key={video.id}
+                              className={`trend-item ${isHero ? 'ti-hero' : ''} ${isAdded ? 'trend-added' : ''}`}
+                              onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
+                            >
+                              <div className="ti-rank">{index + 1}</div>
+                              <div className="ti-thumb">
+                                <img src={video.thumbnail} alt={video.title} />
+                              </div>
+                              <div className="ti-info">
+                                <div className="ti-title">{video.title}</div>
+                                <div className="ti-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
+                              </div>
+                              {isAdded ? (
+                                <div className="ti-tag tag-added">✓</div>
+                              ) : (
+                                <div className="ti-tag tag-new">ADD</div>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
+                ) : (curatedSections.length > 0 || curatedLoading) && (
+                  <>
+                    {curatedLoading ? (
+                      Array.from({ length: 2 }).map((_, si) => (
+                        <div key={si}>
+                          <div className="section-header" style={{ marginTop: 18 }}>
+                            <div className="skeleton-text" style={{ width: 120, height: 14 }} />
+                          </div>
+                          <div className="playlists-grid">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                              <div key={i} className="playlist-card">
+                                <div className="pl-thumb skeleton-box" />
+                                <div className="skeleton-text" style={{ width: '80%', height: 10, marginTop: 7 }} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      curatedSections.map((section) => (
+                        <div key={section.title}>
+                          <div className="section-header" style={{ marginTop: 18 }}>
+                            <span className="sec-title">{section.emoji} {section.title}</span>
+                          </div>
+                          <div className="playlists-grid">
+                            {section.playlists.map((pl, idx) => {
+                              const isBentoLarge = idx === 0;
+                              const isBentoWide  = idx === 1 && section.playlists.length > 4;
+                              const bentoClass = isBentoLarge ? 'bento-large' : (isBentoWide ? 'bento-wide' : '');
+                              const gradientColors = [
+                                'linear-gradient(135deg, #f037a5, #880e4f)',  // Pink/Purple
+                                'linear-gradient(135deg, #1DB954, #127435)',  // Spotify Green
+                                'linear-gradient(135deg, #ff9800, #e65100)',  // Energetic Orange
+                                'linear-gradient(135deg, #2979ff, #0d47a1)',  // Ocean Blue
+                                'linear-gradient(135deg, #9c27b0, #4a148c)',  // Deep Purple
+                                'linear-gradient(135deg, #00bfa5, #00695c)',  // Teal
+                              ];
+                              // stable pseudo-random based on title length and index
+                              const colorIndex = (pl.title.length + idx) % gradientColors.length;
+                              const bgGradient = gradientColors[colorIndex];
+
+                              return (
+                                <div
+                                  key={pl.id}
+                                  className={`playlist-card ${bentoClass}`}
+                                  style={{ background: bgGradient }}
+                                  onClick={() => openPlaylist(pl.id, pl.title)}
+                                >
+                                  <div className="pl-title">{pl.title}</div>
+                                  <div className="pl-thumb">
+                                    {pl.thumbnail ? (
+                                      <img src={pl.thumbnail} alt={pl.title} />
+                                    ) : (
+                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isBentoLarge ? 48 : 24, background: 'rgba(0,0,0,0.15)' }}>{section.emoji}</div>
+                                    )}
+                                  </div>
+                                  {pl.itemCount > 0 && <div className="pl-count">{pl.itemCount} tracks</div>}
+                                  <div className="mc-play"><div className="mc-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--theme-bg-base)"><path d="M8 5v14l11-7z" /></svg></div></div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </>
+                )}
               </>
             )}
 

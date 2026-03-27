@@ -71,6 +71,15 @@ export interface TrendingVideo {
   publishedAt: string;
 }
 
+export interface YouTubePlaylist {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  itemCount: number;
+  publishedAt: string;
+}
+
 export interface ChatSongRef {
   youtube_id: string;
   title: string;

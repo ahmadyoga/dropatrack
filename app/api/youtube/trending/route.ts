@@ -5,8 +5,8 @@ import { parseISO8601Duration } from '@/lib/youtube';
 // Uses videos.list with chart=mostPopular and videoCategoryId=10 (Music)
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const regionCode = searchParams.get('regionCode') || 'US';
-  const maxResults = searchParams.get('maxResults') || '20';
+  const regionCode = searchParams.get('regionCode') || 'ID';
+  const maxResults = searchParams.get('maxResults') || '10';
 
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
