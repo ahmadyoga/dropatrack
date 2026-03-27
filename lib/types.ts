@@ -59,3 +59,32 @@ export interface SongAddedEvent {
   item: QueueItem;
   triggered_by: string;
 }
+
+export interface TrendingVideo {
+  id: string;
+  title: string;
+  thumbnail: string;
+  channelTitle: string;
+  duration: string;
+  durationSeconds: number;
+  viewCount: number;
+  publishedAt: string;
+}
+
+export interface ChatSongRef {
+  youtube_id: string;
+  title: string;
+  artist: string;
+  duration: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  room_id: string;
+  user_id: string;
+  username: string;
+  avatar_color: string;
+  message: string;
+  song_ref: ChatSongRef | null;
+  created_at: string;
+}

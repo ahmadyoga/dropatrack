@@ -66,13 +66,42 @@ CREATE POLICY "Anyone can update queue items" ON queue_items
 CREATE POLICY "Anyone can delete queue items" ON queue_items
   FOR DELETE USING (true);
 
--- 3. Indexes
+-- 3. Chat Messages table
+CREATE TABLE chat_messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  username TEXT NOT NULL,
+  avatar_color TEXT NOT NULL DEFAULT '#6366f1',
+  message TEXT NOT NULL,
+  song_ref JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+-- Allow anyone to read chat messages
+CREATE POLICY "Anyone can read chat messages" ON chat_messages
+  FOR SELECT USING (true);
+
+-- Allow anyone to insert chat messages
+CREATE POLICY "Anyone can insert chat messages" ON chat_messages
+  FOR INSERT WITH CHECK (true);
+
+-- Allow anyone to delete chat messages (for cleanup)
+CREATE POLICY "Anyone can delete chat messages" ON chat_messages
+  FOR DELETE USING (true);
+
+-- 4. Indexes
 CREATE INDEX idx_rooms_slug ON rooms(slug);
 CREATE INDEX idx_queue_room_position ON queue_items(room_id, position);
+CREATE INDEX idx_chat_room_created ON chat_messages(room_id, created_at);
 
--- 4. Enable Realtime
+-- 5. Enable Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
 ALTER PUBLICATION supabase_realtime ADD TABLE queue_items;
+ALTER PUBLICATION supabase_realtime ADD TABLE chat_messages;
 
 -- 5. Updated_at trigger for rooms
 CREATE OR REPLACE FUNCTION update_updated_at_column()

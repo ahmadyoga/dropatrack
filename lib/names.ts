@@ -1,49 +1,37 @@
 // Random cute name generator for anonymous users
 // Uses Indonesian animal names with fun adjectives
+const subjects = [
+  // animals
+  'Kucing', 'Ayam', 'Bebek', 'Panda', 'Cicak', 'Gajah', 'Semut', 'Ular', 'Burung',
+  'Kelinci', 'Harimau', 'Ikan', 'Nyamuk',
 
-// Random cute & EXTREMELY funny name generator for anonymous users
-// Over 50 animals and 50 adjectives for 250,000+ unique combinations (including numbers)
+  // food
+  'Nasi', 'Bakso', 'Indomie', 'Sate', 'Tahu', 'Tempe', 'Seblak', 'MieAyam',
 
-const funnyAnimals = [
-  // Serangga & Hewan Kecil
-  'Kecoak', 'Undur-undur', 'Laron', 'Ulat Bulu', 'Caplak',
-  'Kutu Air', 'Cacing', 'Kumbang', 'Belalang', 'Jangkrik',
-  'Kelabang', 'Kaki Seribu', 'Kampret', 'Kutu Rambut', 'Tengu',
-
-  // Reptil & Amfibi
-  'Biawak', 'Kecebong', 'Tokek', 'Katak', 'Berudu',
-  'Bunglon', 'Iguana', 'Penyu', 'Komodo',
-
-  // Hewan Darat Absurd/Lokal
-  'Trenggiling', 'Tapir', 'Kudanil', 'Babon', 'Monyet',
-  'Celeng', 'Musang', 'Kukang', 'Anoa', 'Babi Hutan',
-  'Kalkun', 'Burung Onta', 'Entok', 'Ayam Kampus', // *Ayam Kampus bisa diganti 'Ayam Cemani' kalau takut terlalu edgy
-  'Ayam Cemani', 'Bebek Ngesot',
-
-  // Hewan Air (Bayangin mereka ngelakuin hal di darat)
-  'Bekicot', 'Lintah', 'Ubur-ubur', 'Gurita', 'Cumi-cumi',
-  'Lele', 'Mujair', 'Ikan Teri', 'Tongkol', 'Rajungan',
-  'Keong Racun', 'Anjing Laut', 'Walrus', 'Singa Laut'
+  // random objects
+  'Kulkas', 'Remote', 'Sendal', 'Kasur', 'Bantal', 'Laptop', 'HP', 'Meja'
 ];
 
-const funnyAdjectives = [
-  // Gerakan Akrobatik & Aneh
-  'Kayang', 'Koprol', 'Salto', 'Ngesot', 'Kesandung',
-  'Keseleo', 'Kecebur', 'Joget', 'Dangdutan', 'Cosplay',
-  'Ngedrag', 'Balapan', 'Tiktokan',
+const modifiers = [
+  // emotions / slang
+  'Galau', 'Gabut', 'Ngambek', 'Baper', 'Santuy', 'Lelah', 'Nangis',
+  'Overthinking', 'Mager', 'Stress', 'Bingung',
 
-  // Kondisi Fisik & Keseharian
-  'Rebahan', 'Mager', 'Kesiangan', 'Ketiduran', 'Ngemil',
-  'Diet', 'Mandi', 'Ngos-ngosan', 'Kesemutan', 'Masuk Angin',
-  'Kerokan', 'Kehujanan', 'Kepanasan', 'Ngopi', 'Nyeblak',
-  'Mancing', 'Jemur Baju', 'Nyapu',
+  // funny traits
+  'Lucu', 'Mini', 'Gede', 'Kocak', 'Receh', 'Absurd', 'Random',
 
-  // Emosi & Kelakuan Gen Z/Millennial
-  'Galau', 'Nyasar', 'Baperan', 'Meringis', 'Melongo',
-  'Kaget', 'Ngambek', 'Patah Hati', 'Caper', 'Insecure',
-  'Overthinking', 'Curhat', 'Kasmaran', 'Lupa Ingatan',
-  'Ditagih Pinjol', 'Nonton Drakor', 'Sambat', 'Nugas'
+  // meme vibes
+  'Toxic', 'Sultan', 'Hardcore', 'Elegan', 'Brutal', 'Legend', 'Epic'
 ];
+
+const rareModifiers = [
+  'Quantum', 'Multiverse', 'Ngoding', 'Debugging',
+  'Gacha', 'Speedrun', 'NoCounter', 'Sigma'
+];
+
+function pick(arr: string[]) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
 
 const avatarColors = [
   '#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6',
@@ -53,12 +41,14 @@ const avatarColors = [
 ];
 
 export function generateRandomName(): string {
-  const animal = funnyAnimals[Math.floor(Math.random() * funnyAnimals.length)];
-  const adjective = funnyAdjectives[Math.floor(Math.random() * funnyAdjectives.length)];
-  // Angka random 1-99
-  const number = Math.floor(Math.random() * 99) + 1;
+  const subject = pick(subjects);
 
-  return `${animal} ${adjective} ${number}`;
+  // 15% chance jadi super absurd
+  const isRare = Math.random() < 0.15;
+
+  const modifier = isRare ? pick(rareModifiers) : pick(modifiers);
+
+  return `${subject} ${modifier}`;
 }
 
 export function generateAvatarColor(): string {

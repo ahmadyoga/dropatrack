@@ -5,7 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import { formatDuration, extractYouTubeId } from '@/lib/youtube';
 import { useAntiDebug } from '@/lib/antiDebug';
-import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent } from '@/lib/types';
+import ThemeToggle from '@/components/ThemeToggle';
+import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, TrendingVideo, ChatMessage } from '@/lib/types';
+import '@/app/room.css';
 
 // ─── YouTube IFrame API types ────────────────────────────────────────
 declare global {
@@ -61,7 +63,38 @@ interface RoomClientProps {
 }
 
 // ─── Tabs ────────────────────────────────────────────────────────────
-type TabType = 'youtube' | 'users';
+type RpTabType = 'users' | 'chat';
+
+function detectRegion(): string {
+  if (typeof navigator === 'undefined') return 'US';
+  const lang = navigator.language || '';
+  const parts = lang.split('-');
+  const country = (parts[1] || parts[0]).toUpperCase();
+  // Accept any valid 2-letter country code
+  if (country.length === 2) return country;
+  return 'US';
+}
+
+function formatViewCount(count: number): string {
+  if (count >= 1_000_000_000) return `${(count / 1_000_000_000).toFixed(1)}B`;
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return count.toString();
+}
+
+function timeAgo(dateStr: string): string {
+  const now = Date.now();
+  const date = new Date(dateStr).getTime();
+  const diff = now - date;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
 
 export default function RoomClient({ initialRoom, initialQueue }: RoomClientProps) {
   useAntiDebug();
@@ -69,7 +102,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ─── State ──────────────────────────────────────────────────────────
   const [room, setRoom] = useState<Room>(initialRoom);
   const [queue, setQueue] = useState<QueueItem[]>(initialQueue);
-  const [activeTab, setActiveTab] = useState<TabType>('youtube');
+  const [activeTab, setActiveTab] = useState<RpTabType>('users');
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   const [users, setUsers] = useState<RoomUser[]>([]);
   const [currentUser, setCurrentUser] = useState<ReturnType<typeof getOrCreateUser> | null>(null);
   const [isSpeaker, setIsSpeaker] = useState(false);
@@ -87,7 +121,27 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [myRole, setMyRole] = useState<UserRole>('listener');
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragItemRef = useRef<number | null>(null);
+  const [repeatMode, setRepeatMode] = useState(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('dropatrack_repeat') === 'true';
+    return false;
+  });
   const [showExtensionPopup, setShowExtensionPopup] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(350);
+  const isResizingRef = useRef(false);
+
+  // ─── Trending & Latest state ───────────────────────────────────────
+  const trendingRegion = detectRegion();
+  const [trendingVideos, setTrendingVideos] = useState<TrendingVideo[]>([]);
+  const [latestVideos, setLatestVideos] = useState<TrendingVideo[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(true);
+  const [latestLoading, setLatestLoading] = useState(true);
+
+  // ─── Chat state ────────────────────────────────────────────────────
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [sendingChat, setSendingChat] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatSubRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const playerRef = useRef<YTPlayer | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -473,12 +527,26 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     }
   }, [room.volume, isSpeaker, playerReady]);
 
+  const repeatRef = useRef(repeatMode);
+  useEffect(() => { repeatRef.current = repeatMode; }, [repeatMode]);
+
   const handleNext = useCallback(() => {
     // Use refs to always read the latest state (avoids stale closure from YouTube callback)
     const currentIdx = roomRef.current.current_song_index;
     const queueLen = queueRef.current.length;
-    const nextIndex = Math.min(currentIdx + 1, queueLen - 1);
-    if (nextIndex === currentIdx && queueLen > 0) return;
+
+    let nextIndex: number;
+    if (currentIdx >= queueLen - 1) {
+      // At the end of the queue
+      if (repeatRef.current && queueLen > 0) {
+        nextIndex = 0; // Loop back to start
+      } else {
+        return; // Stop at end
+      }
+    } else {
+      nextIndex = currentIdx + 1;
+    }
+
     setRoom((prev) => ({ ...prev, current_song_index: nextIndex, is_playing: true }));
     broadcastPlayback('next', nextIndex);
   }, [broadcastPlayback]);
@@ -724,146 +792,241 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   const totalQueueDuration = queue.reduce((sum, item) => sum + item.duration_seconds, 0);
+  // ─── Resize Handler ───
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      let newWidth = e.clientX;
+      if (newWidth < 250) newWidth = 250;
+      if (newWidth > 450) newWidth = 450;
+      setSidebarWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = 'auto';
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const startResizing = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  // ─── Fetch Trending Music ──────────────────────────────────────────
+  const fetchTrending = useCallback(async (region: string) => {
+    setTrendingLoading(true);
+    try {
+      const res = await fetch(`/api/youtube/trending?regionCode=${encodeURIComponent(region)}&maxResults=20`);
+      const data = await res.json();
+      if (data.results) setTrendingVideos(data.results);
+    } catch (err) {
+      console.error('Trending fetch failed:', err);
+    } finally {
+      setTrendingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTrending(trendingRegion);
+  }, [trendingRegion, fetchTrending]);
+
+  // ─── Fetch Latest Music ────────────────────────────────────────────
+  const fetchLatest = useCallback(async () => {
+    setLatestLoading(true);
+    try {
+      const res = await fetch('/api/youtube/latest?maxResults=10');
+      const data = await res.json();
+      if (data.results) setLatestVideos(data.results);
+    } catch (err) {
+      console.error('Latest fetch failed:', err);
+    } finally {
+      setLatestLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLatest();
+  }, [fetchLatest]);
+
+  // ─── Chat: Load initial messages + subscribe ───────────────────────
+  const roomId = initialRoom.id; // Stable ref — won't change on room state updates
+  useEffect(() => {
+    if (!roomId) return;
+
+    // Fetch initial messages (once)
+    const loadMessages = async () => {
+      try {
+        const res = await fetch(`/api/chat?room_id=${roomId}&limit=50`);
+        const data = await res.json();
+        if (data.messages) setChatMessages(data.messages);
+      } catch (err) {
+        console.error('Chat load failed:', err);
+      }
+    };
+    loadMessages();
+
+    // Subscribe to new chat messages via Supabase Realtime
+    const chatChannel = supabase
+      .channel(`chat-db:${roomId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
+        (payload) => {
+          const msg = payload.new as ChatMessage;
+          setChatMessages((prev) => [...prev, msg]);
+        }
+      )
+      .subscribe();
+
+    chatSubRef.current = chatChannel;
+
+    return () => {
+      chatChannel.unsubscribe();
+    };
+  }, [roomId]);
+
+  // ─── Chat: Auto-scroll to bottom ──────────────────────────────────
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // ─── Chat: Send message ────────────────────────────────────────────
+  const handleSendChat = useCallback(async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!chatInput.trim() || sendingChat || !currentUser) return;
+
+    const messageText = chatInput.trim();
+    setChatInput('');
+    setSendingChat(true);
+
+    try {
+      await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room_id: room.id,
+          user_id: currentUser.user_id,
+          username: currentUser.username,
+          avatar_color: currentUser.avatar_color,
+          message: messageText,
+        }),
+      });
+      // Supabase Realtime INSERT event will add the message to state
+    } catch (err) {
+      console.error('Chat send failed:', err);
+    } finally {
+      setSendingChat(false);
+    }
+  }, [chatInput, sendingChat, currentUser, room.id]);
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between px-4 md:px-6 py-3 glass-subtle mx-3 mt-3 rounded-2xl flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <a href="/" className="text-xl font-black tracking-tight no-underline" style={{ fontFamily: "'Space Grotesk', sans-serif", color: 'var(--text-primary)' }}>
-            Drop<span style={{ color: 'var(--green-primary)' }}>A</span>Track
-          </a>
-          <span className="text-sm font-medium px-3 py-1 rounded-full" style={{ background: 'rgba(34,197,94,0.1)', color: 'var(--green-primary)' }}>
-            /{room.slug}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-              {users.length} {users.length === 1 ? 'listener' : 'listeners'}
-            </span>
-          </div>
-        </div>
-      </header>
+    <div className="room-layout-wrapper">
+      <div className="room-bg" />
+      <div className={isRightPanelOpen ? "app-card" : "app-card rp-closed"}>
 
-      <div className="flex-1 flex flex-col md:flex-row gap-3 p-3 min-h-0">
-        {/* Left Panel: Now Playing + Queue */}
-        <div className="md:w-1/2 lg:w-3/5 flex flex-col gap-3 min-h-0">
-          {/* Now Playing Card */}
-          <div className="glass p-5 animate-fade-in">
-            <div className="flex gap-4">
-              {/* Video / Thumbnail */}
-              <div className="w-48 h-28 md:w-64 md:h-36 rounded-xl overflow-hidden bg-black flex-shrink-0 relative" ref={playerContainerRef}>
-                {/* Always render the player div — YouTube replaces it with an iframe, so removing it from DOM causes errors */}
-                <div id="yt-player" className="w-full h-full" style={{ display: isSpeaker && currentSong ? 'block' : 'none' }} />
-                {/* Show thumbnail when not speaker or no player */}
-                {(!isSpeaker || !playerReady) && currentSong && (
-                  <img
-                    src={currentSong.thumbnail_url || `https://img.youtube.com/vi/${currentSong.youtube_id}/mqdefault.jpg`}
-                    alt={currentSong.title}
-                    className="w-full h-full object-cover absolute inset-0"
-                  />
-                )}
-                {!currentSong && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-white/40 text-sm">No track</span>
-                  </div>
-                )}
-                {!isSpeaker && currentSong && (
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="text-white/80 text-xs font-medium px-2 py-1 rounded-lg" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                      🔇 Remote Mode
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Track Info */}
-              <div className="flex-1 min-w-0 flex flex-col justify-center">
-                {currentSong ? (
-                  <>
-                    <h2 className="font-bold text-base md:text-lg leading-snug line-clamp-2 mb-1">
-                      {currentSong.title}
-                    </h2>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      Added by <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>{currentSong.added_by}</span>
-                    </p>
-                    {isSpeaker && (
-                      <p className="text-xs mt-2 font-mono" style={{ color: 'var(--text-muted)' }}>
-                        {formatDuration(Math.floor(currentTime))} / {formatDuration(Math.floor(duration))}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div>
-                    <h2 className="font-bold text-lg" style={{ color: 'var(--text-muted)' }}>
-                      No track playing
-                    </h2>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      Search for a song to get started
-                    </p>
-                  </div>
-                )}
-              </div>
+        {/* ===== LEFT SIDEBAR ===== */}
+        <aside className="sidebar" style={{ width: sidebarWidth }}>
+          <div className="sidebar-resizer" onMouseDown={startResizing} />
+          <div className="sb-logo">
+            <span className="logo-text">Drop<span>A</span>Track</span>
+            <div className="flex items-center gap-3">
+              <ThemeToggle />
+              <div className="room-badge"><div className="ldot" />/{room.slug}</div>
             </div>
           </div>
 
-          {/* Queue List */}
-          <div className="glass p-4 flex-1 overflow-y-auto animate-fade-in" style={{ animationDelay: '0.1s' }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-sm" style={{ color: 'var(--text-secondary)' }}>
-                Queue
-              </h3>
-              <div className="flex items-center gap-2">
-                {queue.length > 2 && (
-                  <button
-                    onClick={handleShuffle}
-                    disabled={shuffling}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-all hover:bg-green-50 ${shuffling ? 'opacity-50' : ''}`}
-                    style={{ color: 'var(--green-primary)', border: '1px solid rgba(34,197,94,0.2)' }}
-                    title="Shuffle upcoming songs"
-                  >
-                    {shuffling ? (
-                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                    ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="16 3 21 3 21 8" />
-                        <line x1="4" y1="20" x2="21" y2="3" />
-                        <polyline points="21 16 21 21 16 21" />
-                        <line x1="15" y1="15" x2="21" y2="21" />
-                        <line x1="4" y1="4" x2="9" y2="9" />
-                      </svg>
-                    )}
-                    {shuffling ? 'Shuffling...' : 'Shuffle'}
-                  </button>
-                )}
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {queue.length} songs · {formatDuration(totalQueueDuration)}
-                </span>
+          {/* Mini video player */}
+          <div className="np-player">
+            <div className="np-video-thumb" ref={playerContainerRef}>
+              <div className="np-video-label">▶ LIVE</div>
+              {/* Fallback emoji if no song is playing */}
+              {!currentSong && <div style={{ fontSize: 52, opacity: 0.18, position: 'relative', zIndex: 1 }}>🎸</div>}
+
+              {/* The Youtube IFrame Container */}
+              <div id="yt-player" style={{ display: isSpeaker && currentSong ? 'block' : 'none', position: 'absolute', inset: 0, zIndex: 1 }} />
+
+              {/* Show thumbnail if not speaker or not ready */}
+              {(!isSpeaker || !playerReady) && currentSong && (
+                <img
+                  src={currentSong.thumbnail_url || `https://img.youtube.com/vi/${currentSong.youtube_id}/mqdefault.jpg`}
+                  alt={currentSong.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0, zIndex: 1 }}
+                />
+              )}
+              {(!isSpeaker && currentSong) && (
+                <div style={{ position: 'absolute', top: 5, right: 5, background: 'rgba(0,0,0,0.6)', color: 'white', padding: '2px 6px', fontSize: 9, borderRadius: 4, zIndex: 2 }}>
+                  Remote
+                </div>
+              )}
+
+              <div className="np-play-overlay">
+                <div className="np-play-circle" onClick={handlePlayPause}>
+                  {room.is_playing ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                  )}
+                </div>
+              </div>
+              <div className="np-bar-wrap">
+                <div className="np-bar"><div className="np-bar-fill" style={{ width: `${progressPercent}%` }} /></div>
               </div>
             </div>
+            <div className="np-info">
+              <div className="np-title">{currentSong ? currentSong.title : 'No track playing'}</div>
+              <div className="np-meta">{currentSong ? currentSong.added_by : 'Search for a song'} · <span>{currentSong && `${formatDuration(Math.floor(currentTime))} / ${formatDuration(currentSong.duration_seconds)}`}</span></div>
+            </div>
+          </div>
 
+          {/* Queue */}
+          <div className="queue-header">
+            <span className="queue-label">Queue</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                onClick={handleShuffle}
+                disabled={shuffling || queue.length <= 2}
+                style={{
+                  background: 'none', border: 'none', cursor: (shuffling || queue.length <= 2) ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', padding: 0,
+                  color: shuffling ? '#1db954' : 'rgba(255,255,255,0.45)',
+                  opacity: (shuffling || queue.length <= 2) ? 0.4 : 1, transition: 'color 0.15s'
+                }}
+                onMouseEnter={(e) => { if (!shuffling && queue.length > 2) e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; }}
+                onMouseLeave={(e) => { if (!shuffling) e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+                title="Shuffle Queue"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" /></svg>
+              </button>
+              <span className="queue-count">{queue.length} songs</span>
+            </div>
+          </div>
+
+          <div className="queue-list">
             {queue.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-3xl mb-2">🎵</p>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  Queue is empty. Add some tracks!
-                </p>
-              </div>
+              <div style={{ textAlign: 'center', padding: '20px 0', fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>Queue is empty</div>
             ) : (
-              <div className="flex flex-col gap-1">
-                {queue.map((item, index) => (
+              queue.map((item, index) => {
+                const isPlaying = index === room.current_song_index;
+                const isPast = typeof room.current_song_index === 'number' && index < room.current_song_index;
+                const qClass = `qt${index % 6}`;
+
+                return (
                   <div
                     key={item.id}
-                    className={`queue-item group ${index === room.current_song_index ? 'active' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                    className={`q-item ${isPlaying ? 'playing' : ''} ${isPast ? 'past' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
                     onClick={() => handleJumpTo(index)}
-                    role="button"
-                    tabIndex={0}
                     draggable
                     onDragStart={() => handleDragStart(index)}
                     onDragOver={(e) => handleDragOver(e, index)}
@@ -871,492 +1034,491 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     onDrop={() => handleDrop(index)}
                     onDragEnd={() => { setDragOverIndex(null); dragItemRef.current = null; }}
                   >
-                    {/* Drag Handle */}
-                    <div className="w-4 flex justify-center flex-shrink-0 cursor-grab opacity-0 group-hover:opacity-40 transition-opacity">
-                      <svg width="10" height="16" viewBox="0 0 10 16" fill="var(--text-muted)">
-                        <circle cx="3" cy="2" r="1.5" />
-                        <circle cx="7" cy="2" r="1.5" />
-                        <circle cx="3" cy="8" r="1.5" />
-                        <circle cx="7" cy="8" r="1.5" />
-                        <circle cx="3" cy="14" r="1.5" />
-                        <circle cx="7" cy="14" r="1.5" />
-                      </svg>
-                    </div>
+                    {isPlaying && room.is_playing ? (
+                      <div className="eq-bars"><div className="eq-bar" /><div className="eq-bar" /><div className="eq-bar" /></div>
+                    ) : (
+                      <div className="q-num" style={{ display: isPlaying ? 'none' : 'flex' }}>{index + 1}</div>
+                    )}
 
-                    {/* Index / Equalizer */}
-                    <div className="w-6 flex justify-center flex-shrink-0">
-                      {index === room.current_song_index && room.is_playing ? (
-                        <div className="flex gap-px items-end h-4">
-                          <div className="eq-bar" style={{ width: 2 }} />
-                          <div className="eq-bar" style={{ width: 2 }} />
-                          <div className="eq-bar" style={{ width: 2 }} />
-                        </div>
+                    <div className={`q-thumb ${qClass}`}>
+                      {item.thumbnail_url ? (
+                        <img src={item.thumbnail_url} alt="thumbnail" />
                       ) : (
-                        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                          {index + 1}
-                        </span>
+                        '🎵'
                       )}
                     </div>
-
-                    {/* Song info */}
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm truncate ${index === room.current_song_index ? 'font-bold' : 'font-medium'}`}>
-                        {item.title}
-                      </p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {item.added_by}
-                      </p>
+                    <div className="q-info">
+                      <div className={`q-title ${isPlaying ? 'active' : ''}`}>{item.title}</div>
+                      <div className="q-by">{item.added_by}</div>
                     </div>
+                    <div className="q-dur" style={{ color: isPlaying ? '#1db954' : undefined }}>{formatDuration(item.duration_seconds)}</div>
 
-                    {/* Duration */}
-                    <span className="text-xs font-mono flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
-                      {index === room.current_song_index && isSpeaker
-                        ? `${formatDuration(Math.floor(currentTime))} / ${formatDuration(item.duration_seconds)}`
-                        : formatDuration(item.duration_seconds)}
-                    </span>
-
-                    {/* Remove button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeSong(item);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-red-50"
-                      title="Remove from queue"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
+                    {/* Simplified remove button for hovering */}
+                    {!isPlaying && (
+                      <div
+                        onClick={(e) => { e.stopPropagation(); removeSong(item); }}
+                        style={{ padding: '0 4px', fontSize: 14, opacity: 0.5, cursor: 'pointer' }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+                      >
+                        ×
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })
             )}
           </div>
-        </div>
+        </aside>
 
-        {/* Right Panel: Tabs */}
-        <div className="md:w-1/2 lg:w-2/5 glass flex flex-col animate-fade-in min-h-0" style={{ animationDelay: '0.15s' }}>
-          {/* Tab Buttons */}
-          <div className="flex border-b" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
-            <button
-              className={`tab-btn flex-1 ${activeTab === 'youtube' ? 'active' : ''}`}
-              onClick={() => setActiveTab('youtube')}
-            >
-              🔍 YouTube
-            </button>
-            <button
-              className={`tab-btn flex-1 ${activeTab === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveTab('users')}
-            >
-              👥 Users {users.length > 0 && <span className="ml-1 text-xs bg-green-100 text-green-700 px-1.5 rounded-full">{users.length}</span>}
-            </button>
+        {/* ===== MAIN — Search + Trending ===== */}
+        <main className="main">
+          <div className="main-top">
+            <form onSubmit={handleSearch} className="search-bar">
+              <span className="s-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
+              </span>
+              <input
+                className="search-input"
+                type="text"
+                placeholder="Search artists, songs, albums or YouTube URL..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                disabled={searching || addingUrl}
+              />
+              <button type="submit" className="search-btn" disabled={searching || !searchQuery.trim()}>
+                {searching ? '...' : (addingUrl ? 'Adding...' : 'Search')}
+              </button>
+            </form>
           </div>
 
-          {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {/* YouTube Search Tab */}
-            {activeTab === 'youtube' && (
-              <div className="flex flex-col gap-4">
-                <form onSubmit={handleSearch} className="flex gap-2">
-                  <input
-                    id="search-input"
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Enter URL or Song Name"
-                    className="input-glass flex-1"
-                    disabled={searching || addingUrl}
-                  />
-                  <button
-                    type="submit"
-                    className="btn-primary px-4"
-                    disabled={searching || !searchQuery.trim()}
-                  >
-                    {searching ? (
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" />
-                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      </svg>
-                    )}
-                  </button>
-                </form>
+          <div className="main-scroll">
 
-                {addingUrl && (
-                  <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--green-primary)' }}>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Adding track...
-                  </div>
-                )}
-
-                {/* Search Results */}
-                <div className="flex flex-col gap-2">
+            {(searchResults.length > 0 || searching) ? (
+              <>
+                <div className="section-header">
+                  <span className="sec-title">Search Results</span>
+                  <span className="sec-see" onClick={() => { setSearchResults([]); setSearchQuery(''); }}>Clear</span>
+                </div>
+                <div className="search-results-grid">
                   {searchResults.map((result) => {
                     const isAdded = queuedVideoIds.has(result.id);
                     return (
-                      <button
+                      <div
                         key={result.id}
+                        className={`search-result-row ${isAdded ? 'added' : ''}`}
                         onClick={() => addSongToQueue(result.id, result.title, result.thumbnail, result.durationSeconds)}
-                        className={`flex items-center gap-3 p-3 rounded-xl text-left transition-all group ${isAdded ? 'bg-green-50/50' : 'hover:bg-green-50'}`}
-                        style={{ border: `1px solid ${isAdded ? 'rgba(34,197,94,0.2)' : 'rgba(0,0,0,0.05)'}` }}
                       >
-                        <div className="relative flex-shrink-0">
-                          <img
-                            src={result.thumbnail}
-                            alt={result.title}
-                            className="w-20 h-14 rounded-lg object-cover"
-                          />
-                          {isAdded ? (
-                            <div className="absolute inset-0 bg-black/30 rounded-lg flex items-center justify-center">
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                            </div>
-                          ) : (
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all rounded-lg flex items-center justify-center">
-                              <span className="opacity-0 group-hover:opacity-100 text-white text-lg transition-opacity">+</span>
-                            </div>
-                          )}
+                        <div style={{ width: 44, height: 32, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                          <img src={result.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium line-clamp-2">{result.title}</p>
-                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                            {result.channelTitle} · {formatDuration(result.durationSeconds)}
-                          </p>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 500, color: '#ccc8c0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{result.title}</div>
+                          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{result.channelTitle} · {formatDuration(result.durationSeconds)}</div>
                         </div>
-                        {isAdded && (
-                          <span className="text-xs font-semibold flex-shrink-0 px-2 py-0.5 rounded-full" style={{ background: 'rgba(34,197,94,0.1)', color: 'var(--green-primary)' }}>
-                            Added
-                          </span>
+                        {isAdded ? (
+                          <div style={{ fontSize: 10, color: '#1db954', fontWeight: 600 }}>Added</div>
+                        ) : (
+                          <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.4)' }}>+</div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
-
                 </div>
-
-                {/* Load More button */}
-                {nextPageToken && searchResults.length > 0 && (
+                {nextPageToken && (
                   <button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="w-full py-2.5 rounded-xl text-sm font-medium transition-all hover:bg-green-50"
-                    style={{ color: 'var(--green-primary)', border: '1px solid rgba(34,197,94,0.2)' }}
+                    style={{ background: 'rgba(29,185,84,0.1)', color: '#1db954', border: '1px solid rgba(29,185,84,0.2)', width: '100%', padding: '8px 0', borderRadius: 8, marginTop: 12, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}
                   >
-                    {loadingMore ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Loading...
-                      </span>
-                    ) : (
-                      `Load More Results`
-                    )}
+                    {loadingMore ? 'Loading...' : 'Load More'}
                   </button>
                 )}
-
-                {/* Result count */}
-                {searchResults.length > 0 && (
-                  <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-                    Showing {searchResults.length} results
-                  </p>
+              </>
+            ) : (
+              <>
+                {/* 🔥 Latest Drops — Live from YouTube (hidden if empty) */}
+                {(latestLoading || latestVideos.length > 0) && (
+                  <>
+                    <div className="section-header">
+                      <span className="sec-title">🔥 Latest Drops</span>
+                      <span className="sec-see" onClick={() => fetchLatest()}>{latestLoading ? '...' : 'Refresh'}</span>
+                    </div>
+                    <div className="cards-row">
+                      {latestLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="music-card">
+                            <div className="mc-thumb skeleton-box" />
+                            <div className="skeleton-text" style={{ width: '80%', height: 10, marginTop: 7 }} />
+                            <div className="skeleton-text" style={{ width: '60%', height: 8, marginTop: 4 }} />
+                          </div>
+                        ))
+                      ) : (
+                        latestVideos.map((video) => {
+                          const isAdded = queuedVideoIds.has(video.id);
+                          return (
+                            <div
+                              key={video.id}
+                              className="music-card"
+                              onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
+                            >
+                              <div className="mc-thumb">
+                                <img src={video.thumbnail} alt={video.title} />
+                                <div className="mc-new">NEW</div>
+                                <div className="mc-duration">{formatDuration(video.durationSeconds)}</div>
+                                {isAdded && <div className="mc-added">ADDED</div>}
+                                <div className="mc-play"><div className="mc-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg></div></div>
+                              </div>
+                              <div className="mc-title">{video.title}</div>
+                              <div className="mc-artist">{video.channelTitle}</div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </>
                 )}
 
-                {searchResults.length === 0 && !searching && (
-                  <div className="text-center py-12">
-                    <div className="text-5xl mb-3">🎶</div>
-                    <p className="font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                      Add music from YouTube
-                    </p>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      Search by song name, or paste a video URL
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Users Tab */}
-            {activeTab === 'users' && (
-              <div className="flex flex-col gap-2">
-                {users.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-3">👻</div>
-                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      No one else is here yet
-                    </p>
-                  </div>
-                ) : (
-                  users.map((user) => (
-                    <div
-                      key={user.user_id}
-                      className="flex items-center gap-3 p-3 rounded-xl"
-                      style={{ border: '1px solid rgba(0,0,0,0.05)' }}
-                    >
-                      <div
-                        className="avatar"
-                        style={{ background: user.avatar_color }}
-                      >
-                        {user.username.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate flex items-center gap-2">
-                          {user.username}
-                          {user.user_id === currentUser?.user_id && (
-                            <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>(you)</span>
-                          )}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`role-badge role-${user.role}`}>
-                            {user.role}
-                          </span>
-                          {user.is_speaker && (
-                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                              🔊 Speaker
-                            </span>
-                          )}
+                {/* 📈 Trending Now — Live from YouTube */}
+                <div className="section-header" style={{ marginTop: 18 }}>
+                  <span className="sec-title">📈 Trending Now</span>
+                  <span className="sec-see" onClick={() => fetchTrending(trendingRegion)}>{trendingLoading ? '...' : 'Refresh'}</span>
+                </div>
+                <div className="trending-grid">
+                  {trendingLoading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="trend-item">
+                        <div className="ti-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
+                        <div className="skeleton-box" style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0 }} />
+                        <div className="ti-info">
+                          <div className="skeleton-text" style={{ width: '70%', height: 10 }} />
+                          <div className="skeleton-text" style={{ width: '50%', height: 8, marginTop: 4 }} />
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                    ))
+                  ) : (
+                    trendingVideos.map((video, index) => {
+                      const isAdded = queuedVideoIds.has(video.id);
+                      return (
+                        <div
+                          key={video.id}
+                          className={`trend-item ${isAdded ? 'trend-added' : ''}`}
+                          onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
+                        >
+                          <div className="ti-rank">{index + 1}</div>
+                          <div className="ti-thumb">
+                            <img src={video.thumbnail} alt={video.title} />
+                          </div>
+                          <div className="ti-info">
+                            <div className="ti-title">{video.title}</div>
+                            <div className="ti-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
+                          </div>
+                          {isAdded ? (
+                            <div className="ti-tag tag-up">✓</div>
+                          ) : index === 0 ? (
+                            <div className="ti-tag tag-hot">HOT</div>
+                          ) : index < 3 ? (
+                            <div className="ti-tag tag-up">↑</div>
+                          ) : (
+                            <div className="ti-tag tag-new">NEW</div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
             )}
-          </div>
-        </div>
-      </div>
 
-      {/* Player Bar — fixed at bottom */}
-      <div className="player-bar mx-3 mb-3 px-4 md:px-6 py-3 flex-shrink-0">
-        {/* Progress */}
-        {isSpeaker && (
-          <div
-            className="progress-track mb-3"
-            onClick={(e) => {
-              if (!playerRef.current || !playerReady) return;
-              const videoDuration = playerRef.current.getDuration();
-              if (videoDuration <= 0) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const clickX = e.clientX - rect.left;
-              const percent = clickX / rect.width;
-              const seekTime = percent * videoDuration;
-              playerRef.current.seekTo(seekTime, true);
-              setCurrentTime(seekTime);
-            }}
-          >
-            <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
           </div>
-        )}
+        </main>
 
-        <div className="flex items-center justify-between">
-          {/* Left: Speaker Toggle */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleSpeaker}
-              className={`speaker-toggle ${isSpeaker ? 'on' : 'off'}`}
-              title={isSpeaker ? 'Speaker ON — playing audio on this device' : 'Speaker OFF — remote control only'}
-            >
-              {isSpeaker ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-                </svg>
+        {/* ===== RIGHT — Users + Chat ===== */}
+        <aside className="right-panel">
+          <div className="rp-tabs">
+            <div className={`rp-tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users</div>
+            <div className={`rp-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>Chat</div>
+          </div>
+
+          {/* Users Panel */}
+          <div className={`users-panel ${activeTab !== 'users' ? 'hidden' : ''}`}>
+            <div className="users-list">
+              <div className="online-header">
+                Online
+                <span className="online-count">{users.length} {users.length === 1 ? 'listener' : 'listeners'}</span>
+              </div>
+
+              {users.map((user) => (
+                <div key={user.user_id} className="user-item">
+                  <div className="user-av" style={{ background: user.avatar_color }}>
+                    <span>{user.username.charAt(0).toUpperCase()}</span>
+                    <div className="av-dot" />
+                  </div>
+                  <div className="ui-info">
+                    <div className="ui-name">{user.username}</div>
+                    <div className="ui-status">
+                      {user.is_speaker ? '🔊 Speaker' : '🎧 Listening'}
+                    </div>
+                  </div>
+                  <div className={`ui-badge badge-${user.role === 'admin' ? 'admin' : (user.user_id === currentUser?.user_id ? 'you' : 'dj')}`}>
+                    {user.user_id === currentUser?.user_id ? 'YOU' : user.role.toUpperCase()}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="listening-now">
+              <div className="eq-bars" style={{ height: 12 }}>
+                <div className="eq-bar" />
+                <div className="eq-bar" />
+                <div className="eq-bar" />
+              </div>
+              All listeners synced in real-time
+            </div>
+          </div>
+
+          {/* Dynamic Chat Panel */}
+          <div className={`chat-panel ${activeTab !== 'chat' ? 'hidden' : ''}`}>
+            <div className="chat-messages">
+              {chatMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', fontSize: 11, color: 'var(--theme-text-muted)' }}>
+                  No messages yet. Say hi! 👋
+                </div>
               ) : (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                  <line x1="23" y1="9" x2="17" y2="15" />
-                  <line x1="17" y1="9" x2="23" y2="15" />
-                </svg>
+                chatMessages.map((msg) => {
+                  const isOwn = msg.user_id === currentUser?.user_id;
+                  return (
+                    <div key={msg.id} className={`chat-msg ${isOwn ? 'own' : ''}`}>
+                      <div className="cm-av" style={{ background: msg.avatar_color }}>
+                        {msg.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="cm-body">
+                        <div className="cm-name">
+                          {isOwn ? 'You' : msg.username}
+                          <span className="cm-time">{timeAgo(msg.created_at)}</span>
+                        </div>
+                        <div className={`cm-bubble ${isOwn ? 'own' : ''}`}>{msg.message}</div>
+                        {msg.song_ref && (
+                          <div className="cm-song" onClick={() => addSongToQueue(msg.song_ref!.youtube_id, msg.song_ref!.title, '', 0)}>
+                            <div className="cm-song-thumb">🎵</div>
+                            <div className="cm-song-info">
+                              <div className="cm-song-title">{msg.song_ref.title}</div>
+                              <div className="cm-song-meta">{msg.song_ref.artist} · {msg.song_ref.duration}</div>
+                            </div>
+                            <span className="cm-song-add">+</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
               )}
-              <span className="hidden sm:inline text-xs">
-                {isSpeaker ? 'Speaker' : 'Remote'}
-              </span>
-            </button>
+              <div ref={chatEndRef} />
+            </div>
+            <form className="chat-input-wrap" onSubmit={handleSendChat}>
+              <input
+                className="chat-input"
+                type="text"
+                placeholder="Say something..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                disabled={sendingChat}
+                maxLength={500}
+              />
+              <button className="send-btn" type="submit" disabled={sendingChat || !chatInput.trim()}>
+                <svg viewBox="0 0 24 24" fill="white"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z" /></svg>
+              </button>
+            </form>
+          </div>
+        </aside>
+
+        {/* ===== PLAYER BAR — FULL WIDTH ===== */}
+        <div className="player-bar">
+          <div className="pb-track">
+            <div className="pb-thumb qt0">
+              {currentSong?.thumbnail_url ? <img src={currentSong.thumbnail_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" /> : '🎸'}
+            </div>
+            <div className="pb-info">
+              <div className="pb-title">{currentSong ? (currentSong.title || 'Unknown Track') : 'No track'}</div>
+              <div className="pb-artist">{currentSong ? currentSong.added_by : ''}</div>
+            </div>
+            {currentSong && <span className="pb-heart">♥</span>}
           </div>
 
-          {/* Center: Playback Controls */}
-          <div className="flex items-center gap-2">
-            <button onClick={handlePrev} className="btn-icon" disabled={room.current_song_index <= 0} title="Previous">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
-              </svg>
-            </button>
-
-            <button onClick={handlePlayPause} className="btn-icon btn-icon-lg" title={room.is_playing ? 'Pause' : 'Play'}>
-              {room.is_playing ? (
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-                </svg>
-              ) : (
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              )}
-            </button>
-
-            <button onClick={handleNext} className="btn-icon" disabled={room.current_song_index >= queue.length - 1} title="Next">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Right: Volume + Track info */}
-          <div className="hidden sm:flex items-center gap-3 text-white/70">
-            <div className="flex items-center gap-1.5">
+          <div className="pb-controls">
+            <div className="pb-btns">
+              <button className="ctrl" onClick={handlePrev} disabled={room.current_song_index <= 0} title="Previous">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
+              </button>
+              <button className="play-btn" onClick={handlePlayPause}>
+                {room.is_playing ? (
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                )}
+              </button>
+              <button className="ctrl" onClick={handleNext} disabled={!repeatMode && room.current_song_index >= queue.length - 1} title="Next">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="m6 18 8.5-6L6 6v12zm2-8.14 4.96 3.14L8 16.14V9.86zM16 6h2v12h-2z" /></svg>
+              </button>
               <button
+                className={`ctrl ${repeatMode ? 'ctrl-active' : ''}`}
+                title="Repeat"
                 onClick={() => {
-                  const newVol = room.volume > 0 ? 0 : 100;
+                  setRepeatMode((prev) => {
+                    const next = !prev;
+                    localStorage.setItem('dropatrack_repeat', String(next));
+                    return next;
+                  });
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" /></svg>
+              </button>
+            </div>
+            <div className="pb-progress">
+              <span className="pb-time">{formatDuration(Math.floor(currentTime))}</span>
+              <div
+                className="pb-bar"
+                onMouseDown={(e) => {
+                  if (!playerRef.current || !playerReady) return;
+                  const videoDuration = duration;
+                  if (videoDuration <= 0) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const clickX = e.clientX - rect.left;
+                  const percent = clickX / rect.width;
+                  const seekTime = percent * videoDuration;
+                  playerRef.current.seekTo(seekTime, true);
+                  setCurrentTime(seekTime);
+                }}
+              >
+                <div className="pb-fill" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <span className="pb-time" style={{ textAlign: 'right' }}>{formatDuration(Math.floor(duration))}</span>
+            </div>
+          </div>
+
+          <div className="pb-right">
+            <div className="vol-wrap">
+              <span className="vol-icon" onClick={() => {
+                const newVol = room.volume > 0 ? 0 : 100;
+                setRoom((prev) => ({ ...prev, volume: newVol }));
+                supabase.from('rooms').update({ volume: newVol }).eq('id', room.id).then();
+                channelRef.current?.send({ type: 'broadcast', event: 'volume_change', payload: { volume: newVol } });
+                if (playerRef.current && isSpeaker) {
+                  playerRef.current.setVolume(newVol);
+                  if (newVol === 0) playerRef.current.mute();
+                  else playerRef.current.unMute();
+                }
+              }}>
+                {room.volume === 0 ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" /></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" /></svg>
+                )}
+              </span>
+              <div
+                className="vol-bar"
+                onMouseDown={(e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  const v = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                  const newVol = Math.round(v * 100);
                   setRoom((prev) => ({ ...prev, volume: newVol }));
                   supabase.from('rooms').update({ volume: newVol }).eq('id', room.id).then();
-                  channelRef.current?.send({
-                    type: 'broadcast',
-                    event: 'volume_change',
-                    payload: { volume: newVol },
-                  });
+                  channelRef.current?.send({ type: 'broadcast', event: 'volume_change', payload: { volume: newVol } });
                   if (playerRef.current && isSpeaker) {
                     playerRef.current.setVolume(newVol);
                     if (newVol === 0) playerRef.current.mute();
                     else playerRef.current.unMute();
                   }
                 }}
-                className="btn-icon"
-                title={room.volume > 0 ? 'Mute' : 'Unmute'}
               >
-                {room.volume === 0 ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                    <line x1="23" y1="9" x2="17" y2="15" />
-                    <line x1="17" y1="9" x2="23" y2="15" />
-                  </svg>
-                ) : room.volume < 50 ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
-                  </svg>
-                )}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={room.volume}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setRoom((prev) => ({ ...prev, volume: v }));
-                  supabase.from('rooms').update({ volume: v }).eq('id', room.id).then();
-                  channelRef.current?.send({
-                    type: 'broadcast',
-                    event: 'volume_change',
-                    payload: { volume: v },
-                  });
-                  if (playerRef.current && isSpeaker) {
-                    playerRef.current.setVolume(v);
-                    if (v === 0) playerRef.current.mute();
-                    else playerRef.current.unMute();
-                  }
-                }}
-                className="volume-slider"
-                title={`Volume: ${room.volume}%`}
-              />
+                <div className="vol-fill" style={{ width: `${room.volume}%` }} />
+              </div>
             </div>
-            {currentSong && (
-              <span className="truncate max-w-[150px] text-xs">{currentSong.title}</span>
-            )}
+            <div className="pb-extra">
+              <button
+                className={`icon-btn ${isRightPanelOpen ? 'active' : ''}`}
+                title="Toggle Users/Chat"
+                onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+                style={{ background: isRightPanelOpen ? 'rgba(29,185,84,0.15)' : '', color: isRightPanelOpen ? '#1db954' : '' }}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
+              </button>
+              <button
+                className="icon-btn"
+                title="Queue"
+                onClick={() => document.querySelector('.sidebar')?.scrollIntoView({ behavior: 'smooth' })}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" /></svg>
+              </button>
+              <div className={`speaker-pill ${isSpeaker ? 'active' : ''}`} onClick={toggleSpeaker} title="Toggle Speaker Mode">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
+                {isSpeaker ? 'Speaker' : 'Remote'}
+              </div>
+            </div>
           </div>
         </div>
+
       </div>
 
       {/* Extension Install Popup */}
       {showExtensionPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(6px)' }}>
-          <div className="p-6 max-w-md w-full animate-fade-in rounded-2xl" style={{ background: '#1a1a1a', border: '1px solid rgba(34,197,94,0.4)', boxShadow: '0 0 40px rgba(34,197,94,0.15)' }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: '#fff' }}>
-                <span>🧩</span>
-                Install DropATrack Extension
+        <div className="modal-overlay">
+          <div className="ext-modal">
+
+            <div className="ext-modal-header">
+              <h3 className="ext-modal-title">
+                <span>🧩</span> Install DropATrack Extension
               </h3>
-              <button
-                onClick={() => setShowExtensionPopup(false)}
-                className="text-xl leading-none px-2 py-1 rounded-lg hover:bg-white/10 transition-colors"
-                style={{ color: '#999' }}
-              >
+              <button onClick={() => setShowExtensionPopup(false)} className="ext-close-btn">
                 ✕
               </button>
             </div>
 
-            <p className="text-sm mb-4" style={{ color: '#d4d4d4' }}>
+            <div className="ext-modal-desc">
               Add YouTube videos to this room directly from YouTube! Install our Chrome extension in 3 easy steps:
-            </p>
+            </div>
 
-            <div className="space-y-3">
+            <div className="ext-steps">
               {/* Step 1 */}
-              <div className="flex gap-3 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#22c55e', color: '#000' }}>1</span>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: '#fff' }}>Download the extension</p>
-                  <a
-                    href="/extension.zip"
-                    download
-                    className="inline-flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105"
-                    style={{ background: '#22c55e', color: '#000' }}
-                  >
+              <div className="ext-step">
+                <div className="ext-step-num">1</div>
+                <div className="ext-step-info">
+                  <div className="ext-step-title">Download the extension</div>
+                  <a href="/extension.zip" download className="ext-dl-btn">
                     📦 Download ZIP
                   </a>
                 </div>
               </div>
 
               {/* Step 2 */}
-              <div className="flex gap-3 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#22c55e', color: '#000' }}>2</span>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: '#fff' }}>Unzip &amp; open Extensions page</p>
-                  <p className="text-sm mt-1.5" style={{ color: '#d4d4d4' }}>
-                    Extract the ZIP file, then go to <code className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: 'rgba(255,255,255,0.15)', color: '#86efac' }}>chrome://extensions</code>
-                  </p>
-                  <p className="text-sm mt-1" style={{ color: '#d4d4d4' }}>
-                    Turn on <strong style={{ color: '#fff' }}>Developer mode</strong> (toggle at top right)
-                  </p>
+              <div className="ext-step">
+                <div className="ext-step-num">2</div>
+                <div className="ext-step-info">
+                  <div className="ext-step-title">Unzip & open Extensions page</div>
+                  <div className="ext-step-text">
+                    Extract the ZIP, then go to <code className="ext-code">chrome://extensions</code>
+                    <br />Turn on <strong>Developer mode</strong> (top right)
+                  </div>
                 </div>
               </div>
 
               {/* Step 3 */}
-              <div className="flex gap-3 items-start p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ background: '#22c55e', color: '#000' }}>3</span>
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: '#fff' }}>Load the extension</p>
-                  <p className="text-sm mt-1.5" style={{ color: '#d4d4d4' }}>
-                    Click <strong style={{ color: '#fff' }}>&quot;Load unpacked&quot;</strong> and select the unzipped <code className="px-1.5 py-0.5 rounded text-xs font-mono" style={{ background: 'rgba(255,255,255,0.15)', color: '#86efac' }}>extension</code> folder
-                  </p>
-                  <p className="text-sm mt-1" style={{ color: '#86efac' }}>
+              <div className="ext-step">
+                <div className="ext-step-num">3</div>
+                <div className="ext-step-info">
+                  <div className="ext-step-title">Load the extension</div>
+                  <div className="ext-step-text" style={{ paddingBottom: 6 }}>
+                    Click <strong>"Load unpacked"</strong> and select the unzipped <code className="ext-code">extension</code> folder.
+                  </div>
+                  <div className="ext-step-text" style={{ color: '#4ade80' }}>
                     Done! Open any YouTube playlist and the DropATrack buttons will appear 🎉
-                  </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <button
-              onClick={() => setShowExtensionPopup(false)}
-              className="w-full mt-5 py-2.5 rounded-xl font-semibold text-sm transition-all hover:scale-[1.02]"
-              style={{ background: '#22c55e', color: '#000' }}
-            >
-              Got it, let&apos;s go! 🎵
+            <button onClick={() => setShowExtensionPopup(false)} className="ext-cta-btn">
+              Got it, let's go! 🎵
             </button>
           </div>
         </div>
