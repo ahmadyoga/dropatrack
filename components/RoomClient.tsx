@@ -165,6 +165,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; title: string } | null>(null);
   const [playlistVideos, setPlaylistVideos] = useState<TrendingVideo[]>([]);
   const [playlistVideosLoading, setPlaylistVideosLoading] = useState(false);
+  const [showAllPlaylists, setShowAllPlaylists] = useState(false);
 
   // ─── Chat state ────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -604,6 +605,27 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     setRoom((prev) => ({ ...prev, current_song_index: prevIndex, is_playing: true }));
     broadcastPlayback('prev', prevIndex);
   }, [room.current_song_index, broadcastPlayback]);
+
+  // ─── Sync with OS MediaSession (Notification Controls) ───────────────
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', handlePlayPause);
+      navigator.mediaSession.setActionHandler('pause', handlePlayPause);
+      navigator.mediaSession.setActionHandler('previoustrack', handlePrev);
+      navigator.mediaSession.setActionHandler('nexttrack', handleNext);
+
+      const currentSong = queue[room.current_song_index];
+      if (currentSong) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentSong.title,
+          artist: 'DropATrack Room',
+          artwork: [
+            { src: currentSong.thumbnail_url || '', sizes: '512x512', type: 'image/jpeg' }
+          ]
+        });
+      }
+    }
+  }, [handlePlayPause, handleNext, handlePrev, queue, room.current_song_index]);
 
   const handleJumpTo = useCallback(
     (index: number) => {
@@ -1216,100 +1238,57 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               </>
             ) : (
               <>
-                {/* 🔥 Latest Drops — Live from YouTube (hidden if empty) */}
-                {(latestLoading || latestVideos.length > 0) && (
+
+                {/* 1. 🚀 LATEST DROPS */}
+                {!showAllPlaylists && !selectedPlaylist && (
                   <>
-                    <div className="section-header">
-                      <span className="sec-title">🔥 Latest Drops</span>
+                    <div className="section-header" style={{ marginTop: 18 }}>
+                      <span className="sec-title">Latest drops</span>
                       <span className="sec-see" onClick={() => fetchLatest()}>{latestLoading ? '...' : 'Refresh'}</span>
                     </div>
-                    <div className="cards-row">
-                      {latestLoading ? (
-                        Array.from({ length: 4 }).map((_, i) => (
-                          <div key={i} className="music-card">
-                            <div className="mc-thumb skeleton-box" />
-                            <div className="skeleton-text" style={{ width: '80%', height: 10, marginTop: 7 }} />
-                            <div className="skeleton-text" style={{ width: '60%', height: 8, marginTop: 4 }} />
-                          </div>
-                        ))
-                      ) : (
-                        latestVideos.map((video, index) => {
-                          const isAdded = queuedVideoIds.has(video.id);
-                          const isHero = index === 0;
-                          return (
-                            <div
-                              key={video.id}
-                              className={`music-card ${isHero ? 'mc-hero' : ''}`}
-                              onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
-                            >
-                              <div className="mc-thumb">
-                                <img src={video.thumbnail} alt={video.title} />
-                                <div className="mc-new">NEW</div>
-                                <div className="mc-duration">{formatDuration(video.durationSeconds)}</div>
-                                {isAdded && <div className="mc-added">ADDED</div>}
-                                <div className="mc-play"><div className="mc-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg></div></div>
-                              </div>
-                              <div className="mc-title">{video.title}</div>
-                              <div className="mc-artist">{video.channelTitle}</div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* 📈 Trending Now — Live from YouTube */}
-                <div className="section-header" style={{ marginTop: 18 }}>
-                  <span className="sec-title">📈 Trending Now</span>
-                  <span className="sec-see" onClick={() => fetchTrending(trendingRegion)}>{trendingLoading ? '...' : 'Refresh'}</span>
-                </div>
-                <div className="trending-grid">
-                  {trendingLoading ? (
-                    Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="trend-item">
-                        <div className="ti-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
-                        <div className="skeleton-box" style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0 }} />
-                        <div className="ti-info">
-                          <div className="skeleton-text" style={{ width: '70%', height: 10 }} />
-                          <div className="skeleton-text" style={{ width: '50%', height: 8, marginTop: 4 }} />
-                        </div>
+                    <div className="drops-row">
+                  {latestLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="drop-card" style={{ height: 160 }}>
+                        <div className="skeleton-box" style={{ width: '100%', height: '100%' }} />
                       </div>
                     ))
                   ) : (
-                    trendingVideos.map((video, index) => {
+                    latestVideos.map((video, index) => {
                       const isAdded = queuedVideoIds.has(video.id);
-                      const isHero = index === 0;
                       return (
-                        <div
-                          key={video.id}
-                          className={`trend-item ${isHero ? 'ti-hero' : ''} ${isAdded ? 'trend-added' : ''}`}
-                          onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
-                        >
-                          <div className="ti-rank">{index + 1}</div>
-                          <div className="ti-thumb">
+                        <div key={video.id} className="drop-card" onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}>
+                          <div className="dc-thumb">
                             <img src={video.thumbnail} alt={video.title} />
+                            <div className="dc-overlay" />
+                            <div className="dc-badge">
+                              {index === 0 ? <span className="badge b-hot">ON TRENDING</span> : <span className="badge b-new">NEW</span>}
+                            </div>
+                            <div className={`dc-add ${isAdded ? 'added' : ''}`}>
+                              {isAdded ? (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+                              ) : (
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+                              )}
+                            </div>
+                            <div className="dc-dur">{formatDuration(video.durationSeconds)}</div>
                           </div>
-                          <div className="ti-info">
-                            <div className="ti-title">{video.title}</div>
-                            <div className="ti-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
+                          <div className="dc-info">
+                            <div className="dc-title">{video.title}</div>
+                            <div className="dc-meta">
+                              <span className="dc-channel">{video.channelTitle}</span>
+                              <span className="dc-views">{formatViewCount(video.viewCount)} views</span>
+                            </div>
                           </div>
-                          {isAdded ? (
-                            <div className="ti-tag tag-up">✓</div>
-                          ) : index === 0 ? (
-                            <div className="ti-tag tag-hot">HOT</div>
-                          ) : index < 3 ? (
-                            <div className="ti-tag tag-up">↑</div>
-                          ) : (
-                            <div className="ti-tag tag-new">NEW</div>
-                          )}
                         </div>
                       );
                     })
                   )}
-                </div>
+                    </div>
+                  </>
+                )}
 
-                {/* 🎵 Curated YouTube Music Sections */}
+                {/* 🎵 Curated YouTube Music Sections (If Selected Playlist is Open) */}
                 {selectedPlaylist ? (
                   <>
                     <div className="section-header" style={{ marginTop: 18 }}>
@@ -1318,13 +1297,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                       </span>
                       <span className="sec-see" onClick={() => setSelectedPlaylist(null)}>Back</span>
                     </div>
-                    <div className="trending-grid">
+                    <div className="trend-list">
                       {playlistVideosLoading ? (
                         Array.from({ length: 4 }).map((_, i) => (
-                          <div key={i} className="trend-item">
-                            <div className="ti-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
-                            <div className="skeleton-box" style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0 }} />
-                            <div className="ti-info">
+                          <div key={i} className="trend-row">
+                            <div className="tr-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
+                            <div className="skeleton-box" style={{ width: 32, height: 32, borderRadius: 6, flexShrink: 0 }} />
+                            <div className="tr-info">
                               <div className="skeleton-text" style={{ width: '70%', height: 10 }} />
                               <div className="skeleton-text" style={{ width: '50%', height: 8, marginTop: 4 }} />
                             </div>
@@ -1333,25 +1312,24 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                       ) : (
                         playlistVideos.map((video, index) => {
                           const isAdded = queuedVideoIds.has(video.id);
-                          const isHero = index === 0;
                           return (
                             <div
                               key={video.id}
-                              className={`trend-item ${isHero ? 'ti-hero' : ''} ${isAdded ? 'trend-added' : ''}`}
+                              className={`trend-row ${isAdded ? 'trend-added' : ''}`}
                               onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
                             >
-                              <div className="ti-rank">{index + 1}</div>
-                              <div className="ti-thumb">
+                              <div className="tr-rank" style={{ opacity: 0.4 }}>{index + 1}</div>
+                              <div className="tr-av">
                                 <img src={video.thumbnail} alt={video.title} />
                               </div>
-                              <div className="ti-info">
-                                <div className="ti-title">{video.title}</div>
-                                <div className="ti-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
+                              <div className="tr-info">
+                                <div className="tr-title">{video.title}</div>
+                                <div className="tr-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
                               </div>
                               {isAdded ? (
-                                <div className="ti-tag tag-added">✓</div>
+                                <button className="tr-btn done">✓ Added</button>
                               ) : (
-                                <div className="ti-tag tag-new">ADD</div>
+                                <button className="tr-btn add">+ Add</button>
                               )}
                             </div>
                           );
@@ -1359,72 +1337,146 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                       )}
                     </div>
                   </>
-                ) : (curatedSections.length > 0 || curatedLoading) && (
+                ) : showAllPlaylists ? (
                   <>
-                    {curatedLoading ? (
-                      Array.from({ length: 2 }).map((_, si) => (
-                        <div key={si}>
-                          <div className="section-header" style={{ marginTop: 18 }}>
-                            <div className="skeleton-text" style={{ width: 120, height: 14 }} />
-                          </div>
-                          <div className="playlists-grid">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                              <div key={i} className="playlist-card">
-                                <div className="pl-thumb skeleton-box" />
-                                <div className="skeleton-text" style={{ width: '80%', height: 10, marginTop: 7 }} />
-                              </div>
-                            ))}
-                          </div>
+                    <div className="section-header" style={{ marginTop: 18 }}>
+                      <span className="sec-title" style={{ cursor: 'pointer' }} onClick={() => setShowAllPlaylists(false)}>
+                        ← All Curated Playlists
+                      </span>
+                      <span className="sec-see" onClick={() => setShowAllPlaylists(false)}>Back</span>
+                    </div>
+                    {curatedSections.map((section, sIdx) => (
+                      <div key={sIdx} style={{ marginBottom: 20 }}>
+                        <div className="section-header" style={{ marginTop: 12, marginBottom: 12 }}>
+                          <span className="sec-title" style={{ fontSize: 13, color: 'var(--theme-text-primary)' }}>{section.title}</span>
                         </div>
-                      ))
-                    ) : (
-                      curatedSections.map((section) => (
-                        <div key={section.title}>
-                          <div className="section-header" style={{ marginTop: 18 }}>
-                            <span className="sec-title">{section.emoji} {section.title}</span>
-                          </div>
-                          <div className="playlists-grid">
-                            {section.playlists.map((pl, idx) => {
-                              const isBentoLarge = idx === 0;
-                              const isBentoWide  = idx === 1 && section.playlists.length > 4;
-                              const bentoClass = isBentoLarge ? 'bento-large' : (isBentoWide ? 'bento-wide' : '');
-                              const gradientColors = [
-                                'linear-gradient(135deg, #f037a5, #880e4f)',  // Pink/Purple
-                                'linear-gradient(135deg, #1DB954, #127435)',  // Spotify Green
-                                'linear-gradient(135deg, #ff9800, #e65100)',  // Energetic Orange
-                                'linear-gradient(135deg, #2979ff, #0d47a1)',  // Ocean Blue
-                                'linear-gradient(135deg, #9c27b0, #4a148c)',  // Deep Purple
-                                'linear-gradient(135deg, #00bfa5, #00695c)',  // Teal
-                              ];
-                              // stable pseudo-random based on title length and index
-                              const colorIndex = (pl.title.length + idx) % gradientColors.length;
-                              const bgGradient = gradientColors[colorIndex];
-
-                              return (
-                                <div
-                                  key={pl.id}
-                                  className={`playlist-card ${bentoClass}`}
-                                  style={{ background: bgGradient }}
-                                  onClick={() => openPlaylist(pl.id, pl.title)}
-                                >
-                                  <div className="pl-title">{pl.title}</div>
-                                  <div className="pl-thumb">
-                                    {pl.thumbnail ? (
-                                      <img src={pl.thumbnail} alt={pl.title} />
-                                    ) : (
-                                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: isBentoLarge ? 48 : 24, background: 'rgba(0,0,0,0.15)' }}>{section.emoji}</div>
-                                    )}
-                                  </div>
-                                  {pl.itemCount > 0 && <div className="pl-count">{pl.itemCount} tracks</div>}
-                                  <div className="mc-play"><div className="mc-play-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="var(--theme-bg-base)"><path d="M8 5v14l11-7z" /></svg></div></div>
+                        <div className="mix-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                          {section.playlists.map((pl, idx) => {
+                            const gradientColors = [
+                              'linear-gradient(135deg, #f037a5, #880e4f)',
+                              'linear-gradient(135deg, #1DB954, #127435)',
+                              'linear-gradient(135deg, #ff9800, #e65100)',
+                              'linear-gradient(135deg, #2979ff, #0d47a1)'
+                            ];
+                            const bgGradient = gradientColors[idx % 4];
+                            return (
+                              <div key={pl.id} className="mix-card" onClick={() => openPlaylist(pl.id, pl.title)}>
+                                <div className="mix-bg" style={{ background: bgGradient }}>
+                                  {pl.thumbnail ? <img src={pl.thumbnail} alt={pl.title} /> : section.emoji}
                                 </div>
-                              );
-                            })}
-                          </div>
+                                <div className="mix-overlay"></div>
+                                <div className="mix-plus">+{pl.itemCount}</div>
+                                <div className="mix-content">
+                                  <div className="mix-label">{pl.title}</div>
+                                  <div className="mix-count">{pl.itemCount} songs</div>
+                                </div>
+                                <div className="mix-play">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))
-                    )}
+                      </div>
+                    ))}
                   </>
+                ) : (
+                  <div className="lower-grid">
+                    {/* 📈 Trending Now */}
+                    <div>
+                      <div className="section-header">
+                        <span className="sec-title">Trending now</span>
+                        <span className="sec-see" onClick={() => fetchTrending(trendingRegion)}>{trendingLoading ? '...' : 'Refresh'}</span>
+                      </div>
+                      <div className="trend-list">
+                        {trendingLoading ? (
+                          Array.from({ length: 5 }).map((_, i) => (
+                            <div key={i} className="trend-row">
+                              <div className="tr-rank" style={{ opacity: 0.4 }}>{i + 1}</div>
+                              <div className="skeleton-box" style={{ width: 32, height: 32, borderRadius: 6, flexShrink: 0 }} />
+                              <div className="tr-info">
+                                <div className="skeleton-text" style={{ width: '70%', height: 10 }} />
+                                <div className="skeleton-text" style={{ width: '50%', height: 8, marginTop: 4 }} />
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          trendingVideos.map((video, index) => {
+                            const isAdded = queuedVideoIds.has(video.id);
+                            const rank = index + 1;
+                            const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+                            return (
+                              <div
+                                key={video.id}
+                                className={`trend-row ${isAdded ? 'trend-added' : ''}`}
+                                onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}
+                              >
+                                <div className={`tr-rank ${rankClass}`}>{rank}</div>
+                                <div className="tr-av">
+                                  <img src={video.thumbnail} alt={video.title} />
+                                </div>
+                                <div className="tr-info">
+                                  <div className="tr-title">{video.title}</div>
+                                  <div className="tr-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
+                                </div>
+                                {isAdded ? (
+                                  <button className="tr-btn done">✓ Added</button>
+                                ) : (
+                                  <button className="tr-btn add">+ Add</button>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 🎵 Music Playlists — 2x2 grid */}
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                      <div className="section-header">
+                        <span className="sec-title">Music playlists</span>
+                        <span className="sec-see" onClick={() => setShowAllPlaylists(true)}>See all</span>
+                      </div>
+                      <div className="mix-grid" style={{ flexGrow: 1, gridTemplateRows: '1fr 1fr' }}>
+                        {curatedLoading ? (
+                          Array.from({ length: 4 }).map((_, i) => (
+                            <div key={i} className="mix-card skeleton-box" style={{ borderRadius: 10 }} />
+                          ))
+                        ) : curatedSections.length > 0 ? (
+                          curatedSections[0].playlists.slice(0, 4).map((pl, idx) => {
+                            const gradientColors = [
+                              'linear-gradient(135deg, #f037a5, #880e4f)',  // Pink/Purple
+                              'linear-gradient(135deg, #1DB954, #127435)',  // Spotify Green
+                              'linear-gradient(135deg, #ff9800, #e65100)',  // Energetic Orange
+                              'linear-gradient(135deg, #2979ff, #0d47a1)'   // Ocean Blue
+                            ];
+                            const bgGradient = gradientColors[idx % 4];
+                            return (
+                              <div
+                                key={pl.id}
+                                className="mix-card"
+                                style={{ aspectRatio: 'auto', height: '100%' }}
+                                onClick={() => openPlaylist(pl.id, pl.title)}
+                              >
+                                <div className="mix-bg" style={{ background: bgGradient }}>
+                                  {pl.thumbnail ? <img src={pl.thumbnail} alt={pl.title} /> : curatedSections[0].emoji}
+                                </div>
+                                <div className="mix-overlay"></div>
+                                <div className="mix-plus">+{pl.itemCount}</div>
+                                <div className="mix-content">
+                                  <div className="mix-label">{pl.title}</div>
+                                  <div className="mix-count">{pl.itemCount} songs</div>
+                                </div>
+                                <div className="mix-play">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
                 )}
               </>
             )}
