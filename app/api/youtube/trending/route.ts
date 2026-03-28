@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&videoCategoryId=10&regionCode=${encodeURIComponent(regionCode)}&maxResults=${encodeURIComponent(maxResults)}&key=${apiKey}`;
-    console.log(url);
 
     const res = await fetch(url, {
       headers: { Referer: referer },

@@ -38,7 +38,6 @@ export async function POST() {
       return Response.json({ error: 'Failed to delete stale rooms' }, { status: 500 });
     }
 
-    console.log(`Cleaned up ${staleRooms.length} stale rooms:`, staleRooms.map((r) => r.slug));
     return Response.json({ deleted: staleRooms.length, rooms: staleRooms.map((r) => r.slug) });
   } catch (error) {
     console.error('Cleanup error:', error);
