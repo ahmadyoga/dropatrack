@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Failed to fetch queue' }, { status: 500 });
   }
 
-  // Only shuffle upcoming items (after current_song_index)
-  const upcoming = allQueue.filter(item => item.position > current_song_index);
+  // Only shuffle upcoming items (after current_song_index).
+  const upcoming = allQueue.slice(current_song_index + 1);
 
   if (upcoming.length <= 1) {
     return Response.json({ message: 'Not enough upcoming songs to shuffle' });

@@ -196,12 +196,17 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const handleNextRef = useRef<() => void>(() => { });
   const roomRef = useRef(initialRoom);
   const queueRef = useRef(initialQueue);
+  // Refs for values needed inside channel closures (avoid stale captures)
+  const isSpeakerRef = useRef(isSpeaker);
+  const playerReadyRef = useRef(playerReady);
 
   const currentSong = queue[room.current_song_index] || null;
 
   // Keep refs in sync with state
   useEffect(() => { roomRef.current = room; }, [room]);
   useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { isSpeakerRef.current = isSpeaker; }, [isSpeaker]);
+  useEffect(() => { playerReadyRef.current = playerReady; }, [playerReady]);
 
   // ─── Initialize user identity ───────────────────────────────────────
   useEffect(() => {
@@ -388,7 +393,32 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         setQueue((prev) => [...prev, payload.item as QueueItem]);
       } else if (payload.type === 'removed') {
         setQueue((prev) => prev.filter((item) => item.id !== payload.item_id));
+        // If the removed item was before the currently playing song, shift the index down.
+        // payload.removed_index is the array index (not DB position) of the removed item.
+        if (typeof payload.removed_index === 'number') {
+          setRoom((prev) => {
+            if (payload.removed_index < prev.current_song_index) {
+              return { ...prev, current_song_index: prev.current_song_index - 1 };
+            }
+            return prev;
+          });
+        }
       }
+    });
+
+    // Broadcast: remote seek request — only the speaker acts on this
+    channel.on('broadcast', { event: 'seek_request' }, ({ payload }) => {
+      if (!isSpeakerRef.current || !playerRef.current || !playerReadyRef.current) return;
+      const time = payload.time as number;
+      playerRef.current.seekTo(time, true);
+      setCurrentTime(time);
+      // Echo confirmed position back so all remotes' bars snap to the right spot
+      channel.send({ type: 'broadcast', event: 'time_sync', payload: { time } });
+    });
+
+    // Broadcast: lightweight time sync (emitted after speaker seeks)
+    channel.on('broadcast', { event: 'time_sync' }, ({ payload }) => {
+      setCurrentTime(payload.time as number);
     });
 
     // Broadcast: volume change
@@ -559,6 +589,34 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     }
   }, [room.is_playing, isSpeaker, playerReady]);
 
+  // ─── Remote: interpolate progress locally while playing ────────────
+  // Remotes have no player, so currentTime only updates on sync events.
+  // This interval increments it locally so the progress bar moves smoothly.
+  // It self-corrects whenever a playback_sync or time_sync arrives.
+  useEffect(() => {
+    if (isSpeaker) return; // Speaker uses real player time from the YT interval
+    if (!room.is_playing) return;
+
+    const interval = setInterval(() => {
+      setCurrentTime((prev) => {
+        const songDuration = currentSong?.duration_seconds ?? 0;
+        if (songDuration > 0 && prev >= songDuration) return prev; // stop at end
+        return prev + 0.5;
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [isSpeaker, room.is_playing, currentSong?.duration_seconds]);
+
+  // ─── Remote: reset time when song changes ───────────────────────────
+  // roomSub (DB postgres_changes) can arrive before the playback_sync broadcast.
+  // If the old currentTime > new song's duration, the interpolation guard freezes it.
+  // Resetting here ensures the bar starts at 0 regardless of event ordering.
+  useEffect(() => {
+    if (isSpeaker) return;
+    setCurrentTime(0);
+  }, [room.current_song_index]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Sync player with volume state ──────────────────────────────────
   useEffect(() => {
     if (!playerRef.current || !playerReady || !isSpeaker) return;
@@ -715,7 +773,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   ) => {
     if (!currentUser) return;
 
-    const newPosition = queue.length;
+    // Use MAX(position)+1, not queue.length — deletions create gaps in position
+    // values so queue.length can land mid-queue instead of at the end.
+    const newPosition = queue.length > 0
+      ? Math.max(...queue.map((q) => q.position)) + 1
+      : 0;
     const newItem: Partial<QueueItem> = {
       room_id: room.id,
       youtube_id: youtubeId,
@@ -752,13 +814,28 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   };
 
   const removeSong = async (item: QueueItem) => {
+    const removedIndex = queueRef.current.findIndex((q) => q.id === item.id);
+    const currentIdx = roomRef.current.current_song_index;
+
     await supabase.from('queue_items').delete().eq('id', item.id);
+
     setQueue((prev) => prev.filter((q) => q.id !== item.id));
+
+    if (removedIndex !== -1 && removedIndex < currentIdx) {
+      const newIndex = currentIdx - 1;
+      setRoom((prev) => ({ ...prev, current_song_index: newIndex }));
+      // Silently patch only current_song_index in the DB (no is_playing or seek changes)
+      supabase
+        .from('rooms')
+        .update({ current_song_index: newIndex })
+        .eq('id', room.id)
+        .then();
+    }
 
     channelRef.current?.send({
       type: 'broadcast',
       event: 'queue_update',
-      payload: { type: 'removed', item_id: item.id },
+      payload: { type: 'removed', item_id: item.id, removed_index: removedIndex },
     });
   };
 
@@ -854,7 +931,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const queuedVideoIds = new Set(queue.map((q) => q.youtube_id));
 
   // ─── Progress bar ───────────────────────────────────────────────────
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
+  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
 
   // ─── Resize Handler ───
   useEffect(() => {
@@ -1210,17 +1288,17 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                         className={`search-result-row ${isAdded ? 'added' : ''}`}
                         onClick={() => addSongToQueue(result.id, result.title, result.thumbnail, result.durationSeconds)}
                       >
-                        <div style={{ width: 44, height: 32, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                        <div style={{ width: 84, height: 58, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
                           <img src={result.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="thumb" />
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 11, fontWeight: 500, color: '#ccc8c0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{result.title}</div>
-                          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{result.channelTitle} · {formatDuration(result.durationSeconds)}</div>
+                        <div style={{ flex: 1, minWidth: 0, paddingLeft: 4 }}>
+                          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--theme-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{result.title}</div>
+                          <div style={{ fontSize: 12, color: 'var(--theme-text-muted)', marginTop: 4 }}>{result.channelTitle} · {formatDuration(result.durationSeconds)}</div>
                         </div>
                         {isAdded ? (
-                          <div style={{ fontSize: 10, color: '#1db954', fontWeight: 600 }}>Added</div>
+                          <div style={{ fontSize: 12, color: 'var(--accent-primary)', fontWeight: 600 }}>Added</div>
                         ) : (
-                          <div style={{ fontSize: 18, color: 'rgba(255,255,255,0.4)' }}>+</div>
+                          <div style={{ fontSize: 26, color: 'var(--theme-text-muted)' }}>+</div>
                         )}
                       </div>
                     );
@@ -1247,43 +1325,43 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                       <span className="sec-see" onClick={() => fetchLatest()}>{latestLoading ? '...' : 'Refresh'}</span>
                     </div>
                     <div className="drops-row">
-                  {latestLoading ? (
-                    Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="drop-card" style={{ height: 160 }}>
-                        <div className="skeleton-box" style={{ width: '100%', height: '100%' }} />
-                      </div>
-                    ))
-                  ) : (
-                    latestVideos.map((video, index) => {
-                      const isAdded = queuedVideoIds.has(video.id);
-                      return (
-                        <div key={video.id} className="drop-card" onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}>
-                          <div className="dc-thumb">
-                            <img src={video.thumbnail} alt={video.title} />
-                            <div className="dc-overlay" />
-                            <div className="dc-badge">
-                              {index === 0 ? <span className="badge b-hot">ON TRENDING</span> : <span className="badge b-new">NEW</span>}
-                            </div>
-                            <div className={`dc-add ${isAdded ? 'added' : ''}`}>
-                              {isAdded ? (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-                              ) : (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
-                              )}
-                            </div>
-                            <div className="dc-dur">{formatDuration(video.durationSeconds)}</div>
+                      {latestLoading ? (
+                        Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="drop-card" style={{ height: 160 }}>
+                            <div className="skeleton-box" style={{ width: '100%', height: '100%' }} />
                           </div>
-                          <div className="dc-info">
-                            <div className="dc-title">{video.title}</div>
-                            <div className="dc-meta">
-                              <span className="dc-channel">{video.channelTitle}</span>
-                              <span className="dc-views">{formatViewCount(video.viewCount)} views</span>
+                        ))
+                      ) : (
+                        latestVideos.map((video, index) => {
+                          const isAdded = queuedVideoIds.has(video.id);
+                          return (
+                            <div key={video.id} className="drop-card" onClick={() => addSongToQueue(video.id, video.title, video.thumbnail, video.durationSeconds)}>
+                              <div className="dc-thumb">
+                                <img src={video.thumbnail} alt={video.title} />
+                                <div className="dc-overlay" />
+                                <div className="dc-badge">
+                                  {index === 0 ? <span className="badge b-hot">ON TRENDING</span> : <span className="badge b-new">NEW</span>}
+                                </div>
+                                <div className={`dc-add ${isAdded ? 'added' : ''}`}>
+                                  {isAdded ? (
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
+                                  ) : (
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
+                                  )}
+                                </div>
+                                <div className="dc-dur">{formatDuration(video.durationSeconds)}</div>
+                              </div>
+                              <div className="dc-info">
+                                <div className="dc-title">{video.title}</div>
+                                <div className="dc-meta">
+                                  <span className="dc-channel">{video.channelTitle}</span>
+                                  <span className="dc-views">{formatViewCount(video.viewCount)} views</span>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                          );
+                        })
+                      )}
                     </div>
                   </>
                 )}
@@ -1350,7 +1428,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                         <div className="section-header" style={{ marginTop: 12, marginBottom: 12 }}>
                           <span className="sec-title" style={{ fontSize: 13, color: 'var(--theme-text-primary)' }}>{section.title}</span>
                         </div>
-                        <div className="mix-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                        <div className="mix-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
                           {section.playlists.map((pl, idx) => {
                             const gradientColors = [
                               'linear-gradient(135deg, #f037a5, #880e4f)',
@@ -1432,12 +1510,12 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     </div>
 
                     {/* 🎵 Music Playlists — 2x2 grid */}
-                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div className="playlist-panel">
                       <div className="section-header">
                         <span className="sec-title">Music playlists</span>
                         <span className="sec-see" onClick={() => setShowAllPlaylists(true)}>See all</span>
                       </div>
-                      <div className="mix-grid" style={{ flexGrow: 1, gridTemplateRows: '1fr 1fr' }}>
+                      <div className="mix-grid mix-grid-panel">
                         {curatedLoading ? (
                           Array.from({ length: 4 }).map((_, i) => (
                             <div key={i} className="mix-card skeleton-box" style={{ borderRadius: 10 }} />
@@ -1454,8 +1532,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                             return (
                               <div
                                 key={pl.id}
-                                className="mix-card"
-                                style={{ aspectRatio: 'auto', height: '100%' }}
+                                className="mix-card mix-card-panel"
                                 onClick={() => openPlaylist(pl.id, pl.title)}
                               >
                                 <div className="mix-bg" style={{ background: bgGradient }}>
@@ -1629,21 +1706,32 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <span className="pb-time">{formatDuration(Math.floor(currentTime))}</span>
               <div
                 className="pb-bar"
+                style={{ cursor: 'pointer' }}
                 onMouseDown={(e) => {
-                  if (!playerRef.current || !playerReady) return;
-                  const videoDuration = duration;
+                  // Use actual player duration for speaker, fall back to metadata for remotes
+                  const videoDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
                   if (videoDuration <= 0) return;
                   const rect = e.currentTarget.getBoundingClientRect();
                   const clickX = e.clientX - rect.left;
-                  const percent = clickX / rect.width;
+                  const percent = Math.max(0, Math.min(1, clickX / rect.width));
                   const seekTime = percent * videoDuration;
-                  playerRef.current.seekTo(seekTime, true);
-                  setCurrentTime(seekTime);
+
+                  if (isSpeaker) {
+                    // Speaker: seek directly and broadcast position to all remotes
+                    if (!playerRef.current || !playerReady) return;
+                    playerRef.current.seekTo(seekTime, true);
+                    setCurrentTime(seekTime);
+                    channelRef.current?.send({ type: 'broadcast', event: 'time_sync', payload: { time: seekTime } });
+                  } else {
+                    // Remote: optimistic local update + ask speaker to seek
+                    setCurrentTime(seekTime);
+                    channelRef.current?.send({ type: 'broadcast', event: 'seek_request', payload: { time: seekTime } });
+                  }
                 }}
               >
                 <div className="pb-fill" style={{ width: `${progressPercent}%` }} />
               </div>
-              <span className="pb-time" style={{ textAlign: 'right' }}>{formatDuration(Math.floor(duration))}</span>
+              <span className="pb-time" style={{ textAlign: 'right' }}>{formatDuration(Math.floor(duration > 0 ? duration : (currentSong?.duration_seconds ?? 0)))}</span>
             </div>
           </div>
 

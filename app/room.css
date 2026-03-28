@@ -777,7 +777,7 @@
 /* ── LATEST DROPS — 4 YT-style wide thumb cards ── */
 .drops-row {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1086,7 +1086,7 @@
 /* Playlist mixes — 2×2 */
 .mix-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
 }
 
@@ -2225,4 +2225,55 @@
 
 .trend-item {
   cursor: pointer;
+}
+
+/* Playlist Panel specific styles */
+.playlist-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.mix-grid-panel {
+  flex-grow: 1;
+  grid-template-rows: 1fr 1fr;
+}
+
+.mix-card-panel {
+  aspect-ratio: auto;
+  height: 100%;
+}
+
+/* ── RESPONSIVE VIEWPORT BREAKPOINTS ── */
+@media (max-width: 1200px) {
+  .lower-grid {
+    grid-template-columns: 1fr;
+  }
+  .mix-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+  }
+  
+  /* Remove height stretching when vertically stacked */
+  .playlist-panel {
+    height: auto;
+  }
+  .mix-grid-panel {
+    grid-template-rows: auto;
+  }
+  .mix-card-panel {
+    aspect-ratio: 16/9;
+    height: auto;
+  }
+}
+
+@media (max-width: 1260px) {
+  .drops-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1040px) {
+  .drops-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
