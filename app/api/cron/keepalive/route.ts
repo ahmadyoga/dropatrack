@@ -38,7 +38,6 @@ export async function GET() {
       if (folders && folders.length > 0) {
         // Each "folder" is named after a room_id
         const folderNames = folders
-          .filter((f) => f.id) // real folders/files
           .map((f) => f.name);
 
         if (folderNames.length > 0) {
