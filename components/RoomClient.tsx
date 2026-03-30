@@ -200,6 +200,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // Refs for values needed inside channel closures (avoid stale captures)
   const isSpeakerRef = useRef(isSpeaker);
   const playerReadyRef = useRef(playerReady);
+  // Guard: prevents handleNext from firing twice in rapid succession
+  const isTransitioningRef = useRef(false);
+  // Guard: suppresses ENDED events emitted by YouTube while loading a new video
+  const isLoadingVideoRef = useRef(false);
+  // Silent AudioContext — keeps JS alive when browser is minimized on mobile
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const silentSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   const currentSong = queue[room.current_song_index] || null;
 
@@ -318,6 +325,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         events: {
           onStateChange: (event: YTEvent) => {
             if (event.data === window.YT.PlayerState.ENDED) {
+              // Ignore ENDED events fired while we're loading a new video (YouTube bug)
+              if (isLoadingVideoRef.current) return;
               handleNextRef.current();
             }
           },
@@ -360,7 +369,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     loadedVideoIdRef.current = currentSong.youtube_id;
     setCurrentTime(0);
     setDuration(0);
+    // Set loading guard BEFORE calling loadVideoById to suppress spurious ENDED events
+    isLoadingVideoRef.current = true;
     playerRef.current.loadVideoById(currentSong.youtube_id);
+    // Clear the guard after a safe window (YouTube usually emits ENDED within ~300ms of load)
+    setTimeout(() => { isLoadingVideoRef.current = false; }, 1500);
+    // Clear transition guard so the next song-end can trigger auto-advance again
+    setTimeout(() => { isTransitioningRef.current = false; }, 2000);
   }, [room.current_song_index, currentSong?.youtube_id, isSpeaker, playerReady, currentSong]);
 
   // ─── Supabase Realtime Channel ──────────────────────────────────────
@@ -537,9 +552,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     (type: PlaybackSyncEvent['type'], songIndex: number) => {
       if (!channelRef.current || !currentUser) return;
 
-      // Include current playback time for cross-device sync
+      // Use ref for playerReady to avoid stale closure captures during auto-advance
       let playbackTime = 0;
-      if (playerRef.current && playerReady) {
+      if (playerRef.current && playerReadyRef.current) {
         try { playbackTime = playerRef.current.getCurrentTime(); } catch { /* */ }
       }
 
@@ -638,12 +653,18 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     const currentIdx = roomRef.current.current_song_index;
     const queueLen = queueRef.current.length;
 
+    // Debounce: prevent rapid double-fire (e.g. ENDED + another trigger)
+    if (isTransitioningRef.current) return;
+    isTransitioningRef.current = true;
+
     let nextIndex: number;
     if (currentIdx >= queueLen - 1) {
       // At the end of the queue
       if (repeatRef.current && queueLen > 0) {
         nextIndex = 0; // Loop back to start
       } else {
+        // Reset transition guard since we're not actually advancing
+        isTransitioningRef.current = false;
         return; // Stop at end
       }
     } else {
@@ -660,39 +681,228 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   }, [handleNext]);
 
   const handlePrev = useCallback(() => {
+    // Clear transition guard — user-initiated, should never be blocked
+    isTransitioningRef.current = false;
+    isLoadingVideoRef.current = false;
     const prevIndex = Math.max(room.current_song_index - 1, 0);
     setRoom((prev) => ({ ...prev, current_song_index: prevIndex, is_playing: true }));
     broadcastPlayback('prev', prevIndex);
   }, [room.current_song_index, broadcastPlayback]);
 
-  // ─── Sync with OS MediaSession (Notification Controls) ───────────────
+  // ─── Sync with OS MediaSession (Notification Controls) ────────────────
   useEffect(() => {
-    if ('mediaSession' in navigator) {
-      navigator.mediaSession.setActionHandler('play', handlePlayPause);
-      navigator.mediaSession.setActionHandler('pause', handlePlayPause);
-      navigator.mediaSession.setActionHandler('previoustrack', handlePrev);
-      navigator.mediaSession.setActionHandler('nexttrack', handleNext);
+    if (!('mediaSession' in navigator)) return;
 
-      const currentSong = queue[room.current_song_index];
-      if (currentSong) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: currentSong.title,
-          artist: 'DropATrack Room',
-          artwork: [
-            { src: currentSong.thumbnail_url || '', sizes: '512x512', type: 'image/jpeg' }
-          ]
-        });
+    // play / pause
+    navigator.mediaSession.setActionHandler('play', () => {
+      isTransitioningRef.current = false;
+      isLoadingVideoRef.current = false;
+      handlePlayPause();
+    });
+    navigator.mediaSession.setActionHandler('pause', handlePlayPause);
+
+    // next / previous — clear all guards so OS controls are never blocked
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      isTransitioningRef.current = false;
+      isLoadingVideoRef.current = false;
+      handlePrev();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      isTransitioningRef.current = false;
+      isLoadingVideoRef.current = false;
+      handleNext();
+    });
+
+    // seekto — some browsers require this handler to show next/prev buttons
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime !== undefined && playerRef.current && playerReadyRef.current) {
+        try {
+          playerRef.current.seekTo(details.seekTime, true);
+          setCurrentTime(details.seekTime);
+          channelRef.current?.send({
+            type: 'broadcast',
+            event: 'time_sync',
+            payload: { time: details.seekTime },
+          });
+        } catch { /* ignore */ }
       }
+    });
+
+    // playbackState — OS uses this to show play/pause icon on lock screen
+    navigator.mediaSession.playbackState = room.is_playing ? 'playing' : 'paused';
+
+    // metadata with all artwork sizes iOS & Android expect
+    const song = queue[room.current_song_index];
+    if (song) {
+      const thumb = song.thumbnail_url || '';
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: song.title,
+        artist: 'DropATrack',
+        album: 'Room',
+        artwork: [
+          { src: thumb, sizes: '96x96',   type: 'image/jpeg' },
+          { src: thumb, sizes: '128x128', type: 'image/jpeg' },
+          { src: thumb, sizes: '192x192', type: 'image/jpeg' },
+          { src: thumb, sizes: '256x256', type: 'image/jpeg' },
+          { src: thumb, sizes: '384x384', type: 'image/jpeg' },
+          { src: thumb, sizes: '512x512', type: 'image/jpeg' },
+        ],
+      });
     }
-  }, [handlePlayPause, handleNext, handlePrev, queue, room.current_song_index]);
+  }, [handlePlayPause, handleNext, handlePrev, queue, room.current_song_index, room.is_playing]);
+
+  // ─── MediaSession position state (moves the notification progress bar) ────
+  // Update every second so the OS lock screen scrubber stays accurate.
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    const duration = currentSong?.duration_seconds ?? 0;
+    if (duration <= 0) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        playbackRate: 1,
+        position: Math.min(currentTime, duration),
+      });
+    } catch { /* not supported on this browser */ }
+  // Update every time currentTime ticks (speaker) or every 1 s (remote interpolation)
+  }, [currentTime, currentSong?.duration_seconds]);
 
   const handleJumpTo = useCallback(
     (index: number) => {
+      // Clear guards on manual jump
+      isTransitioningRef.current = false;
+      isLoadingVideoRef.current = false;
       setRoom((prev) => ({ ...prev, current_song_index: index, is_playing: true }));
       broadcastPlayback('jump', index);
     },
     [broadcastPlayback]
   );
+
+  // ─── Silent AudioContext keepalive (mobile background play) ──────────
+  // Chrome aggressively suspends BufferSource loops in background. An
+  // OscillatorNode at near-zero gain resists suspension much better, and we
+  // add a statechange listener that auto-resumes if Chrome does suspend it.
+  const oscillatorRef = useRef<OscillatorNode | null>(null);
+
+  const startSilentAudio = useCallback(() => {
+    if (audioContextRef.current) return; // already running
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      audioContextRef.current = ctx;
+
+      // Create a silent oscillator (inaudible frequency at near-zero gain)
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.001; // near-silent — enough to keep the context alive
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(0);
+      oscillatorRef.current = osc;
+
+      // Auto-resume if Chrome suspends the context in background
+      const resumeOnInterrupt = () => {
+        if (ctx.state === 'interrupted' || ctx.state === 'suspended') {
+          ctx.resume().catch(() => { /* ignore */ });
+        }
+      };
+      (ctx as unknown as { onstatechange: (() => void) | null }).onstatechange = resumeOnInterrupt;
+
+      // Also try resuming on any user interaction (required by some browsers)
+      const resumeOnce = () => {
+        ctx.resume().catch(() => { /* ignore */ });
+        document.removeEventListener('touchstart', resumeOnce);
+        document.removeEventListener('click', resumeOnce);
+      };
+      document.addEventListener('touchstart', resumeOnce, { passive: true });
+      document.addEventListener('click', resumeOnce, { passive: true });
+    } catch {
+      // AudioContext not available — silently ignore
+    }
+  }, []);
+
+  const stopSilentAudio = useCallback(() => {
+    try {
+      oscillatorRef.current?.stop();
+      oscillatorRef.current = null;
+      silentSourceRef.current?.stop();
+      silentSourceRef.current = null;
+      audioContextRef.current?.close();
+      audioContextRef.current = null;
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Start/stop silent audio with speaker mode
+  useEffect(() => {
+    if (isSpeaker) {
+      startSilentAudio();
+    } else {
+      stopSilentAudio();
+    }
+    return () => { stopSilentAudio(); };
+  }, [isSpeaker, startSilentAudio, stopSilentAudio]);
+
+  // ─── Page Visibility — recover from mobile background ────────────────
+  // When the user returns from background:
+  //   1. Clear stale guards that may block auto-advance
+  //   2. Resume AudioContext if Chrome suspended it
+  //   3. Re-fetch room + queue from DB (Supabase WS silently disconnects
+  //      after ~1-2 min in background, so we may have missed broadcasts)
+  //   4. Check YT player state and force-resume or force-next
+  useEffect(() => {
+    const onVisibilityChange = async () => {
+      if (document.visibilityState !== 'visible') return;
+
+      // 1. Clear guards
+      isTransitioningRef.current = false;
+      isLoadingVideoRef.current = false;
+
+      // 2. Resume AudioContext if suspended by Chrome
+      if (audioContextRef.current && audioContextRef.current.state !== 'running') {
+        audioContextRef.current.resume().catch(() => { /* ignore */ });
+      }
+
+      // 3. Re-fetch authoritative room + queue state from DB
+      //    This catches ANY changes that happened while we were backgrounded,
+      //    regardless of whether the Supabase channel stayed connected.
+      try {
+        const [roomRes, queueRes] = await Promise.all([
+          supabase.from('rooms').select('*').eq('id', room.id).single(),
+          supabase.from('queue_items').select('*').eq('room_id', room.id).order('position', { ascending: true }),
+        ]);
+        if (roomRes.data) {
+          setRoom((prev) => ({ ...prev, ...roomRes.data }));
+        }
+        if (queueRes.data) {
+          setQueue(queueRes.data);
+        }
+      } catch {
+        // DB fetch failed — continue with stale state
+      }
+
+      // 4. Check YT player state (speaker only)
+      if (!isSpeakerRef.current || !playerRef.current || !playerReadyRef.current) return;
+      try {
+        const state = playerRef.current.getPlayerState();
+        const latestRoom = roomRef.current;
+
+        if (state === window.YT?.PlayerState?.ENDED) {
+          // Song ended while we were in the background — advance now
+          handleNextRef.current();
+        } else if (latestRoom.is_playing && state !== window.YT?.PlayerState?.PLAYING && state !== window.YT?.PlayerState?.BUFFERING) {
+          // Player was paused/stopped by the OS — resume it
+          playerRef.current.playVideo();
+        }
+      } catch {
+        // Player might be in an invalid state
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [room.id]); // only depends on room.id; everything else is read via refs
 
   // ─── Search YouTube ─────────────────────────────────────────────────
   const handleSearch = useCallback(
