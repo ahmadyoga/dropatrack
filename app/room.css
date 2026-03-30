@@ -1549,6 +1549,45 @@
 }
 
 /* Song share bubble */
+/* Chat image */
+.cm-image-wrap {
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.cm-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 10px;
+  cursor: pointer;
+  object-fit: cover;
+  border: 1px solid var(--theme-glass-border-subtle);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.cm-image:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Upload indicator */
+.cm-uploading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 11px;
+  color: var(--theme-text-muted);
+  border-top: 1px solid var(--theme-glass-border-subtle);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 .cm-song {
   background: var(--accent-glow);
   border: 1px solid var(--accent-primary);

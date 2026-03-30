@@ -95,6 +95,7 @@ export interface ChatMessage {
   username: string;
   avatar_color: string;
   message: string;
+  image_url: string | null;
   song_ref: ChatSongRef | null;
   created_at: string;
 }

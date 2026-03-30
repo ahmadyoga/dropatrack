@@ -147,3 +147,9 @@ $$ language 'plpgsql';
 
 -- 8. Repeat mode (synced across all clients in a room)
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS repeat BOOLEAN DEFAULT false;
+
+-- 9. Chat image support
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+-- NOTE: You must manually create a Supabase Storage bucket called "chat-images"
+-- with public access. Go to Storage > New Bucket > Name: "chat-images" > Public: ON

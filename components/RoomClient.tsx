@@ -172,6 +172,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [sendingChat, setSendingChat] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatSubRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -1337,7 +1338,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             if (chatToastTimerRef.current) clearTimeout(chatToastTimerRef.current);
             setChatToast({
               username: msg.username,
-              message: msg.message.length > 60 ? msg.message.slice(0, 60) + '…' : msg.message,
+              message: msg.image_url ? '📷 Sent an image' : (msg.message.length > 60 ? msg.message.slice(0, 60) + '…' : msg.message),
               color: msg.avatar_color || '#6366f1',
             });
             chatToastTimerRef.current = setTimeout(() => setChatToast(null), 4000);
@@ -1403,6 +1404,56 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       setSendingChat(false);
     }
   }, [chatInput, sendingChat, currentUser, room.id]);
+
+  // ─── Chat: Upload image from clipboard paste ─────────────────────
+  const handleImageUpload = useCallback(async (file: File) => {
+    if (!currentUser || uploadingImage) return;
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image too large (max 2MB)');
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      // Upload to Supabase Storage
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('room_id', room.id);
+      const uploadRes = await fetch('/api/chat/upload', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.url) throw new Error(uploadData.error || 'Upload failed');
+
+      // Send as chat message
+      await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          room_id: room.id,
+          user_id: currentUser.user_id,
+          username: currentUser.username,
+          avatar_color: currentUser.avatar_color,
+          message: '',
+          image_url: uploadData.url,
+        }),
+      });
+    } catch (err) {
+      console.error('Image upload failed:', err);
+    } finally {
+      setUploadingImage(false);
+    }
+  }, [currentUser, uploadingImage, room.id]);
+
+  const handleChatPaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) handleImageUpload(file);
+        return;
+      }
+    }
+  }, [handleImageUpload]);
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
@@ -1971,7 +2022,12 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                           {isOwn ? 'You' : msg.username}
                           <span className="cm-time">{timeAgo(msg.created_at)}</span>
                         </div>
-                        <div className={`cm-bubble ${isOwn ? 'own' : ''}`}>{msg.message}</div>
+                        {msg.image_url && (
+                          <div className="cm-image-wrap">
+                            <img src={msg.image_url} alt="chat image" className="cm-image" loading="lazy" onClick={() => window.open(msg.image_url!, '_blank')} />
+                          </div>
+                        )}
+                        {msg.message && <div className={`cm-bubble ${isOwn ? 'own' : ''}`}>{msg.message}</div>}
                         {msg.song_ref && (
                           <div className="cm-song" onClick={() => addSongToQueue(msg.song_ref!.youtube_id, msg.song_ref!.title, '', 0)}>
                             <div className="cm-song-thumb">🎵</div>
@@ -1989,17 +2045,24 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               )}
               <div ref={chatEndRef} />
             </div>
+            {uploadingImage && (
+              <div className="cm-uploading">
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                Uploading image…
+              </div>
+            )}
             <form className="chat-input-wrap" onSubmit={handleSendChat}>
               <input
                 className="chat-input"
                 type="text"
-                placeholder="Say something..."
+                placeholder={uploadingImage ? 'Uploading...' : 'Say something... (paste image)'}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                disabled={sendingChat}
+                onPaste={handleChatPaste}
+                disabled={sendingChat || uploadingImage}
                 maxLength={500}
               />
-              <button className="send-btn" type="submit" disabled={sendingChat || !chatInput.trim()}>
+              <button className="send-btn" type="submit" disabled={sendingChat || uploadingImage || !chatInput.trim()}>
                 <svg viewBox="0 0 24 24" fill="white"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z" /></svg>
               </button>
             </form>

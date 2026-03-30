@@ -41,9 +41,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { room_id, user_id, username, avatar_color, message, song_ref } = body;
+    const { room_id, user_id, username, avatar_color, message, image_url, song_ref } = body;
 
-    if (!room_id || !user_id || !username || !message?.trim()) {
+    // Either message text or image is required
+    if (!room_id || !user_id || !username || (!message?.trim() && !image_url)) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -52,7 +53,8 @@ export async function POST(request: NextRequest) {
       user_id,
       username,
       avatar_color: avatar_color || '#6366f1',
-      message: message.trim().substring(0, 500), // Max 500 chars
+      message: (message || '').trim().substring(0, 500),
+      image_url: image_url || null,
       song_ref: song_ref || null,
     };
 
