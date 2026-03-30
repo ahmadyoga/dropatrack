@@ -144,3 +144,6 @@ $$ language 'plpgsql';
 -- Optional: enable pg_cron to auto-run cleanup every minute
 -- Uncomment the line below if pg_cron extension is enabled in your Supabase project:
 -- SELECT cron.schedule('cleanup-stale-rooms', '* * * * *', 'SELECT cleanup_stale_rooms()');
+
+-- 8. Repeat mode (synced across all clients in a room)
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS repeat BOOLEAN DEFAULT false;

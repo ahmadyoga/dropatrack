@@ -143,10 +143,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [myRole, setMyRole] = useState<UserRole>('listener');
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragItemRef = useRef<number | null>(null);
-  const [repeatMode, setRepeatMode] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('dropatrack_repeat') === 'true';
-    return false;
-  });
+
   const [showExtensionPopup, setShowExtensionPopup] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const isResizingRef = useRef(false);
@@ -174,6 +171,12 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [sendingChat, setSendingChat] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatSubRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const isChatVisibleRef = useRef(false);
+  const currentUserRef = useRef<ReturnType<typeof getOrCreateUser> | null>(null);
+  // In-app toast notification
+  const [chatToast, setChatToast] = useState<{ username: string; message: string; color: string } | null>(null);
+  const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const playerRef = useRef<YTPlayer | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -215,6 +218,12 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { isSpeakerRef.current = isSpeaker; }, [isSpeaker]);
   useEffect(() => { playerReadyRef.current = playerReady; }, [playerReady]);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+
+  // Track whether chat is currently visible (desktop or mobile)
+  useEffect(() => {
+    isChatVisibleRef.current = activeTab === 'chat' || mobileTab === 'chat';
+  }, [activeTab, mobileTab]);
 
   // ─── Initialize user identity ───────────────────────────────────────
   useEffect(() => {
@@ -442,6 +451,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       setRoom((prev) => ({ ...prev, volume: payload.volume }));
     });
 
+    // Broadcast: repeat toggle
+    channel.on('broadcast', { event: 'repeat_toggle' }, ({ payload }) => {
+      setRoom((prev) => ({ ...prev, repeat: payload.repeat as boolean }));
+    });
+
     // Presence: track users
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -645,8 +659,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     }
   }, [room.volume, isSpeaker, playerReady]);
 
-  const repeatRef = useRef(repeatMode);
-  useEffect(() => { repeatRef.current = repeatMode; }, [repeatMode]);
+  const repeatRef = useRef(room.repeat);
+  useEffect(() => { repeatRef.current = room.repeat; }, [room.repeat]);
 
   const handleNext = useCallback(() => {
     // Use refs to always read the latest state (avoids stale closure from YouTube callback)
@@ -1271,9 +1285,43 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         (payload) => {
           const msg = payload.new as ChatMessage;
           setChatMessages((prev) => [...prev, msg]);
+
+          // Skip notifications for own messages
+          if (msg.user_id === currentUserRef.current?.user_id) return;
+
+          // If chat tab is not visible, increment unread count + send notification
+          if (!isChatVisibleRef.current) {
+            setUnreadChatCount((prev) => prev + 1);
+
+            // In-app toast notification (always works, no permission needed)
+            if (chatToastTimerRef.current) clearTimeout(chatToastTimerRef.current);
+            setChatToast({
+              username: msg.username,
+              message: msg.message.length > 60 ? msg.message.slice(0, 60) + '…' : msg.message,
+              color: msg.avatar_color || '#6366f1',
+            });
+            chatToastTimerRef.current = setTimeout(() => setChatToast(null), 4000);
+
+            // Browser notification (if permitted)
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+              try {
+                new Notification(`${msg.username}`, {
+                  body: msg.message.length > 80 ? msg.message.slice(0, 80) + '…' : msg.message,
+                  icon: '/favicon.ico',
+                  tag: 'dropatrack-chat',
+                  silent: false,
+                });
+              } catch { /* notification not supported */ }
+            }
+          }
         }
       )
       .subscribe();
+
+    // Request notification permission on first load
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
 
     chatSubRef.current = chatChannel;
 
@@ -1776,7 +1824,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         <aside className="right-panel">
           <div className="rp-tabs">
             <div className={`rp-tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users</div>
-            <div className={`rp-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>Chat</div>
+            <div className={`rp-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => { setActiveTab('chat'); setUnreadChatCount(0); }}>Chat{unreadChatCount > 0 && <span className="chat-badge">{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>}</div>
           </div>
 
           {/* Users Panel */}
@@ -1896,17 +1944,22 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                 )}
               </button>
-              <button className="ctrl" onClick={handleNext} disabled={!repeatMode && room.current_song_index >= queue.length - 1} title="Next">
+              <button className="ctrl" onClick={handleNext} disabled={!room.repeat && room.current_song_index >= queue.length - 1} title="Next">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="m6 18 8.5-6L6 6v12zm2-8.14 4.96 3.14L8 16.14V9.86zM16 6h2v12h-2z" /></svg>
               </button>
               <button
-                className={`ctrl ${repeatMode ? 'ctrl-active' : ''}`}
+                className={`ctrl ${room.repeat ? 'ctrl-active' : ''}`}
                 title="Repeat"
                 onClick={() => {
-                  setRepeatMode((prev) => {
-                    const next = !prev;
-                    localStorage.setItem('dropatrack_repeat', String(next));
-                    return next;
+                  const next = !room.repeat;
+                  setRoom((prev) => ({ ...prev, repeat: next }));
+                  // Persist to DB
+                  supabase.from('rooms').update({ repeat: next }).eq('id', room.id).then();
+                  // Broadcast to all clients
+                  channelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'repeat_toggle',
+                    payload: { repeat: next },
                   });
                 }}
               >
@@ -2014,9 +2067,10 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
             <span>Home</span>
           </button>
-          <button className={`mn-btn ${mobileTab === 'chat' ? 'active' : ''}`} onClick={() => setMobileTab('chat')}>
+          <button className={`mn-btn ${mobileTab === 'chat' ? 'active' : ''}`} onClick={() => { setMobileTab('chat'); setUnreadChatCount(0); }}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
             <span>Room</span>
+            {unreadChatCount > 0 && <span className="chat-badge">{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>}
           </button>
           <button className={`mn-btn ${mobileTab === 'queue' ? 'active' : ''}`} onClick={() => setMobileTab('queue')}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
@@ -2087,6 +2141,30 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               Got it, let's go! 🎵
             </button>
           </div>
+        </div>
+      )}
+
+
+      {/* In-App Chat Toast */}
+      {chatToast && (
+        <div
+          className="chat-toast"
+          onClick={() => {
+            setChatToast(null);
+            setUnreadChatCount(0);
+            // Open chat on both desktop and mobile
+            setActiveTab('chat');
+            setMobileTab('chat');
+          }}
+        >
+          <div className="chat-toast-avatar" style={{ background: chatToast.color }}>
+            {chatToast.username.charAt(0).toUpperCase()}
+          </div>
+          <div className="chat-toast-body">
+            <div className="chat-toast-name">{chatToast.username}</div>
+            <div className="chat-toast-msg">{chatToast.message}</div>
+          </div>
+          <button className="chat-toast-close" onClick={(e) => { e.stopPropagation(); setChatToast(null); }}>✕</button>
         </div>
       )}
     </div>

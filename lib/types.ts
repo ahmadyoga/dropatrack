@@ -10,6 +10,7 @@ export interface Room {
   volume: number;
   is_playing: boolean;
   is_public: boolean;
+  repeat: boolean;
   created_at: string;
   updated_at: string;
 }
