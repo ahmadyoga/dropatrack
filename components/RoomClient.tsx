@@ -65,35 +65,15 @@ interface RoomClientProps {
 
 // ─── Tabs ────────────────────────────────────────────────────────────
 type RpTabType = 'users' | 'chat';
-// Detect region from timezone first (more accurate), then fallback to language
-const TIMEZONE_TO_REGION: Record<string, string> = {
-  'Asia/Jakarta': 'ID', 'Asia/Makassar': 'ID', 'Asia/Jayapura': 'ID', 'Asia/Pontianak': 'ID',
-  'Asia/Seoul': 'KR', 'Asia/Tokyo': 'JP', 'Asia/Shanghai': 'CN', 'Asia/Hong_Kong': 'HK',
-  'Asia/Taipei': 'TW', 'Asia/Singapore': 'SG', 'Asia/Kuala_Lumpur': 'MY', 'Asia/Bangkok': 'TH',
-  'Asia/Manila': 'PH', 'Asia/Ho_Chi_Minh': 'VN', 'Asia/Kolkata': 'IN', 'Asia/Karachi': 'PK',
-  'Asia/Dubai': 'AE', 'Asia/Riyadh': 'SA',
-  'Europe/London': 'GB', 'Europe/Paris': 'FR', 'Europe/Berlin': 'DE', 'Europe/Madrid': 'ES',
-  'Europe/Rome': 'IT', 'Europe/Amsterdam': 'NL', 'Europe/Moscow': 'RU', 'Europe/Istanbul': 'TR',
-  'America/New_York': 'US', 'America/Chicago': 'US', 'America/Denver': 'US', 'America/Los_Angeles': 'US',
-  'America/Sao_Paulo': 'BR', 'America/Mexico_City': 'MX', 'America/Toronto': 'CA',
-  'America/Buenos_Aires': 'AR', 'America/Bogota': 'CO', 'America/Lima': 'PE',
-  'Australia/Sydney': 'AU', 'Australia/Melbourne': 'AU', 'Pacific/Auckland': 'NZ',
-  'Africa/Lagos': 'NG', 'Africa/Cairo': 'EG', 'Africa/Johannesburg': 'ZA',
-};
-
-function detectRegion(): string {
+// Detect user's IANA timezone — server-side helper converts to regionCode
+function detectTimezone(): string {
   if (typeof Intl !== 'undefined') {
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (tz && TIMEZONE_TO_REGION[tz]) return TIMEZONE_TO_REGION[tz];
+      if (tz) return tz;
     } catch { /* fallback */ }
   }
-  if (typeof navigator === 'undefined') return 'ID';
-  const lang = navigator.language || '';
-  const parts = lang.split('-');
-  const country = (parts[1] || parts[0]).toUpperCase();
-  if (country.length === 2) return country;
-  return 'ID';
+  return 'Asia/Jakarta'; // default fallback
 }
 
 function formatViewCount(count: number): string {
@@ -152,7 +132,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const isResizingRef = useRef(false);
 
   // ─── Trending & Latest state ───────────────────────────────────────
-  const [trendingRegion] = useState(() => detectRegion());
+  const [userTimezone] = useState(() => detectTimezone());
   const [trendingVideos, setTrendingVideos] = useState<TrendingVideo[]>([]);
   const [latestVideos, setLatestVideos] = useState<TrendingVideo[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
@@ -181,6 +161,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // In-app toast notification
   const [chatToast, setChatToast] = useState<{ username: string; message: string; color: string } | null>(null);
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const playerRef = useRef<YTPlayer | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -785,7 +766,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         artist: 'DropATrack',
         album: 'Room',
         artwork: [
-          { src: thumb, sizes: '96x96',   type: 'image/jpeg' },
+          { src: thumb, sizes: '96x96', type: 'image/jpeg' },
           { src: thumb, sizes: '128x128', type: 'image/jpeg' },
           { src: thumb, sizes: '192x192', type: 'image/jpeg' },
           { src: thumb, sizes: '256x256', type: 'image/jpeg' },
@@ -809,7 +790,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         position: Math.min(currentTime, duration),
       });
     } catch { /* not supported on this browser */ }
-  // Update every time currentTime ticks (speaker) or every 1 s (remote interpolation)
+    // Update every time currentTime ticks (speaker) or every 1 s (remote interpolation)
   }, [currentTime, currentSong?.duration_seconds]);
 
   const handleJumpTo = useCallback(
@@ -1187,7 +1168,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     e.stopPropagation();
     if (sourceIndex === room.current_song_index) return;
     if (sourceIndex === room.current_song_index + 1) return;
-    
+
     dragItemRef.current = sourceIndex;
     const dropIndex = sourceIndex < room.current_song_index ? room.current_song_index : room.current_song_index + 1;
     handleDrop(dropIndex);
@@ -1235,7 +1216,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const fetchTrending = useCallback(async (region: string) => {
     setTrendingLoading(true);
     try {
-      const res = await fetch(`/api/youtube/trending?regionCode=${encodeURIComponent(region)}&maxResults=10`);
+      const res = await fetch(`/api/youtube/trending?timezone=${encodeURIComponent(region)}&maxResults=10`);
       const data = await res.json();
       if (data.results) setTrendingVideos(data.results);
     } catch (err) {
@@ -1246,14 +1227,14 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   }, []);
 
   useEffect(() => {
-    fetchTrending(trendingRegion);
-  }, [trendingRegion, fetchTrending]);
+    fetchTrending(userTimezone);
+  }, [userTimezone, fetchTrending]);
 
   // ─── Fetch Latest Music ────────────────────────────────────────────
   const fetchLatest = useCallback(async () => {
     setLatestLoading(true);
     try {
-      const res = await fetch(`/api/youtube/latest?maxResults=10&regionCode=${trendingRegion}`);
+      const res = await fetch(`/api/youtube/latest?maxResults=10&timezone=${userTimezone}`);
       const data = await res.json();
       if (data.results) setLatestVideos(data.results);
     } catch (err) {
@@ -1272,7 +1253,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     const fetchCurated = async () => {
       setCuratedLoading(true);
       try {
-        const res = await fetch(`/api/youtube/curated?regionCode=${trendingRegion}`);
+        const res = await fetch(`/api/youtube/curated?timezone=${userTimezone}`);
         const data = await res.json();
         if (data.sections) setCuratedSections(data.sections);
       } catch (err) {
@@ -1282,7 +1263,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       }
     };
     fetchCurated();
-  }, [trendingRegion]);
+  }, [userTimezone]);
 
   // ─── Fetch videos for a selected playlist ──────────────────────────
   const openPlaylist = useCallback(async (playlistId: string, title: string) => {
@@ -1541,7 +1522,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <span className="queue-count">{queue.length} songs</span>
             </div>
           </div>
-          
+
           <div style={{ padding: '0 16px 12px' }}>
             <div className="search-bar" style={{ marginBottom: 0 }}>
               <span className="s-icon" style={{ top: '50%', transform: 'translateY(-50%)' }}>
@@ -1583,9 +1564,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     id={`q-item-${index}`}
                     key={item.id}
                     className={`q-item ${isPlaying ? 'playing' : ''} ${isPast ? 'past' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
-                    style={isMatch ? { 
-                      boxShadow: isActiveMatch ? '0 0 0 2px var(--accent-primary)' : '0 0 0 1px var(--theme-glass-border)', 
-                      backgroundColor: isActiveMatch ? 'var(--theme-hover-bg-strong)' : 'var(--theme-hover-bg)' 
+                    style={isMatch ? {
+                      boxShadow: isActiveMatch ? '0 0 0 2px var(--accent-primary)' : '0 0 0 1px var(--theme-glass-border)',
+                      backgroundColor: isActiveMatch ? 'var(--theme-hover-bg-strong)' : 'var(--theme-hover-bg)'
                     } : undefined}
                     onClick={() => handleJumpTo(index)}
                     draggable
@@ -1861,7 +1842,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     <div>
                       <div className="section-header">
                         <span className="sec-title">Trending now</span>
-                        <span className="sec-see" onClick={() => fetchTrending(trendingRegion)}>{trendingLoading ? '...' : 'Refresh'}</span>
+                        <span className="sec-see" onClick={() => fetchTrending(userTimezone)}>{trendingLoading ? '...' : 'Refresh'}</span>
                       </div>
                       <div className="trend-list">
                         {trendingLoading ? (
@@ -2024,7 +2005,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                         </div>
                         {msg.image_url && (
                           <div className="cm-image-wrap">
-                            <img src={msg.image_url} alt="chat image" className="cm-image" loading="lazy" onClick={() => window.open(msg.image_url!, '_blank')} />
+                            <img src={msg.image_url} alt="chat image" className="cm-image" loading="lazy" onClick={() => setPreviewImage(msg.image_url!)} />
                           </div>
                         )}
                         {msg.message && <div className={`cm-bubble ${isOwn ? 'own' : ''}`}>{msg.message}</div>}
@@ -2196,13 +2177,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               >
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
               </button>
-              <button
-                className="icon-btn"
-                title="Queue"
-                onClick={() => document.querySelector('.sidebar')?.scrollIntoView({ behavior: 'smooth' })}
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" /></svg>
-              </button>
               <div className={`speaker-pill ${isSpeaker ? 'active' : ''}`} onClick={toggleSpeaker} title="Toggle Speaker Mode">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" /></svg>
                 {isSpeaker ? 'Speaker' : 'Remote'}
@@ -2223,7 +2197,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             {unreadChatCount > 0 && <span className="chat-badge">{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>}
           </button>
           <button className={`mn-btn ${mobileTab === 'queue' ? 'active' : ''}`} onClick={() => setMobileTab('queue')}>
-            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z" /></svg>
             <span>Playlist</span>
           </button>
         </div>
@@ -2315,6 +2289,26 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             <div className="chat-toast-msg">{chatToast.message}</div>
           </div>
           <button className="chat-toast-close" onClick={(e) => { e.stopPropagation(); setChatToast(null); }}>✕</button>
+        </div>
+      )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm cursor-pointer"
+          onClick={() => setPreviewImage(null)}
+        >
+          <img
+            src={previewImage}
+            alt="Preview"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+          />
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 transition-all font-bold text-xl"
+            onClick={(e) => { e.stopPropagation(); setPreviewImage(null); }}
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

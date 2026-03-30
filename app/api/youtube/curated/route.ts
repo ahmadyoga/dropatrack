@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { getCuratedSections } from '@/lib/curatedPlaylists';
+import { getRegionCodeFromTimezone } from '@/lib/region';
 
 // Serves curated playlist sections based on user's region
 // No YouTube API quota cost — data is static/hardcoded
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const regionCode = searchParams.get('regionCode') || 'US';
+  const regionCode = getRegionCodeFromTimezone(searchParams.get('timezone'));
 
   const sections = getCuratedSections(regionCode);
 
@@ -17,22 +18,22 @@ export async function GET(request: NextRequest) {
   if (apiKey) {
     // Collect all playlist IDs to batch-fetch thumbnails
     const allPlaylistIds = sections.flatMap(s => s.playlists.map(p => p.id));
-    
+
     try {
       // Fetch playlist details in batches of 50
       const batchSize = 50;
       const thumbnails: Record<string, { thumbnail: string; itemCount: number }> = {};
-      
+
       for (let i = 0; i < allPlaylistIds.length; i += batchSize) {
         const batch = allPlaylistIds.slice(i, i + batchSize);
         const ids = batch.join(',');
         const url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&id=${encodeURIComponent(ids)}&key=${apiKey}`;
-        
+
         const res = await fetch(url, {
           headers: { Referer: referer },
           next: { revalidate: 3600 }, // Cache 1 hour
         });
-        
+
         if (res.ok) {
           const data = await res.json();
           if (data.items) {

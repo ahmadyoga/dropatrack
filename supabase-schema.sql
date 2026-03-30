@@ -153,3 +153,19 @@ ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 -- NOTE: You must manually create a Supabase Storage bucket called "chat-images"
 -- with public access. Go to Storage > New Bucket > Name: "chat-images" > Public: ON
+
+create policy "Allow anon upload to chat-images"
+on storage.objects
+for insert
+to anon
+with check (
+  bucket_id = 'chat-images'
+);
+
+create policy "Allow anon delete from chat-images"
+on storage.objects
+for delete
+to anon
+using (
+  bucket_id = 'chat-images'
+);

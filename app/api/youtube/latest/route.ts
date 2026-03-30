@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
+import { getRegionCodeFromTimezone } from '@/lib/region';
 
 // Server-side only — fetches the latest (newest) popular music videos
 // Uses videos.list with chart=mostPopular, videoCategoryId=10 (2 quota units total)
@@ -8,7 +9,7 @@ import { parseISO8601Duration } from '@/lib/youtube';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const maxResults = searchParams.get('maxResults') || '10';
-  const regionCode = searchParams.get('regionCode') || 'ID';
+  const regionCode = getRegionCodeFromTimezone(searchParams.get('timezone'));
 
   const apiKey = process.env.YOUTUBE_API_KEY;
   if (!apiKey) {
