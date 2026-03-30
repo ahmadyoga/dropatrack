@@ -177,12 +177,12 @@ body {
 .input-glass {
   width: 100%;
   padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  background: var(--theme-input-bg);
+  border: 1.5px solid var(--theme-glass-border);
   border-radius: 12px;
   font-size: 15px;
   font-family: inherit;
-  color: var(--text-primary);
+  color: var(--theme-text-primary);
   transition: all 0.2s ease;
   outline: none;
 }
@@ -190,11 +190,11 @@ body {
 .input-glass:focus {
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--accent-glow);
-  background: white;
+  background: var(--theme-bg-base);
 }
 
 .input-glass::placeholder {
-  color: var(--text-muted);
+  color: var(--theme-text-muted);
 }
 
 /* Animated background pattern */

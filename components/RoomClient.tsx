@@ -130,6 +130,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [currentUser, setCurrentUser] = useState<ReturnType<typeof getOrCreateUser> | null>(null);
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [queueSearchQuery, setQueueSearchQuery] = useState('');
+  const [searchMatchIndices, setSearchMatchIndices] = useState<number[]>([]);
+  const [searchMatchCurrentIdx, setSearchMatchCurrentIdx] = useState(0);
   const [searchResults, setSearchResults] = useState<Array<{
     id: string; title: string; thumbnail: string; channelTitle: string;
     duration: string; durationSeconds: number;
@@ -224,6 +227,33 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   useEffect(() => {
     isChatVisibleRef.current = activeTab === 'chat' || mobileTab === 'chat';
   }, [activeTab, mobileTab]);
+
+  // ─── Debounced queue search ─────────────────────────────────────────
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      if (queueSearchQuery.trim().length === 0) {
+        setSearchMatchIndices([]);
+        setSearchMatchCurrentIdx(0);
+        return;
+      }
+      const q = queueSearchQuery.toLowerCase();
+      const matches = queue
+        .map((item, index) => ({ item, index }))
+        .filter(({ item }) => item.title.toLowerCase().includes(q) || (item.added_by && item.added_by.toLowerCase().includes(q)))
+        .map(m => m.index);
+
+      setSearchMatchIndices(matches);
+      setSearchMatchCurrentIdx(0);
+
+      // Auto-scroll to first match
+      if (matches.length > 0) {
+        const el = document.getElementById(`q-item-${matches[0]}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 300);
+
+    return () => clearTimeout(delay);
+  }, [queueSearchQuery, queue]);
 
   // ─── Initialize user identity ───────────────────────────────────────
   useEffect(() => {
@@ -1152,6 +1182,16 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     });
   }, [queue, room.current_song_index, room.id]);
 
+  const moveSongToNext = useCallback((e: React.MouseEvent, sourceIndex: number) => {
+    e.stopPropagation();
+    if (sourceIndex === room.current_song_index) return;
+    if (sourceIndex === room.current_song_index + 1) return;
+    
+    dragItemRef.current = sourceIndex;
+    const dropIndex = sourceIndex < room.current_song_index ? room.current_song_index : room.current_song_index + 1;
+    handleDrop(dropIndex);
+  }, [room.current_song_index, handleDrop]);
+
   // ─── Helpers ────────────────────────────────────────────────────────
   const queuedVideoIds = new Set(queue.map((q) => q.youtube_id));
 
@@ -1450,6 +1490,30 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <span className="queue-count">{queue.length} songs</span>
             </div>
           </div>
+          
+          <div style={{ padding: '0 16px 12px' }}>
+            <div className="search-bar" style={{ marginBottom: 0 }}>
+              <span className="s-icon" style={{ top: '50%', transform: 'translateY(-50%)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
+              </span>
+              <input
+                type="text"
+                className="search-input"
+                style={{ padding: '8px 10px 8px 34px', fontSize: '12px', width: '100%', borderRadius: '8px' }}
+                placeholder="Find and scroll to song..."
+                value={queueSearchQuery}
+                onChange={(e) => setQueueSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchMatchIndices.length > 0) {
+                    const nextIdx = (searchMatchCurrentIdx + 1) % searchMatchIndices.length;
+                    setSearchMatchCurrentIdx(nextIdx);
+                    const el = document.getElementById(`q-item-${searchMatchIndices[nextIdx]}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }
+                }}
+              />
+            </div>
+          </div>
 
           <div className="queue-list">
             {queue.length === 0 ? (
@@ -1460,10 +1524,18 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 const isPast = typeof room.current_song_index === 'number' && index < room.current_song_index;
                 const qClass = `qt${index % 6}`;
 
+                const isMatch = searchMatchIndices.includes(index);
+                const isActiveMatch = searchMatchIndices.length > 0 && searchMatchIndices[searchMatchCurrentIdx] === index;
+
                 return (
                   <div
+                    id={`q-item-${index}`}
                     key={item.id}
                     className={`q-item ${isPlaying ? 'playing' : ''} ${isPast ? 'past' : ''} ${dragOverIndex === index ? 'drag-over' : ''}`}
+                    style={isMatch ? { 
+                      boxShadow: isActiveMatch ? '0 0 0 2px var(--accent-primary)' : '0 0 0 1px var(--theme-glass-border)', 
+                      backgroundColor: isActiveMatch ? 'var(--theme-hover-bg-strong)' : 'var(--theme-hover-bg)' 
+                    } : undefined}
                     onClick={() => handleJumpTo(index)}
                     draggable
                     onDragStart={() => handleDragStart(index)}
@@ -1491,15 +1563,30 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     </div>
                     <div className="q-dur" style={{ color: isPlaying ? '#1db954' : undefined }}>{formatDuration(item.duration_seconds)}</div>
 
-                    {/* Simplified remove button for hovering */}
-                    {!isPlaying && (
-                      <div
-                        onClick={(e) => { e.stopPropagation(); removeSong(item); }}
-                        style={{ padding: '0 4px', fontSize: 14, opacity: 0.5, cursor: 'pointer' }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
-                      >
-                        ×
+                    {/* Actions for hovering */}
+                    {!isPlaying && index !== (room.current_song_index ?? -1) + 1 && (
+                      <div className="q-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div
+                          onClick={(e) => moveSongToNext(e, index)}
+                          style={{ padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.5, cursor: 'pointer', borderRadius: '4px', background: 'var(--theme-hover-bg)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.background = 'var(--theme-hover-bg-strong)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.background = 'var(--theme-hover-bg)'; }}
+                          title="Click to play next"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="12" y1="19" x2="12" y2="5"></line>
+                            <polyline points="5 12 12 5 19 12"></polyline>
+                          </svg>
+                        </div>
+                        <div
+                          onClick={(e) => { e.stopPropagation(); removeSong(item); }}
+                          style={{ padding: '0 4px', fontSize: 14, opacity: 0.5, cursor: 'pointer' }}
+                          onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                          onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
+                          title="Remove from queue"
+                        >
+                          ×
+                        </div>
                       </div>
                     )}
                   </div>
