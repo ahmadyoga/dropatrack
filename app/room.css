@@ -924,6 +924,11 @@
   margin-top: 14px;
 }
 
+/* Fix CSS Grid implicit min-width: auto bug globally */
+.lower-grid > div {
+  min-width: 0;
+}
+
 /* Trending — channel-row style */
 .trend-list {
   display: flex;
@@ -1662,23 +1667,29 @@
    PLAYER BAR — Full Width
    ============================================================ */
 .player-bar {
+  grid-column: 1 / -1;
   grid-row: 2;
-  grid-column: 1 / 4;
+  background: var(--theme-glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--theme-glass-border);
   display: flex;
   align-items: center;
-  padding: 0 22px;
-  background: var(--theme-sb-bg);
-  border-top: 1px solid var(--theme-glass-border-subtle);
-  gap: 0;
+  justify-content: space-between;
+  padding: 0 24px;
+  z-index: 50;
+  flex-wrap: wrap; /* allow graceful wrapping on small desktop */
+  min-width: 0;
 }
 
 /* Track info */
 .pb-track {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex: 0 0 250px;
   overflow: hidden;
+  min-width: 0;
 }
 
 .pb-thumb {
@@ -2275,5 +2286,234 @@
 @media (max-width: 1040px) {
   .drops-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ============================================================
+   MOBILE RESPONSIVENESS
+   ============================================================ */
+.mobile-nav {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .app-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  .app-card.rp-closed {
+    /* Reset any grid rules */
+    display: flex;
+  }
+
+  .sidebar-resizer {
+    display: none;
+  }
+
+  .main, .right-panel, .sidebar {
+    flex: 1;
+    min-height: 0;
+    min-width: 0; /* Prevents long titles from expanding container */
+    width: 100% !important;
+    border: none !important;
+    box-sizing: border-box;
+  }
+
+  /* ======================
+     MOBILE MIN-PLAYER (Stacked)
+     ====================== */
+  .player-bar {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    height: auto;
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+  
+  /* Top side: Track info takes full width forcing wrap */
+  .pb-track {
+    width: 100%;
+    flex: 0 0 100%;
+    min-width: 0;
+    max-width: none;
+    margin-right: 0;
+  }
+  .pb-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .pb-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+    text-align: center;
+  }
+  .pb-artist {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+  }
+  .pb-thumb {
+    display: none; /* Hide thumbnail to save space in stacked mode */
+  }
+  .pb-heart { display: none; } /* clean up mobile space */
+
+  /* Bottom Row elements */
+  .pb-controls {
+    display: flex !important;
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    align-items: center;
+    gap: 16px;
+  }
+  .pb-btns {
+    display: flex !important;
+    align-items: center;
+    gap: 16px;
+  }
+  
+  /* Right side: show speaker pill, hide redundant buttons/volume */
+  .pb-right {
+    display: flex !important;
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .pb-right .vol-wrap {
+    display: none;
+  }
+  .pb-extra button[title="Toggle Users/Chat"],
+  .pb-extra button[title="Queue"] {
+    display: none;
+  }
+
+  /* Hide progress bar */
+  .pb-progress {
+    display: none !important;
+  }
+
+  .mobile-nav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: var(--theme-sb-bg);
+    border-top: 1px solid var(--theme-glass-border-subtle);
+    padding: 10px 0;
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom)); /* Support iOS notch */
+  }
+  .mn-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--theme-text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .mn-btn.active {
+    color: var(--accent-primary);
+  }
+
+  /* Visibility Logic based on Mobile Tab State */
+  .app-card.mobile-tab-main .right-panel { display: none; }
+  .app-card.mobile-tab-main .main { display: flex; }
+
+  .app-card.mobile-tab-queue .main { display: none; }
+  .app-card.mobile-tab-queue .right-panel { display: none; }
+
+  .app-card.mobile-tab-chat .main { display: none; }
+  .app-card.mobile-tab-chat .right-panel { display: flex; }
+
+  /* Keep sidebar (and YT iframe) alive but invisible when not in 'queue' */
+  .app-card.mobile-tab-main .sidebar,
+  .app-card.mobile-tab-chat .sidebar {
+    position: absolute;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    flex: none;
+  }
+  .app-card.mobile-tab-queue .sidebar {
+    position: relative;
+    width: 100% !important;
+    height: auto;
+    opacity: 1;
+    pointer-events: auto;
+    flex: 1;
+  }
+
+  /* Prevent negative margin hacks from blowing up width */
+  .main-scroll {
+    width: 100%;
+    max-width: 100vw;
+    box-sizing: border-box;
+    overflow-x: hidden !important;
+  }
+  .main-top {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  /* Adjust Main Grid to be scrollable flex instead of dense grid */
+  .drops-row {
+    display: flex;
+    overflow-x: auto;
+    gap: 12px;
+    padding-bottom: 12px;
+    scroll-snap-type: x mandatory;
+    margin: 0;
+    padding: 0;
+  }
+  .drop-card {
+    min-width: 200px;
+    max-width: 200px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+  }
+
+  /* lower-grid from 1fr 1fr to 1 column */
+  .lower-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    width: 100%;
+    min-width: 0;
+  }
+  
+  .lower-grid > div {
+    min-width: 0;
+  }
+  
+  /* Force 2 columns on mobile regardless of inline style */
+  .mix-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  
+  /* right-panel adjustments */
+  .right-panel {
+    border-top: 1px solid var(--theme-glass-border-subtle);
   }
 }

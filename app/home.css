@@ -135,3 +135,17 @@
 
 /* General utility overrides */
 .home-page p.text-sm.text-red-500 { color: #ef4444; margin-top: 6px; font-size: 12px; }
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .home-title {
+    font-size: clamp(40px, 12vw, 52px);
+  }
+  .home-card {
+    padding: 20px;
+    border-radius: 16px;
+  }
+  .home-content {
+    padding: 32px 16px 20px;
+  }
+}
