@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DropATrack 🎵
+
+A collaborative real-time music player.
+
+🚀 **Live App:** [https://dropatrack.vercel.app/](https://dropatrack.vercel.app/)
 
 ## Getting Started
 
