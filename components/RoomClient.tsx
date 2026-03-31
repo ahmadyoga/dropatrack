@@ -2369,6 +2369,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               </button>
             </div>
 
+            <div style={{ backgroundColor: '#2d1a1a', border: '1px solid #ef4444', borderRadius: '8px', padding: '12px', margin: '0px 0px 16px', color: '#fca5a5', fontSize: '13px' }}>
+              <strong>⚠️ Peringatan Penting</strong><br />
+              Jika kamu memiliki feedback atau menemukan bug, silakan perbaiki sendiri. Kami open-source!<br />
+              Kunjungi repo GitHub kami: <a href="https://github.com/ahmadyoga/dropatrack" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', color: '#f87171', fontWeight: 'bold' }}>GitHub DropATrack</a>.<br /><br />
+              <em>"tidak menerima wong ruwet, gaweo dewe bug/feature,e"</em>
+            </div>
+
             <div className="ext-modal-desc">
               Add YouTube videos to this room directly from YouTube! Install our Chrome extension in 3 easy steps:
             </div>
