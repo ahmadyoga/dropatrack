@@ -11,6 +11,8 @@ export interface Room {
   is_playing: boolean;
   is_public: boolean;
   repeat: boolean;
+  default_role: UserRole;
+  user_roles: Record<string, UserRole>;
   created_at: string;
   updated_at: string;
 }
@@ -37,7 +39,7 @@ export interface YouTubeSearchResult {
   durationSeconds: number;
 }
 
-export type UserRole = 'admin' | 'moderator' | 'dj' | 'listener';
+export type UserRole = 'admin' | 'moderator' | 'dj';
 
 export interface RoomUser {
   user_id: string;

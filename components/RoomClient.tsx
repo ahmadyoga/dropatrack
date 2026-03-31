@@ -123,11 +123,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [addingUrl, setAddingUrl] = useState(false);
   const [currentTime, setCurrentTime] = useState(initialRoom.current_playback_time || 0);
   const [duration, setDuration] = useState(0);
-  const [myRole, setMyRole] = useState<UserRole>('listener');
+  const [myRole, setMyRole] = useState<UserRole>('dj');
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const dragItemRef = useRef<number | null>(null);
 
   const [showExtensionPopup, setShowExtensionPopup] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [roleMenuUserId, setRoleMenuUserId] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const isResizingRef = useRef(false);
 
@@ -198,6 +200,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   const currentSong = queue[room.current_song_index] || null;
 
+  // ─── Role-based permissions ───────────────────────────────────────
+  const canPlayPause = myRole === 'admin' || myRole === 'moderator';
+  const canRearrange = myRole === 'admin' || myRole === 'moderator';
+  const canAddSongs = true;
+
   // Keep refs in sync with state
   useEffect(() => { roomRef.current = room; }, [room]);
   useEffect(() => { queueRef.current = queue; }, [queue]);
@@ -253,13 +260,31 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       setIsSpeaker(savedSpeaker === 'true');
     }
 
-    // Check if user is creator → admin
-    if (user && initialRoom.created_by === user.username) {
+    // Resolve role: explicit user_roles override > creator → admin > default_role
+    const userRoles = initialRoom.user_roles || {};
+    const defaultRole = initialRoom.default_role || 'dj';
+    if (user && userRoles[user.user_id]) {
+      setMyRole(userRoles[user.user_id]);
+    } else if (user && initialRoom.created_by === user.username) {
       setMyRole('admin');
     } else {
-      setMyRole('dj'); // Default: everyone can add & skip
+      setMyRole(defaultRole as UserRole);
     }
-  }, [initialRoom.slug, initialRoom.created_by]);
+  }, [initialRoom.slug, initialRoom.created_by, initialRoom.user_roles, initialRoom.default_role]);
+
+  // ─── Re-resolve role when room settings change (admin changed default or assigned role) ──
+  useEffect(() => {
+    if (!currentUser) return;
+    const userRoles = room.user_roles || {};
+    const defaultRole = room.default_role || 'dj';
+    if (userRoles[currentUser.user_id]) {
+      setMyRole(userRoles[currentUser.user_id]);
+    } else if (room.created_by === currentUser.username) {
+      setMyRole('admin');
+    } else {
+      setMyRole(defaultRole as UserRole);
+    }
+  }, [room.user_roles, room.default_role, room.created_by, currentUser]);
 
   // ─── Toggle speaker ─────────────────────────────────────────────────
   const toggleSpeaker = useCallback(() => {
@@ -269,6 +294,30 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       return next;
     });
   }, [room.slug]);
+
+  // ─── Admin: update default role ──────────────────────────────────────
+  const updateDefaultRole = useCallback(async (newRole: UserRole) => {
+    setRoom(prev => ({ ...prev, default_role: newRole }));
+    await supabase.from('rooms').update({ default_role: newRole }).eq('id', room.id);
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'role_update',
+      payload: { default_role: newRole, user_roles: room.user_roles }
+    });
+  }, [room.id, room.user_roles]);
+
+  // ─── Admin: update a specific user's role ────────────────────────────
+  const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
+    const updatedRoles = { ...(room.user_roles || {}), [userId]: newRole };
+    setRoom(prev => ({ ...prev, user_roles: updatedRoles }));
+    await supabase.from('rooms').update({ user_roles: updatedRoles }).eq('id', room.id);
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'role_update',
+      payload: { default_role: room.default_role, user_roles: updatedRoles }
+    });
+    setRoleMenuUserId(null);
+  }, [room.id, room.user_roles, room.default_role]);
 
   // ─── YouTube IFrame API ─────────────────────────────────────────────
   useEffect(() => {
@@ -466,6 +515,15 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     // Broadcast: repeat toggle
     channel.on('broadcast', { event: 'repeat_toggle' }, ({ payload }) => {
       setRoom((prev) => ({ ...prev, repeat: payload.repeat as boolean }));
+    });
+
+    // Broadcast: role updates
+    channel.on('broadcast', { event: 'role_update' }, ({ payload }) => {
+      setRoom((prev) => ({
+        ...prev,
+        default_role: payload.default_role,
+        user_roles: payload.user_roles
+      }));
     });
 
     // Presence: track users
@@ -1009,6 +1067,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     durationSeconds: number
   ) => {
     if (!currentUser) return;
+    if (!canAddSongs) return;
 
     // Use MAX(position)+1, not queue.length — deletions create gaps in position
     // values so queue.length can land mid-queue instead of at the end.
@@ -1041,8 +1100,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         payload: { type: 'added', item: data },
       });
 
-      // If this is the first song, start playing
-      if (queue.length === 0) {
+      // If this is the first song, start playing ONLY if the user has play permissions
+      if (queue.length === 0 && canPlayPause) {
         setRoom((prev) => ({ ...prev, is_playing: true, current_song_index: 0 }));
         broadcastPlayback('play', 0);
       }
@@ -1450,6 +1509,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             <div className="flex items-center gap-3">
               <ThemeToggle />
               <div className="room-badge"><div className="ldot" />/{room.slug}</div>
+              {myRole === 'admin' && (
+                <button className="settings-gear" onClick={() => setShowSettings(true)} title="Room Settings">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" /></svg>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1482,7 +1546,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 onMouseEnter={() => setShowPlayerOverlay(true)}
                 onMouseLeave={() => { if (room.is_playing) { overlayTimerRef.current = setTimeout(() => setShowPlayerOverlay(false), 1500); } }}
               >
-                <div className="np-play-circle" onClick={handlePlayPause}>
+                <div className="np-play-circle" onClick={canPlayPause ? handlePlayPause : undefined} style={!canPlayPause ? { opacity: 0.4, cursor: 'not-allowed' } : undefined}>
                   {room.is_playing ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
                   ) : (
@@ -1568,13 +1632,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                       boxShadow: isActiveMatch ? '0 0 0 2px var(--accent-primary)' : '0 0 0 1px var(--theme-glass-border)',
                       backgroundColor: isActiveMatch ? 'var(--theme-hover-bg-strong)' : 'var(--theme-hover-bg)'
                     } : undefined}
-                    onClick={() => handleJumpTo(index)}
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragLeave={handleDragLeave}
-                    onDrop={() => handleDrop(index)}
-                    onDragEnd={() => { setDragOverIndex(null); dragItemRef.current = null; }}
+                    onClick={() => canPlayPause ? handleJumpTo(index) : undefined}
+                    draggable={canRearrange}
+                    onDragStart={canRearrange ? () => handleDragStart(index) : undefined}
+                    onDragOver={canRearrange ? (e) => handleDragOver(e, index) : undefined}
+                    onDragLeave={canRearrange ? handleDragLeave : undefined}
+                    onDrop={canRearrange ? () => handleDrop(index) : undefined}
+                    onDragEnd={canRearrange ? () => { setDragOverIndex(null); dragItemRef.current = null; } : undefined}
                   >
                     {isPlaying && room.is_playing ? (
                       <div className="eq-bars"><div className="eq-bar" /><div className="eq-bar" /><div className="eq-bar" /></div>
@@ -1596,7 +1660,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     <div className="q-dur" style={{ color: isPlaying ? '#1db954' : undefined }}>{formatDuration(item.duration_seconds)}</div>
 
                     {/* Actions for hovering */}
-                    {!isPlaying && index !== (room.current_song_index ?? -1) + 1 && (
+                    {canRearrange && !isPlaying && index !== (room.current_song_index ?? -1) + 1 && (
                       <div className="q-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <div
                           onClick={(e) => moveSongToNext(e, index)}
@@ -1641,9 +1705,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 placeholder="Search artists, songs, albums or YouTube URL..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={searching || addingUrl}
+                disabled={searching || addingUrl || !canAddSongs}
               />
-              <button type="submit" className="search-btn" disabled={searching || !searchQuery.trim()}>
+              <button type="submit" className="search-btn" disabled={searching || !searchQuery.trim() || !canAddSongs}>
                 {searching ? '...' : (addingUrl ? 'Adding...' : 'Search')}
               </button>
             </form>
@@ -1954,23 +2018,56 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 <span className="online-count">{users.length} {users.length === 1 ? 'listener' : 'listeners'}</span>
               </div>
 
-              {users.map((user) => (
-                <div key={user.user_id} className="user-item">
-                  <div className="user-av" style={{ background: user.avatar_color }}>
-                    <span>{user.username.charAt(0).toUpperCase()}</span>
-                    <div className="av-dot" />
-                  </div>
-                  <div className="ui-info">
-                    <div className="ui-name">{user.username}</div>
-                    <div className="ui-status">
-                      {user.is_speaker ? '🔊 Speaker' : '🎧 Listening'}
+              {users.map((user) => {
+                const isMe = user.user_id === currentUser?.user_id;
+                const isCreator = room.created_by === user.username;
+                const displayRole = (room.user_roles && room.user_roles[user.user_id])
+                  ? room.user_roles[user.user_id]
+                  : (isCreator ? 'admin' : (room.default_role || user.role || 'dj'));
+
+                const badgeClass = isMe ? 'badge-you'
+                  : displayRole === 'admin' ? 'badge-admin'
+                    : displayRole === 'moderator' ? 'badge-mod'
+                      : 'badge-dj';
+
+                const canChangeRole = myRole === 'admin' && !isMe && !isCreator;
+
+                return (
+                  <div key={user.user_id} className="user-item" style={{ position: 'relative' }}>
+                    <div className="user-av" style={{ background: user.avatar_color }}>
+                      <span>{user.username.charAt(0).toUpperCase()}</span>
+                      <div className="av-dot" />
                     </div>
+                    <div className="ui-info">
+                      <div className="ui-name">{user.username}</div>
+                      <div className="ui-status">
+                        {user.is_speaker ? '🔊 Speaker' : '🎧 Listening'}
+                      </div>
+                    </div>
+                    <div
+                      className={`ui-badge ${badgeClass} ${canChangeRole ? 'clickable' : ''}`}
+                      onClick={canChangeRole ? (e) => { e.stopPropagation(); setRoleMenuUserId(roleMenuUserId === user.user_id ? null : user.user_id); } : undefined}
+                      title={canChangeRole ? 'Click to change role' : undefined}
+                    >
+                      {isMe ? 'YOU' : (displayRole as string).toUpperCase()}
+                    </div>
+                    {roleMenuUserId === user.user_id && (
+                      <div className="role-dropdown">
+                        {(['admin', 'moderator', 'dj'] as UserRole[]).map(r => (
+                          <div
+                            key={r}
+                            className={`role-dropdown-item ${displayRole === r ? 'active' : ''}`}
+                            onClick={(e) => { e.stopPropagation(); updateUserRole(user.user_id, r); }}
+                          >
+                            <span>{r === 'admin' ? '👑' : r === 'moderator' ? '🛡️' : '🎧'}</span>
+                            {r.charAt(0).toUpperCase() + r.slice(1)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className={`ui-badge badge-${user.role === 'admin' ? 'admin' : (user.user_id === currentUser?.user_id ? 'you' : 'dj')}`}>
-                    {user.user_id === currentUser?.user_id ? 'YOU' : user.role.toUpperCase()}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="listening-now">
@@ -2065,23 +2162,24 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
           <div className="pb-controls">
             <div className="pb-btns">
-              <button className="ctrl" onClick={handlePrev} disabled={room.current_song_index <= 0} title="Previous">
+              <button className="ctrl" onClick={canPlayPause ? handlePrev : undefined} disabled={!canPlayPause || room.current_song_index <= 0} title="Previous" style={!canPlayPause ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" /></svg>
               </button>
-              <button className="play-btn" onClick={handlePlayPause}>
+              <button className="play-btn" onClick={canPlayPause ? handlePlayPause : undefined} style={!canPlayPause ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
                 {room.is_playing ? (
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg>
                 ) : (
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
                 )}
               </button>
-              <button className="ctrl" onClick={handleNext} disabled={!room.repeat && room.current_song_index >= queue.length - 1} title="Next">
+              <button className="ctrl" onClick={canPlayPause ? handleNext : undefined} disabled={!canPlayPause || (!room.repeat && room.current_song_index >= queue.length - 1)} title="Next" style={!canPlayPause ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}>
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="m6 18 8.5-6L6 6v12zm2-8.14 4.96 3.14L8 16.14V9.86zM16 6h2v12h-2z" /></svg>
               </button>
               <button
                 className={`ctrl ${room.repeat ? 'ctrl-active' : ''}`}
                 title="Repeat"
-                onClick={() => {
+                style={!canPlayPause ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}
+                onClick={canPlayPause ? () => {
                   const next = !room.repeat;
                   setRoom((prev) => ({ ...prev, repeat: next }));
                   // Persist to DB
@@ -2092,7 +2190,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     event: 'repeat_toggle',
                     payload: { repeat: next },
                   });
-                }}
+                } : undefined}
               >
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" /></svg>
               </button>
@@ -2203,6 +2301,59 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         </div>
 
       </div>
+
+      {/* Room Settings Modal (Admin only) */}
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="settings-header">
+              <h3>⚙️ Room Settings</h3>
+              <button onClick={() => setShowSettings(false)} className="ext-close-btn">✕</button>
+            </div>
+            <div className="settings-body">
+              <div className="settings-group">
+                <label className="settings-label">Default Role for New Users</label>
+                <p className="settings-desc">Users joining the room will be assigned this role unless you set a specific role for them.</p>
+                <div className="role-options">
+                  {(['moderator', 'dj'] as UserRole[]).map(r => (
+                    <button
+                      key={r}
+                      className={`role-option ${(room.default_role || 'dj') === r ? 'active' : ''}`}
+                      onClick={() => updateDefaultRole(r)}
+                    >
+                      <span className="role-icon">{r === 'moderator' ? '🛡️' : '🎧'}</span>
+                      <div className="role-option-text">
+                        <span className="role-name">{r.charAt(0).toUpperCase() + r.slice(1)}</span>
+                        <span className="role-desc">
+                          {r === 'moderator' ? 'Play/pause, rearrange & add songs'
+                            : 'Add songs to queue only'}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="settings-group">
+                <label className="settings-label">Permissions Matrix</label>
+                <div className="perm-table">
+                  <div className="perm-row perm-header">
+                    <span></span><span>Add</span><span>Play</span><span>Reorder</span>
+                  </div>
+                  {(['admin', 'moderator', 'dj'] as UserRole[]).map(r => (
+                    <div key={r} className="perm-row">
+                      <span className="perm-role">{r.charAt(0).toUpperCase() + r.slice(1)}</span>
+                      <span>✅</span>
+                      <span>{r === 'admin' || r === 'moderator' ? '✅' : '❌'}</span>
+                      <span>{r === 'admin' || r === 'moderator' ? '✅' : '❌'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Extension Install Popup */}
       {showExtensionPopup && (

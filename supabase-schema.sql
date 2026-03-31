@@ -14,6 +14,8 @@ CREATE TABLE rooms (
   volume INTEGER DEFAULT 80,
   is_playing BOOLEAN DEFAULT false,
   is_public BOOLEAN DEFAULT true,
+  default_role TEXT DEFAULT 'dj',
+  user_roles JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -169,3 +171,7 @@ to anon
 using (
   bucket_id = 'chat-images'
 );
+
+-- 10. Role system (per-room default role + per-user overrides)
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS default_role TEXT DEFAULT 'dj';
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS user_roles JSONB DEFAULT '{}'::jsonb;

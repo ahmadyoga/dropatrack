@@ -63,6 +63,8 @@ export default function CreateRoom() {
         is_playing: false,
         current_song_index: 0,
         is_public: true,
+        default_role: 'dj',
+        user_roles: { [user.user_id]: 'admin' },
       });
 
       if (insertError) {
