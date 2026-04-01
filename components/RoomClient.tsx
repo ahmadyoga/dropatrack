@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { getOrCreateUser } from '@/lib/names';
+import { getOrCreateUser, updateLocalUsername } from '@/lib/names';
 import { formatDuration, extractYouTubeId } from '@/lib/youtube';
 import { useAntiDebug } from '@/lib/antiDebug';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -129,6 +129,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   const [showExtensionPopup, setShowExtensionPopup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
   const [roleMenuUserId, setRoleMenuUserId] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const isResizingRef = useRef(false);
@@ -160,6 +162,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const isChatVisibleRef = useRef(false);
   const currentUserRef = useRef<ReturnType<typeof getOrCreateUser> | null>(null);
+  const myRoleRef = useRef<UserRole>('dj');
   // In-app toast notification
   const [chatToast, setChatToast] = useState<{ username: string; message: string; color: string } | null>(null);
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,6 +214,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   useEffect(() => { isSpeakerRef.current = isSpeaker; }, [isSpeaker]);
   useEffect(() => { playerReadyRef.current = playerReady; }, [playerReady]);
   useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => { myRoleRef.current = myRole; }, [myRole]);
 
   // Track whether chat is currently visible (desktop or mobile)
   useEffect(() => {
@@ -294,6 +298,45 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       return next;
     });
   }, [room.slug]);
+
+  // ─── Update Username ────────────────────────────────────────────────
+  const handleUsernameChange = useCallback(async () => {
+    if (!currentUser) return;
+    const trimmed = newUsername.trim();
+    if (!trimmed || trimmed === currentUser.username) {
+      setEditingUsername(false);
+      return;
+    }
+
+    const oldUsername = currentUser.username;
+    const updated = updateLocalUsername(trimmed);
+    if (updated) {
+      setCurrentUser(updated);
+
+      if (channelRef.current) {
+        // Broadcast name change event for chat notifications
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'username_changed',
+          payload: {
+            user_id: currentUser.user_id,
+            old_username: oldUsername,
+            new_username: trimmed
+          }
+        });
+
+        await channelRef.current.track({
+          user_id: updated.user_id,
+          username: updated.username,
+          avatar_color: updated.avatar_color,
+          role: myRoleRef.current,
+          is_speaker: isSpeakerRef.current,
+          joined_at: new Date().toISOString(),
+        });
+      }
+    }
+    setEditingUsername(false);
+  }, [currentUser, newUsername]);
 
   // ─── Admin: update default role ──────────────────────────────────────
   const updateDefaultRole = useCallback(async (newRole: UserRole) => {
@@ -526,6 +569,41 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       }));
     });
 
+    // Broadcast: username changed
+    channel.on('broadcast', { event: 'username_changed' }, ({ payload }) => {
+      const { user_id, old_username, new_username } = payload;
+
+      // If our own identity changed in another tab, update ourselves!
+      if (currentUserRef.current && currentUserRef.current.user_id === user_id) {
+        // Only update if it is different
+        if (currentUserRef.current.username !== new_username) {
+          setCurrentUser(prev => prev ? { ...prev, username: new_username } : null);
+        }
+      }
+
+      setChatMessages((prev) => {
+        const sysMsgId = `sys_rename_${user_id}_${new_username}`;
+        if (prev.some(m => m.id === sysMsgId)) return prev;
+
+        const systemMessage: ChatMessage = {
+          id: sysMsgId,
+          room_id: room.id,
+          user_id: 'system',
+          username: 'System',
+          avatar_color: '#94a3b8',
+          message: `${old_username} changed their name to ${new_username}`,
+          image_url: null,
+          song_ref: null,
+          created_at: new Date().toISOString()
+        };
+
+        const updatedMessages = prev.map(msg =>
+          msg.user_id === user_id ? { ...msg, username: new_username } : msg
+        );
+        return [...updatedMessages, systemMessage];
+      });
+    });
+
     // Presence: track users
     channel
       .on('presence', { event: 'sync' }, () => {
@@ -534,7 +612,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         for (const key in state) {
           const presences = state[key] as unknown as RoomUser[];
           if (presences.length > 0) {
-            roomUsers.push(presences[0]);
+            roomUsers.push(presences[presences.length - 1]); // Get the most recent presence for each user (handles multi-tab)
           }
         }
         setUsers(roomUsers);
@@ -545,8 +623,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             user_id: currentUser.user_id,
             username: currentUser.username,
             avatar_color: currentUser.avatar_color,
-            role: myRole,
-            is_speaker: isSpeaker,
+            role: myRoleRef.current,
+            is_speaker: isSpeakerRef.current,
             joined_at: new Date().toISOString(),
           });
         }
@@ -590,20 +668,36 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       queueSub.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, room.slug, room.id, myRole]);
+  }, [currentUser?.user_id, room.slug, room.id]);
 
-  // ─── Update presence when speaker changes ──────────────────────────
+  // ─── Update presence when role or speaker status changes ───────────
   useEffect(() => {
-    if (!channelRef.current || !currentUser) return;
-    channelRef.current.track({
-      user_id: currentUser.user_id,
-      username: currentUser.username,
-      avatar_color: currentUser.avatar_color,
-      role: myRole,
-      is_speaker: isSpeaker,
-      joined_at: new Date().toISOString(),
-    });
-  }, [isSpeaker, currentUser, myRole]);
+    if (!channelRef.current || !currentUserRef.current) return;
+
+    // We cannot reliably await inside useEffect directly without an async wrapper,
+    // so we handle untrack->track carefully.
+    const updatePresence = async () => {
+      try {
+        await channelRef.current?.untrack();
+        // Adding delay to ensure the older payload is fully discarded by Supabase
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await channelRef.current?.track({
+          user_id: currentUserRef.current!.user_id,
+          username: currentUserRef.current!.username,
+          avatar_color: currentUserRef.current!.avatar_color,
+          role: myRole,
+          is_speaker: isSpeaker,
+          joined_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('Failed to update presence:', err);
+      }
+    };
+
+    updatePresence();
+    // We intentionally OMIT currentUser from dependencies.
+    // Name changes track explicitly inside handleUsernameChange to prevent React race conditions.
+  }, [isSpeaker, myRole]);
 
   // ─── Room heartbeat (keeps room alive, prevents auto-delete) ───────
   useEffect(() => {
@@ -2039,7 +2133,106 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                       <div className="av-dot" />
                     </div>
                     <div className="ui-info">
-                      <div className="ui-name">{user.username}</div>
+                      {isMe && editingUsername ? (
+                        <div className="ui-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="text"
+                            value={newUsername}
+                            onChange={(e) => setNewUsername(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation();
+                                handleUsernameChange();
+                              }
+                              if (e.key === 'Escape') {
+                                e.stopPropagation();
+                                setEditingUsername(false);
+                                setNewUsername(currentUser?.username || '');
+                              }
+                            }}
+                            autoFocus
+                            style={{
+                              width: '140px',
+                              padding: '4px 6px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(255,255,255,0.15)',
+                              backgroundColor: 'rgba(0,0,0,0.2)',
+                              color: 'inherit',
+                              fontSize: '13px',
+                              outline: 'none',
+                              transition: 'border-color 0.2s'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = '#1db954'}
+                            onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.15)'}
+                          />
+                          <div style={{ display: 'flex', gap: '2px' }}>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleUsernameChange(); }}
+                              style={{
+                                background: 'rgba(29,185,84,0.15)',
+                                border: '1px solid rgba(29,185,84,0.3)',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                padding: '2px 6px',
+                                color: '#1db954',
+                                fontSize: '11px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '24px'
+                              }}
+                              title="Save"
+                            >
+                              ✔
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingUsername(false); setNewUsername(currentUser?.username || ''); }}
+                              style={{
+                                background: 'rgba(255,85,85,0.15)',
+                                border: '1px solid rgba(255,85,85,0.3)',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                padding: '2px 6px',
+                                color: '#ff5555',
+                                fontSize: '11px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '24px'
+                              }}
+                              title="Cancel"
+                            >
+                              ✖
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="ui-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {user.username}
+                          {isMe && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setEditingUsername(true); setNewUsername(currentUser?.username || ''); }}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '2px',
+                                color: 'var(--theme-text-muted)',
+                                display: 'inline-flex',
+                                opacity: 0.5,
+                                transition: 'opacity 0.2s, color 0.2s'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#1db954'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = 'var(--theme-text-muted)'; }}
+                              title="Edit Username"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      )}
                       <div className="ui-status">
                         {user.is_speaker ? '🔊 Speaker' : '🎧 Listening'}
                       </div>

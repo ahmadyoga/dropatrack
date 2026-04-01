@@ -146,6 +146,31 @@ export function getOrCreateUser(): (UserIdentity & { isNew: boolean }) | null {
   return { ...plainUser, isNew: true };
 }
 
+export function updateLocalUsername(newUsername: string): (UserIdentity & { isNew: boolean }) | null {
+  if (typeof window === 'undefined') return null;
+
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return null;
+
+  let parsed: StoredUser;
+  try {
+    parsed = JSON.parse(stored) as StoredUser;
+  } catch {
+    return null;
+  }
+
+  const updatedUser: StoredUser = {
+    ...parsed,
+    username: newUsername,
+    expiresAt: Date.now() + EXPIRY_MS,
+  };
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser));
+
+  const { expiresAt, ...plainUser } = updatedUser;
+  return { ...plainUser, isNew: false };
+}
+
 function randomCase(subject: string): string {
   return subject
     .split('')
