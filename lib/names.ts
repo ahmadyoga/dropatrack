@@ -59,16 +59,35 @@ const avatarColors = [
 
 export function generateRandomName(): string {
   const subject = pick(subjects);
+  const modifier = pick(modifiers);
+  const number = Math.random() < 0.3
+    ? Math.floor(Math.random() * 999)
+    : '';
 
-  // 15% chance jadi super absurd
   const isRare = Math.random() < 0.15;
-  const modifier = isRare ? pick(rareModifiers) : pick(modifiers);
+  const isShort = Math.random() < 0.2;
 
-  if (!isRare && Math.random() < 0.3) {
-    return `${modifier} ${subject}`;
+  // 1️⃣ super pendek (biar unik & punchy)
+  if (isShort) {
+    return randomCase(subject);
   }
 
-  return `${subject} ${modifier}`;
+  // 2️⃣ normal (2 kata)
+  let name = Math.random() < 0.5
+    ? `${subject} ${modifier}`
+    : `${modifier} ${subject}`;
+
+  // 3️⃣ optional number (biar variasi)
+  if (number) {
+    name += ` ${number}`;
+  }
+
+  // 4️⃣ rare bonus (tapi tetap pendek)
+  if (isRare) {
+    name = `${subject} ${pick(rareModifiers)}`;
+  }
+
+  return randomCase(name.trim());
 }
 
 export function generateAvatarColor(): string {
@@ -125,4 +144,13 @@ export function getOrCreateUser(): (UserIdentity & { isNew: boolean }) | null {
 
   const { expiresAt, ...plainUser } = user;
   return { ...plainUser, isNew: true };
+}
+
+function randomCase(subject: string): string {
+  return subject
+    .split('')
+    .map((c) =>
+      Math.random() < 0.5 ? c.toLowerCase() : c.toUpperCase()
+    )
+    .join('');
 }
