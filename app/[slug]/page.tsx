@@ -24,12 +24,6 @@ export default async function RoomPage({
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
-    const user = getOrCreateUser();
-
-    if (!user) {
-      return;
-    }
-
     const { data: created } = await supabase
       .from('rooms')
       .insert({
@@ -40,7 +34,7 @@ export default async function RoomPage({
         current_song_index: 0,
         is_public: true,
         default_role: 'dj',
-        user_roles: { [user.user_id]: 'admin' },
+        user_roles: {},
       })
       .select()
       .single();
