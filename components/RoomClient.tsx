@@ -324,15 +324,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             new_username: trimmed
           }
         });
-
-        await channelRef.current.track({
-          user_id: updated.user_id,
-          username: updated.username,
-          avatar_color: updated.avatar_color,
-          role: myRoleRef.current,
-          is_speaker: isSpeakerRef.current,
-          joined_at: new Date().toISOString(),
-        });
+        // Presence update is now handled automatically by the single useEffect below
+        // to prevent race conditions and stale closure overwrites.
       }
     }
     setEditingUsername(false);
@@ -670,21 +663,16 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.user_id, room.slug, room.id]);
 
-  // ─── Update presence when role or speaker status changes ───────────
+  // ─── Update presence when role or speaker status or username changes ──
   useEffect(() => {
-    if (!channelRef.current || !currentUserRef.current) return;
+    if (!channelRef.current || !currentUser) return;
 
-    // We cannot reliably await inside useEffect directly without an async wrapper,
-    // so we handle untrack->track carefully.
     const updatePresence = async () => {
       try {
-        await channelRef.current?.untrack();
-        // Adding delay to ensure the older payload is fully discarded by Supabase
-        await new Promise((resolve) => setTimeout(resolve, 500));
         await channelRef.current?.track({
-          user_id: currentUserRef.current!.user_id,
-          username: currentUserRef.current!.username,
-          avatar_color: currentUserRef.current!.avatar_color,
+          user_id: currentUser.user_id,
+          username: currentUser.username,
+          avatar_color: currentUser.avatar_color,
           role: myRole,
           is_speaker: isSpeaker,
           joined_at: new Date().toISOString(),
@@ -695,9 +683,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     };
 
     updatePresence();
-    // We intentionally OMIT currentUser from dependencies.
-    // Name changes track explicitly inside handleUsernameChange to prevent React race conditions.
-  }, [isSpeaker, myRole]);
+  }, [isSpeaker, myRole, currentUser?.username, currentUser?.avatar_color]);
 
   // ─── Room heartbeat (keeps room alive, prevents auto-delete) ───────
   useEffect(() => {
@@ -1493,11 +1479,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       )
       .subscribe();
 
-    // Request notification permission on first load
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
     chatSubRef.current = chatChannel;
 
     return () => {
@@ -2101,7 +2082,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         <aside className="right-panel">
           <div className="rp-tabs">
             <div className={`rp-tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users</div>
-            <div className={`rp-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => { setActiveTab('chat'); setUnreadChatCount(0); }}>Chat{unreadChatCount > 0 && <span className="chat-badge">{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>}</div>
+            <div className={`rp-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => { 
+              setActiveTab('chat'); 
+              setUnreadChatCount(0);
+              if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                Notification.requestPermission().catch(() => {});
+              }
+            }}>Chat{unreadChatCount > 0 && <span className="chat-badge">{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>}</div>
           </div>
 
           {/* Users Panel */}
@@ -2482,7 +2469,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
             <span>Home</span>
           </button>
-          <button className={`mn-btn ${mobileTab === 'chat' ? 'active' : ''}`} onClick={() => { setMobileTab('chat'); setUnreadChatCount(0); }}>
+          <button className={`mn-btn ${mobileTab === 'chat' ? 'active' : ''}`} onClick={() => { 
+            setMobileTab('chat'); 
+            setUnreadChatCount(0); 
+            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+              Notification.requestPermission().catch(() => {});
+            }
+          }}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
             <span>Room</span>
             {unreadChatCount > 0 && <span className="chat-badge">{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>}
