@@ -129,8 +129,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   const [showExtensionPopup, setShowExtensionPopup] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [editingUsername, setEditingUsername] = useState(false);
-  const [newUsername, setNewUsername] = useState(currentUser?.username || '');
   const [roleMenuUserId, setRoleMenuUserId] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const isResizingRef = useRef(false);
@@ -307,37 +305,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       payload: { default_role: newRole, user_roles: room.user_roles }
     });
   }, [room.id, room.user_roles]);
-
-  // ─── Update username ────────────────────────────────────────────────
-  const changeUsername = useCallback(async () => {
-    if (!currentUser) return;
-    if (!newUsername.trim()) {
-      setNewUsername(currentUser.username || '');
-      setEditingUsername(false);
-      return;
-    }
-    const trimmedUsername = newUsername.trim();
-    if (trimmedUsername === currentUser.username) {
-      setEditingUsername(false);
-      return;
-    }
-    // Update in localStorage
-    const updatedUser = { ...currentUser, username: trimmedUsername };
-    localStorage.setItem('dropatrack_user', JSON.stringify(updatedUser));
-    setCurrentUser(updatedUser);
-    // Update presence in Supabase
-    if (channelRef.current) {
-      await channelRef.current.track({
-        user_id: currentUser.user_id,
-        username: trimmedUsername,
-        avatar_color: currentUser.avatar_color,
-        role: myRole,
-        is_speaker: isSpeaker,
-        joined_at: new Date().toISOString(),
-      });
-    }
-    setEditingUsername(false);
-  }, [currentUser, myRole, isSpeaker, newUsername]);
 
   // ─── Admin: update a specific user's role ────────────────────────────
   const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
@@ -574,20 +541,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // If this is an auto-created room (created_by: 'system') with no user_roles yet,
-          // make the first user to join an admin
-          if (room.created_by === 'system' && (!room.user_roles || Object.keys(room.user_roles).length === 0)) {
-            const updatedRoles: Record<string, UserRole> = { [currentUser.user_id]: 'admin' };
-            await supabase.from('rooms').update({ user_roles: updatedRoles }).eq('id', room.id);
-            setRoom((prev) => ({ ...prev, user_roles: updatedRoles }));
-            setMyRole('admin');
-            channel.send({
-              type: 'broadcast',
-              event: 'role_update',
-              payload: { default_role: room.default_role, user_roles: updatedRoles }
-            });
-          }
-
           await channel.track({
             user_id: currentUser.user_id,
             username: currentUser.username,
@@ -2086,106 +2039,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                       <div className="av-dot" />
                     </div>
                     <div className="ui-info">
-                      {isMe && editingUsername ? (
-                        <div className="ui-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <input
-                            type="text"
-                            value={newUsername}
-                            onChange={(e) => setNewUsername(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.stopPropagation();
-                                changeUsername();
-                              }
-                              if (e.key === 'Escape') {
-                                e.stopPropagation();
-                                setEditingUsername(false);
-                                setNewUsername(currentUser?.username || '');
-                              }
-                            }}
-                            autoFocus
-                            style={{
-                              width: '140px',
-                              padding: '4px 6px',
-                              borderRadius: '4px',
-                              border: '1px solid rgba(255,255,255,0.15)',
-                              backgroundColor: 'rgba(0,0,0,0.2)',
-                              color: 'inherit',
-                              fontSize: '13px',
-                              outline: 'none',
-                              transition: 'border-color 0.2s'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#1db954'}
-                            onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.15)'}
-                          />
-                          <div style={{ display: 'flex', gap: '2px' }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); changeUsername(); }}
-                              style={{
-                                background: 'rgba(29,185,84,0.15)',
-                                border: '1px solid rgba(29,185,84,0.3)',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                padding: '2px 6px',
-                                color: '#1db954',
-                                fontSize: '11px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '24px'
-                              }}
-                              title="Save"
-                            >
-                              ✔
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingUsername(false); setNewUsername(currentUser?.username || ''); }}
-                              style={{
-                                background: 'rgba(255,85,85,0.15)',
-                                border: '1px solid rgba(255,85,85,0.3)',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                padding: '2px 6px',
-                                color: '#ff5555',
-                                fontSize: '11px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '24px'
-                              }}
-                              title="Cancel"
-                            >
-                              ✖
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="ui-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {user.username}
-                          {isMe && (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditingUsername(true); setNewUsername(currentUser?.username || ''); }}
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: 'pointer',
-                                padding: '2px',
-                                color: 'var(--theme-text-muted)',
-                                display: 'inline-flex',
-                                opacity: 0.5,
-                                transition: 'opacity 0.2s, color 0.2s'
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = '#1db954'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.opacity = '0.5'; e.currentTarget.style.color = 'var(--theme-text-muted)'; }}
-                              title="Edit Username"
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      <div className="ui-name">{user.username}</div>
                       <div className="ui-status">
                         {user.is_speaker ? '🔊 Speaker' : '🎧 Listening'}
                       </div>
