@@ -2082,11 +2082,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         <aside className="right-panel">
           <div className="rp-tabs">
             <div className={`rp-tab ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')}>Users</div>
-            <div className={`rp-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => { 
-              setActiveTab('chat'); 
+            <div className={`rp-tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => {
+              setActiveTab('chat');
               setUnreadChatCount(0);
               if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-                Notification.requestPermission().catch(() => {});
+                Notification.requestPermission().catch(() => { });
               }
             }}>Chat{unreadChatCount > 0 && <span className="chat-badge">{unreadChatCount > 99 ? '99+' : unreadChatCount}</span>}</div>
           </div>
@@ -2469,11 +2469,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" /></svg>
             <span>Home</span>
           </button>
-          <button className={`mn-btn ${mobileTab === 'chat' ? 'active' : ''}`} onClick={() => { 
-            setMobileTab('chat'); 
-            setUnreadChatCount(0); 
+          <button className={`mn-btn ${mobileTab === 'chat' ? 'active' : ''}`} onClick={() => {
+            setMobileTab('chat');
+            setUnreadChatCount(0);
             if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-              Notification.requestPermission().catch(() => {});
+              Notification.requestPermission().catch(() => { });
             }
           }}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" /></svg>
@@ -2559,7 +2559,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <strong>⚠️ Peringatan Penting</strong><br />
               Jika kamu memiliki feedback atau menemukan bug, silakan perbaiki sendiri. Kami open-source!<br />
               Kunjungi repo GitHub kami: <a href="https://github.com/ahmadyoga/dropatrack" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', color: '#f87171', fontWeight: 'bold' }}>GitHub DropATrack</a>.<br /><br />
-              <em>"tidak menerima wong ruwet, gaweo dewe bug/feature,e"</em>
+              <em>&quot;tidak menerima wong ruwet, gaweo dewe bug/feature,e&quot;</em>
             </div>
 
             <div className="ext-modal-desc">
@@ -2596,7 +2596,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 <div className="ext-step-info">
                   <div className="ext-step-title">Load the extension</div>
                   <div className="ext-step-text" style={{ paddingBottom: 6 }}>
-                    Click <strong>"Load unpacked"</strong> and select the unzipped <code className="ext-code">extension</code> folder.
+                    Click <strong>&quot;Load unpacked&quot;</strong> and select the unzipped <code className="ext-code">extension</code> folder.
                   </div>
                   <div className="ext-step-text" style={{ color: '#4ade80' }}>
                     Done! Open any YouTube playlist and the DropATrack buttons will appear 🎉
@@ -2606,7 +2606,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             </div>
 
             <button onClick={() => setShowExtensionPopup(false)} className="ext-cta-btn">
-              Got it, let's go! 🎵
+              Got it, let&apos;s go! 🎵
             </button>
           </div>
         </div>

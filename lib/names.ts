@@ -1,54 +1,35 @@
-// Random name generator for anonymous users
-// 2-word combo: ridiculous Indonesian subjects + unhinged modifiers
-const subjects = [
-  // binatang absurd
-  'Kucing', 'Cicak', 'Capybara', 'Lele', 'Ubur2', 'Bekicot', 'Cacing',
-  'Lalat', 'Tokek', 'Kadal', 'Kepiting', 'Nyamuk', 'Kecoak', 'Belut',
-  'Kampret', 'Tikus', 'Siput',
 
-  // makanan / brand
-  'Indomie', 'Micin', 'Bakso', 'Seblak', 'Cilok', 'Boba', 'Cireng',
-  'Nasi', 'Mie', 'Tempe', 'Kerupuk', 'Cimol', 'Gorengan',
+const animals = [
+  'Kucing', 'Cicak', 'Capybara', 'Lele', 'Ubur2', 'Bekicot',
+  'Cacing', 'Lalat', 'Tokek', 'Kadal', 'Kepiting', 'Nyamuk',
+  'Kecoak', 'Belut', 'Kampret', 'Tikus', 'Siput',
 
-  // benda random
-  'Sendal', 'Kolor', 'Ember', 'Gayung', 'Sapu', 'Panci', 'Jemuran',
-  'Kasur', 'Bantal', 'HP', 'Remote', 'Kulkas', 'Galon',
+  // tambahan absurd
+  'AyamGeprek', 'BebekNgegas', 'KucingOren', 'KadalWifi',
+  'LeleNgoding', 'Tuyul', 'Pocong', 'Kunti', 'Genderuwo',
+  'Bocil', 'Bapak2', 'Emak2', 'Ojol', 'Satpam',
 
-  // makhluk & karakter
-  'Tuyul', 'Pocong', 'Kunti', 'Genderuwo', 'Setan', 'Ojol', 'Satpam',
-  'Emak2', 'Bapak2', 'Bocil', 'Wibu', 'Bucin', 'Jones',
+  // benda nyasar (biar chaos)
+  'Sendal', 'Kolor', 'Ember', 'Gayung', 'Remote',
+  'Kulkas', 'Galon', 'RiceCooker'
 ];
 
-const modifiers = [
-  // emosi & slang
-  'Galau', 'Ngambek', 'Baper', 'Mager', 'Gabut', 'Kesel', 'Nangis',
-  'Ngamuk', 'Meledak', 'Kesurupan', 'Kesetrum', 'Ngesot', 'Melayang',
-  'Kejang2', 'Ketiduran',
+const adjectives = [
+  'Ngamuk', 'Ngambek', 'Baper', 'Mager', 'Gabut',
+  'Kesel', 'Nangis', 'Kesurupan', 'Kesetrum',
+  'Ngesot', 'Melayang', 'Kejang2', 'Ketiduran',
 
-  // sifat absurd
-  'Gosong', 'Bengkak', 'Gepeng', 'Nyangkut', 'Melar', 'Bocor',
-  'Terbalik', 'Kelilipan', 'Kesleo', 'Kram', 'Budukan',
+  'Gosong', 'Bengkak', 'Gepeng', 'Nyangkut',
+  'Bocor', 'Terbalik', 'Kelilipan', 'Kesleo',
 
   // meme vibes
-  'Sigma', 'Sultan', 'Toxic', 'Noob', 'AFK', 'GG', 'Halu',
-  'PuraPuraCuek', 'SkipIntro', 'AutoPilot', 'Buffering', 'Loading',
-  'Lagging', 'Ngefreeze',
+  'Sigma', 'Sultan', 'Toxic', 'Noob', 'AFK',
+  'GG', 'Halu', 'AutoPilot', 'Loading', 'Lagging',
 
-  // tingkah laku
-  'Rebahan', 'Karaokean', 'Ngoding', 'Scrolling', 'Nyasar', 'Kabur',
-  'Ngumpet', 'Kejar2an', 'Gelundungan', 'Salto', 'Koprol',
+  // absurd modern
+  'Ngoding', 'Scrolling', 'Nyasar', 'Kabur',
+  'Rebahan', 'Overthinking', 'Burnout'
 ];
-
-const rareModifiers = [
-  // peak absurdity (15% chance)
-  'RizMaxxing', 'NPC', 'DiPHK', 'Multiverse', 'Speedrun',
-  'NoCounter', 'GachaAddict', 'FinalBoss', '999IQ', 'AntiSosial',
-  'DarkMode', 'OneHitKO', 'PayToWin', 'BugHunter', 'GlitchDiDunia',
-];
-
-function pick(arr: string[]) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
 
 const avatarColors = [
   '#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6',
@@ -58,36 +39,10 @@ const avatarColors = [
 ];
 
 export function generateRandomName(): string {
-  const subject = pick(subjects);
-  const modifier = pick(modifiers);
-  const number = Math.random() < 0.3
-    ? Math.floor(Math.random() * 999)
-    : '';
-
-  const isRare = Math.random() < 0.15;
-  const isShort = Math.random() < 0.2;
-
-  // 1️⃣ super pendek (biar unik & punchy)
-  if (isShort) {
-    return randomCase(subject);
-  }
-
-  // 2️⃣ normal (2 kata)
-  let name = Math.random() < 0.5
-    ? `${subject} ${modifier}`
-    : `${modifier} ${subject}`;
-
-  // 3️⃣ optional number (biar variasi)
-  if (number) {
-    name += ` ${number}`;
-  }
-
-  // 4️⃣ rare bonus (tapi tetap pendek)
-  if (isRare) {
-    name = `${subject} ${pick(rareModifiers)}`;
-  }
-
-  return randomCase(name.trim());
+  const animal = animals[Math.floor(Math.random() * animals.length)];
+  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const number = Math.floor(Math.random() * 99) + 1;
+  return `${animal} ${adjective} ${number}`;
 }
 
 export function generateAvatarColor(): string {
