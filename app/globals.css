@@ -58,6 +58,23 @@
   --theme-orb-3: rgba(255, 200, 90, 0.04);
 }
 
+/* Responsive Base Font Size Scaling for high resolution displays */
+html {
+  font-size: 16px;
+}
+
+@media (min-width: 1600px) {
+  html {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 2400px) {
+  html {
+    font-size: 22px;
+  }
+}
+
 * {
   margin: 0;
   padding: 0;

