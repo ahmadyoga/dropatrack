@@ -271,6 +271,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       setMyRole(userRoles[user.user_id]);
     } else if (user && initialRoom.created_by === user.username) {
       setMyRole('admin');
+    } else if (user && Object.keys(userRoles).length === 0 && initialRoom.created_by === 'system') {
+      // Auto-created room with no admins yet — first joiner becomes admin
+      setMyRole('admin');
+      const claimedRoles = { [user.user_id]: 'admin' as UserRole };
+      supabase.from('rooms').update({ user_roles: claimedRoles, created_by: user.username }).eq('id', initialRoom.id).then();
     } else {
       setMyRole(defaultRole as UserRole);
     }
