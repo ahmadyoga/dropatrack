@@ -53,11 +53,32 @@ dropatrack/
 │           └── playlists/route.ts    # Playlist video fetcher
 │
 ├── components/
-│   ├── RoomClient.tsx                # ⭐ MAIN COMPONENT (~2700 lines, ALL room logic)
+│   ├── RoomClient.tsx                # ⭐ ORCHESTRATOR (~230 lines) — composes all room hooks + components
 │   ├── CreateRoom.tsx                # Homepage room creation form
 │   ├── PublicRooms.tsx               # Public rooms listing
 │   ├── ThemeProvider.tsx             # Dark/light theme context
-│   └── ThemeToggle.tsx               # Theme toggle button
+│   ├── ThemeToggle.tsx               # Theme toggle button
+│   └── room/                         # ⭐ Modular room components (extracted from RoomClient)
+│       ├── Sidebar.tsx               # Left panel: logo, mini video player, queue list
+│       ├── QueueList.tsx             # Drag-drop queue item rows (pure presentational)
+│       ├── Discovery.tsx             # Center panel: search + trending/latest/curated
+│       ├── RightPanel.tsx            # Users/Chat tab wrapper
+│       ├── UserList.tsx              # User rows, role badges, inline rename
+│       ├── ChatBox.tsx               # Message list, send form, image paste
+│       ├── PlayerBar.tsx             # Full-width bottom bar: controls + scrubber + volume
+│       ├── MobileNav.tsx             # Bottom mobile tab navigation
+│       ├── modals/
+│       │   ├── SettingsModal.tsx     # Admin room settings modal
+│       │   ├── ExtensionPopup.tsx    # Browser extension install instructions
+│       │   └── ImagePreviewModal.tsx # Fullscreen image preview
+│       └── hooks/
+│           ├── useIdentity.ts        # User identity, role resolution, username update
+│           ├── useRoomSync.ts        # Supabase Realtime: presence, DB listeners, broadcasts
+│           ├── useYouTubePlayer.ts   # YT IFrame lifecycle, speaker mode, silent audio, visibility
+│           ├── usePlayback.ts        # broadcastPlayback, play/pause/next/prev/jump, MediaSession
+│           ├── useQueue.ts           # add/remove/shuffle/drag-drop/reorder, queue search
+│           ├── useDiscovery.ts       # Trending, latest, curated, playlist fetching
+│           └── useChat.ts            # Chat load/subscribe/send, image upload, toast
 │
 ├── lib/
 │   ├── supabase.ts                   # Supabase client singleton

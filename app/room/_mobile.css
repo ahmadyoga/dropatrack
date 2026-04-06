@@ -1,0 +1,150 @@
+/* ============================================================
+   _mobile.css — Mobile nav + responsive layout overrides
+   Breakpoints: 1024px tablet, 768px mobile, 480px small
+   ============================================================ */
+
+/* ── Mobile bottom nav (hidden on desktop) ── */
+.mobile-nav {
+  display: none;
+  grid-row: 3;
+  grid-column: 1;
+  background: var(--theme-glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--theme-glass-border-subtle);
+  z-index: 30;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 8px;
+  height: 60px;
+  width: 100%;
+}
+
+.mn-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--theme-text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  font-family: 'Poppins', sans-serif;
+  padding: 6px 14px;
+  border-radius: 10px;
+  transition: color 0.15s, background 0.15s;
+  position: relative;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.mn-btn svg { width: 20px; height: 20px; }
+.mn-btn.active { color: var(--brand-light); }
+.mn-btn.active svg { filter: drop-shadow(0 0 5px var(--brand-primary)); }
+.mn-btn .chat-badge {
+  position: absolute;
+  top: 4px; right: 8px;
+}
+
+/* ════════════════════════════════════════
+   TABLET — 1024px
+════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  /* Collapse right panel by default */
+  .app-card {
+    grid-template-columns: 260px 1fr 0px;
+  }
+  .app-card.rp-closed {
+    grid-template-columns: 260px 1fr 0px;
+  }
+  /* Right panel toggle still works via JS */
+  .app-card.rp-open {
+    grid-template-columns: 260px 1fr 300px;
+  }
+}
+
+/* ════════════════════════════════════════
+   MOBILE — 768px
+════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* 3-row layout: content | player (80px) | mobile-nav (60px) */
+  .app-card {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: 1fr 80px 60px !important;
+  }
+
+  /* All panels occupy the same row — shown/hidden by JS class */
+  .sidebar,
+  .main,
+  .right-panel {
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Player bar stays on row 2 — collapse to compact 2-column */
+  .player-bar {
+    grid-row: 2;
+    grid-column: 1;
+    grid-template-columns: 1fr auto;
+    padding: 0 14px;
+    gap: 10px;
+  }
+  .pb-controls { display: none; } /* use mobile nav controls instead */
+  .pb-right    { justify-content: flex-end; }
+
+  /* Speaker pill compresses */
+  .speaker-pill span { display: none; } /* hide label, keep icon */
+  .speaker-pill { padding: 6px 10px; gap: 0; }
+
+  /* Mobile nav shows on row 3 */
+  .mobile-nav { display: flex; }
+
+  /* Sidebar resize handle — useless on mobile */
+  .sidebar-resizer { display: none; }
+
+  /* Tab visibility — controlled by JS class on .app-card */
+  .app-card.mobile-tab-queue .sidebar      { display: flex; }
+  .app-card.mobile-tab-queue .main         { display: none; }
+  .app-card.mobile-tab-queue .right-panel  { display: none; }
+
+  .app-card.mobile-tab-main  .sidebar      { display: none; }
+  .app-card.mobile-tab-main  .main         { display: flex; }
+  .app-card.mobile-tab-main  .right-panel  { display: none; }
+
+  .app-card.mobile-tab-chat  .sidebar      { display: none; }
+  .app-card.mobile-tab-chat  .main         { display: none; }
+  .app-card.mobile-tab-chat  .right-panel  { display: flex; }
+
+  /* Now playing card — narrower on mobile */
+  .now-playing-card { margin: 8px; }
+  .npc-art { max-width: 180px; }
+}
+
+/* ════════════════════════════════════════
+   SMALL MOBILE — 480px
+════════════════════════════════════════ */
+@media (max-width: 480px) {
+  /* Even more compact player bar */
+  .player-bar { padding: 0 10px; }
+  .pb-thumb   { width: 42px; height: 42px; }
+  .pb-title   { font-size: 11px; }
+  .pb-artist  { display: none; }
+
+  /* Sidebar now playing even more compact */
+  .now-playing-card { margin: 6px; }
+  .npc-info { padding: 10px 12px 12px; }
+  .npc-title { font-size: 12px; }
+
+  /* Queue items compact */
+  .q-item { padding: 6px 10px; min-height: 44px; }
+  .q-thumb { width: 36px; height: 36px; }
+  .q-title { font-size: 11px; }
+
+  /* Right panel chat bubbles */
+  .cm-bubble { font-size: 11px; padding: 6px 9px; }
+  .chat-input-wrap { padding: 8px 10px; }
+}

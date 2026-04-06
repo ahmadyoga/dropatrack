@@ -1,0 +1,59 @@
+/* ============================================================
+   _layout.css — Grid, background, app-card
+   ============================================================ */
+
+.room-layout-wrapper {
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--theme-bg-base);
+  color: var(--theme-text-primary);
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ambient background */
+.room-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--theme-bg-base);
+  pointer-events: none;
+}
+.room-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 80% 8%,  rgba(124, 58, 237, 0.14) 0%, transparent 55%),
+    radial-gradient(ellipse 35% 45% at 12% 88%, rgba(34, 197, 94, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse 25% 25% at 50% 50%, rgba(99, 102, 241, 0.04) 0%, transparent 60%);
+  animation: orb-drift 20s ease-in-out infinite alternate;
+}
+@keyframes orb-drift {
+  from { transform: scale(1) translate(0, 0); }
+  to   { transform: scale(1.05) translate(10px, -8px); }
+}
+
+/* Main 3-column grid — 80px player row */
+.app-card {
+  position: relative;
+  z-index: 1;
+  width: 100vw;
+  height: 100vh;
+  background: var(--theme-glass-bg);
+  backdrop-filter: blur(48px) saturate(1.6);
+  -webkit-backdrop-filter: blur(48px) saturate(1.6);
+  display: grid;
+  grid-template-columns: auto 1fr 340px;
+  grid-template-rows: 1fr 80px;
+  overflow: hidden;
+  transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.app-card.rp-closed {
+  grid-template-columns: auto 1fr 0px;
+}
