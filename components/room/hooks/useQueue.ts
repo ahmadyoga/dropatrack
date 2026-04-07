@@ -138,6 +138,7 @@ export function useQueue({
     if (videoId) { await addSongByVideoId(videoId); return; }
     setSearching(true);
     setNextPageToken(null);
+    setSearchResults([]); // Fix: clear old search results immediately
     try {
       const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
@@ -156,7 +157,13 @@ export function useQueue({
       const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(searchQuery)}&pageToken=${encodeURIComponent(nextPageToken)}`);
       const data = await res.json();
       if (data.results) {
-        setSearchResults((prev) => [...prev, ...data.results]);
+        setSearchResults((prev) => {
+          // Fix: deduplicate results to prevent same data from showing up in pagination
+          const newResults = data.results.filter(
+            (newItem: { id: string; title: string; thumbnail: string; channelTitle: string; duration: string; durationSeconds: number; }) => !prev.some((oldItem) => oldItem.id === newItem.id)
+          );
+          return [...prev, ...newResults];
+        });
         setNextPageToken(data.nextPageToken || null);
       }
     } catch (err) { console.error('Load more failed:', err); }
