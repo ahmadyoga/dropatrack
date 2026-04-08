@@ -6,7 +6,15 @@ A collaborative real-time music player.
 
 ## Getting Started
 
-First, run the development server:
+First, set up your environment variables. Copy the example file:
+
+```bash
+cp .env.example .env.local
+```
+
+Then, fill in the values in `.env.local`.
+
+Next, run the development server:
 
 ```bash
 npm run dev
