@@ -19,7 +19,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const referer = "https://dropatrack.vercel.app";
+  const rawReferer = request.headers.get('referer');
+  const referer = rawReferer ? new URL(rawReferer).origin : request.nextUrl.origin;
 
   try {
     // Fetch most popular music videos — we'll sort by newest publish date

@@ -17,7 +17,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const referer = "https://dropatrack.vercel.app";
+  const rawReferer = request.headers.get('referer');
+  const referer = rawReferer ? new URL(rawReferer).origin : request.nextUrl.origin;
 
   try {
     const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&chart=mostPopular&videoCategoryId=10&regionCode=${encodeURIComponent(regionCode)}&maxResults=${encodeURIComponent(maxResults)}&key=${apiKey}`;

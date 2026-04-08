@@ -7,6 +7,7 @@ import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { YTPlayer } from './room/hooks/useYouTubePlayer';
 import '@/app/room.css';
+import '@/app/room/_mobile.css';
 
 // Hooks
 import { useIdentity } from './room/hooks/useIdentity';
@@ -55,6 +56,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [showExtensionPopup, setShowExtensionPopup] = useState(false);
   const [roleMenuUserId, setRoleMenuUserId] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(350);
+  const [isMobile, setIsMobile] = useState(false);
   const [userTimezone] = useState(() => detectTimezone());
 
   // ── Shared refs (created here, passed into hooks) ──────────────────
@@ -73,6 +75,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // Keep core refs in sync
   useEffect(() => { roomRef.current = room; }, [room]);
   useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
   useEffect(() => {
     isChatVisibleRef.current = activeTab === 'chat' || mobileTab === 'chat';
   }, [activeTab, mobileTab]);
@@ -260,7 +269,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           myRole={myRole}
           isSpeaker={isSpeaker}
           playerReady={playerReady}
-          sidebarWidth={sidebarWidth}
+          sidebarWidth={isMobile ? undefined : sidebarWidth}
           canPlayPause={canPlayPause}
           canRearrange={canRearrange}
           showPlayerOverlay={showPlayerOverlay}
@@ -277,6 +286,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           shuffling={shuffling}
           dragOverIndex={dragOverIndex}
           onPlayPause={handlePlayPause}
+          onNext={handleNext}
+          onPrev={handlePrev}
           onJumpTo={handleJumpTo}
           onRemoveSong={removeSong}
           onMoveToNext={moveSongToNext}

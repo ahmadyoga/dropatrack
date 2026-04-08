@@ -17,7 +17,8 @@ export async function GET(
     return Response.json({ error: 'YouTube API key not configured' }, { status: 500 });
   }
 
-  const referer = "https://dropatrack.vercel.app";
+  const rawReferer = request.headers.get('referer');
+  const referer = rawReferer ? new URL(rawReferer).origin : request.nextUrl.origin;
 
   try {
     // Step 1: Get playlist items (1 quota unit)

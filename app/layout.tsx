@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
@@ -14,6 +14,13 @@ export const metadata: Metadata = {
       "Share music across devices in real-time. Create a room, drop tracks, and listen together.",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

@@ -102,7 +102,7 @@ export default function PlayerBar({
           <div className="pb-title">{currentSong ? (currentSong.title || 'Unknown Track') : 'No track'}</div>
           <div className="pb-artist">{currentSong ? currentSong.added_by : ''}</div>
         </div>
-        {currentSong && <span className="pb-heart">♥</span>}
+        {currentSong && <span className="pb-heart"></span>}
       </div>
 
       {/* Controls */}

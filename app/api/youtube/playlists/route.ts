@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: 'YouTube API key not configured' }, { status: 500 });
   }
 
-  const referer = "https://dropatrack.vercel.app";
+  const rawReferer = request.headers.get('referer');
+  const referer = rawReferer ? new URL(rawReferer).origin : request.nextUrl.origin;
 
   try {
     let url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${MUSIC_CHANNEL_ID}&maxResults=${encodeURIComponent(maxResults)}&hl=id&key=${apiKey}`;

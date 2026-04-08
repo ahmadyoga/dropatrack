@@ -13,7 +13,8 @@ export async function GET(request: NextRequest) {
 
   // Fetch thumbnails for each playlist from YouTube API (optional, 1 quota unit per playlist)
   const apiKey = process.env.YOUTUBE_API_KEY;
-  const referer = "https://dropatrack.vercel.app";
+  const rawReferer = request.headers.get('referer');
+  const referer = rawReferer ? new URL(rawReferer).origin : request.nextUrl.origin;
 
   if (apiKey) {
     // Collect all playlist IDs to batch-fetch thumbnails
