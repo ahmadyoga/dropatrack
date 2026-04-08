@@ -106,7 +106,10 @@ export function usePlayback({
       if (repeatRef.current && queueLen > 0) {
         nextIndex = 0;
       } else {
+        // End of playlist — broadcast pause to all clients
         isTransitioningRef.current = false;
+        setRoom((prev) => ({ ...prev, is_playing: false }));
+        broadcastPlayback('pause', currentIdx);
         return;
       }
     } else {
