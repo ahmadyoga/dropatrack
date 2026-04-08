@@ -110,17 +110,17 @@
 }
 
 /* ════════════════════════════════════════
-   NOW PLAYING CARD — immersive redesign
+   NOW PLAYING CARD — compact horizontal
 ════════════════════════════════════════ */
 .now-playing-card {
   flex-shrink: 0;
-  margin: 12px;
-  border-radius: 16px;
+  margin: 10px 12px;
+  border-radius: 14px;
   overflow: hidden;
   position: relative;
   background: #0d0a1e;
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 8px 24px rgba(0, 0, 0, 0.4),
     0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
 
@@ -130,7 +130,7 @@
   inset: -20px;
   z-index: 0;
   overflow: hidden;
-  filter: blur(40px) saturate(1.8) brightness(0.35);
+  filter: blur(40px) saturate(1.8) brightness(0.3);
 }
 
 .npc-ambient img {
@@ -139,39 +139,46 @@
   object-fit: cover;
 }
 
-/* Default gradient when no song */
 .npc-ambient::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.6) 0%, rgba(34, 197, 94, 0.3) 100%);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.5) 0%, rgba(34, 197, 94, 0.25) 100%);
 }
 
-/* Album art — square floating */
-.npc-art {
+/* Horizontal body: thumbnail + info side by side */
+.npc-body {
   position: relative;
   z-index: 2;
-  width: calc(100% - 40px);
-  max-width: 220px;
-  aspect-ratio: 1;
-  margin: 20px auto 0;
-  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+/* Album art — compact square */
+.npc-art {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
   box-shadow:
-    0 16px 48px rgba(0, 0, 0, 0.6),
+    0 6px 20px rgba(0, 0, 0, 0.55),
     0 0 0 1px rgba(255, 255, 255, 0.08);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s;
 }
 
 .npc-art:hover {
-  transform: scale(1.03);
+  transform: scale(1.05);
   box-shadow:
-    0 20px 56px rgba(124, 58, 237, 0.35),
+    0 10px 28px rgba(124, 58, 237, 0.4),
     0 0 0 1px rgba(124, 58, 237, 0.4);
 }
 
-/* Speaker mode: full YouTube player in card */
+/* Speaker mode: 16:9 video above the horizontal row */
 .npc-yt-player {
   position: relative;
   z-index: 2;
@@ -183,7 +190,7 @@
 }
 
 .npc-yt-player iframe,
-.npc-yt-player>div {
+.npc-yt-player > div {
   width: 100% !important;
   height: 100% !important;
 }
@@ -205,22 +212,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 52px;
+  font-size: 28px;
   background: linear-gradient(145deg, #1a0a35, #0d1535);
-  opacity: 0.7;
 }
 
 /* Play/pause overlay on art */
 .npc-art-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0;
   transition: opacity 0.2s;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .npc-art:hover .npc-art-overlay:not(.npc-art-overlay--hidden) {
@@ -237,68 +243,63 @@
 }
 
 @keyframes vinyl-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 /* Equalizer bars (bottom-left corner of art) */
 .npc-eq {
   position: absolute;
-  bottom: 10px;
-  left: 10px;
+  bottom: 6px;
+  left: 6px;
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  height: 16px;
+  height: 12px;
 }
 
 .npc-eq .eq-bar {
-  width: 3px;
+  width: 2px;
   background: var(--accent-primary);
   border-radius: 2px;
-  box-shadow: 0 0 6px var(--accent-primary);
+  box-shadow: 0 0 4px var(--accent-primary);
 }
 
 .npc-eq .eq-bar:nth-child(1) {
-  height: 6px;
+  height: 5px;
   animation: eq-bounce 0.5s ease-in-out infinite alternate;
   animation-delay: 0s;
 }
 
 .npc-eq .eq-bar:nth-child(2) {
-  height: 12px;
+  height: 10px;
   animation: eq-bounce 0.5s ease-in-out infinite alternate;
   animation-delay: 0.1s;
 }
 
 .npc-eq .eq-bar:nth-child(3) {
-  height: 8px;
+  height: 7px;
   animation: eq-bounce 0.5s ease-in-out infinite alternate;
   animation-delay: 0.2s;
 }
 
 .npc-eq .eq-bar:nth-child(4) {
-  height: 14px;
+  height: 12px;
   animation: eq-bounce 0.5s ease-in-out infinite alternate;
   animation-delay: 0.15s;
 }
 
 @keyframes eq-bounce {
-  to {
-    height: 2px;
-  }
+  to { height: 2px; }
 }
 
-/* Track info block */
+/* Track info block — fills remaining space next to art */
 .npc-info {
   position: relative;
   z-index: 2;
-  padding: 14px 16px 16px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
 }
 
 .npc-live-badge {
@@ -381,77 +382,7 @@
   letter-spacing: 0.6px;
 }
 
-/* Base state: hidden on desktop */
-.npc-mobile-controls {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 16px;
-}
 
-.npc-mobile-controls .ctrl {
-  background: none;
-  border: none;
-  padding: 0;
-  color: rgba(255, 255, 255, 0.6);
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: color 0.15s, transform 0.15s;
-}
-
-.npc-mobile-controls .ctrl:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.npc-mobile-controls .ctrl:hover:not(:disabled) {
-  color: #fff;
-  transform: scale(1.1);
-}
-
-.npc-mobile-controls .ctrl svg {
-  width: 22px;
-  height: 22px;
-}
-
-.npc-mobile-controls .play-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #fff;
-  color: #111;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.3);
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.npc-mobile-controls .play-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.npc-mobile-controls .play-btn:hover:not(:disabled) {
-  transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.4);
-}
-
-.npc-mobile-controls .play-btn:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
-.npc-mobile-controls .play-btn svg {
-  width: 20px;
-  height: 20px;
-}
 
 /* ════════════════════
    Queue section

@@ -40,25 +40,40 @@
   letter-spacing: 0.3px;
   text-transform: uppercase;
 }
-.mn-btn svg { width: 20px; height: 20px; }
-.mn-btn.active { color: var(--brand-light); }
-.mn-btn.active svg { filter: drop-shadow(0 0 5px var(--brand-primary)); }
+
+.mn-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.mn-btn.active {
+  color: var(--brand-light);
+}
+
+.mn-btn.active svg {
+  filter: drop-shadow(0 0 5px var(--brand-primary));
+}
+
 .mn-btn .chat-badge {
   position: absolute;
-  top: 4px; right: 8px;
+  top: 4px;
+  right: 8px;
 }
 
 /* ════════════════════════════════════════
    TABLET — 1024px
 ════════════════════════════════════════ */
 @media (max-width: 1024px) {
+
   /* Collapse right panel by default */
   .app-card {
     grid-template-columns: 260px 1fr 0px;
   }
+
   .app-card.rp-closed {
     grid-template-columns: 260px 1fr 0px;
   }
+
   /* Right panel toggle still works via JS */
   .app-card.rp-open {
     grid-template-columns: 260px 1fr 300px;
@@ -69,6 +84,7 @@
    MOBILE — 768px
 ════════════════════════════════════════ */
 @media (max-width: 768px) {
+
   /* 3-row layout: content | player (80px) | mobile-nav (60px) */
   .app-card {
     grid-template-columns: 1fr !important;
@@ -97,11 +113,10 @@
     box-sizing: border-box !important;
   }
 
-  /* Hide sidebar mobile play/pause/next controls (moved back to player-bar) */
-  .npc-mobile-controls { display: none !important; }
-
   /* Hide people/users icon button in player bar on mobile */
-  .pb-right .icon-btn { display: none !important; }
+  .pb-right .icon-btn {
+    display: none !important;
+  }
 
   /* Player bar — 2 rows on mobile: track+right on top, controls below */
   .player-bar {
@@ -109,7 +124,7 @@
     grid-column: 1 !important;
     display: grid !important;
     grid-template-columns: 1fr auto !important;
-    grid-template-areas: 
+    grid-template-areas:
       "track right"
       "controls controls" !important;
     padding: 12px 14px 16px !important;
@@ -117,46 +132,103 @@
     height: auto !important;
     overflow: visible !important;
   }
-  .pb-track { grid-area: track !important; }
-  .pb-right { grid-area: right !important; justify-content: flex-end; }
-  
+
+  .pb-track {
+    grid-area: track !important;
+  }
+
+  .pb-right {
+    grid-area: right !important;
+    justify-content: flex-end;
+  }
+
   /* Show center controls below track */
-  .pb-controls { 
-    grid-area: controls !important; 
-    display: flex !important; 
+  .pb-controls {
+    grid-area: controls !important;
+    display: flex !important;
     width: 100% !important;
   }
-  .pb-progress { display: flex !important; margin-top: 4px; }
-  
-  .vol-wrap    { display: flex !important; }
-  .vol-bar     { width: 50px; } /* Slightly shorter volume bar for mobile fit */
+
+  .pb-progress {
+    display: flex !important;
+    margin-top: 4px;
+  }
+
+  .vol-wrap {
+    display: flex !important;
+  }
+
+  .vol-bar {
+    width: 50px;
+  }
+
+  /* Slightly shorter volume bar for mobile fit */
 
   /* Keep speaker pill but remove label text */
-  .speaker-pill span { display: none; }
-  .speaker-pill { padding: 6px 10px; gap: 0; }
+  .speaker-pill span {
+    display: none;
+  }
+
+  .speaker-pill {
+    padding: 6px 10px;
+    gap: 0;
+  }
 
   /* Mobile nav shows on row 3 */
-  .mobile-nav { display: flex; }
+  .mobile-nav {
+    display: flex;
+  }
 
   /* Sidebar resize handle — useless on mobile */
-  .sidebar-resizer { display: none; }
+  .sidebar-resizer {
+    display: none;
+  }
 
   /* Tab visibility — controlled by JS class on .app-card */
-  .app-card.mobile-tab-queue .sidebar      { display: flex !important; }
-  .app-card.mobile-tab-queue .main         { display: none !important; }
-  .app-card.mobile-tab-queue .right-panel  { display: none !important; }
+  .app-card.mobile-tab-queue .sidebar {
+    display: flex !important;
+  }
 
-  .app-card.mobile-tab-main  .sidebar      { display: none !important; }
-  .app-card.mobile-tab-main  .main         { display: flex !important; }
-  .app-card.mobile-tab-main  .right-panel  { display: none !important; }
+  .app-card.mobile-tab-queue .main {
+    display: none !important;
+  }
 
-  .app-card.mobile-tab-chat  .sidebar      { display: none !important; }
-  .app-card.mobile-tab-chat  .main         { display: none !important; }
-  .app-card.mobile-tab-chat  .right-panel  { display: flex !important; }
+  .app-card.mobile-tab-queue .right-panel {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-main .sidebar {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-main .main {
+    display: flex !important;
+  }
+
+  .app-card.mobile-tab-main .right-panel {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-chat .sidebar {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-chat .main {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-chat .right-panel {
+    display: flex !important;
+  }
 
   /* Now playing card — fit within screen */
-  .now-playing-card { margin: 8px; }
-  .npc-art { max-width: 200px; }
+  .now-playing-card {
+    margin: 8px;
+  }
+
+  .npc-art {
+    max-width: 200px;
+  }
 }
 
 
@@ -164,27 +236,80 @@
    SMALL MOBILE — 480px
 ════════════════════════════════════════ */
 @media (max-width: 480px) {
+
   /* Even more compact player bar */
-  .player-bar { padding: 0 10px; }
-  .pb-thumb   { width: 36px; height: 36px; }
-  .pb-title   { font-size: 10px; }
-  .pb-artist  { display: none; }
-  .pb-controls .ctrl { width: 28px; height: 28px; }
-  .pb-controls .play-btn { width: 36px; height: 36px; }
-  .pb-controls .ctrl-nav svg { width: 18px; height: 18px; }
-  .pb-controls .ctrl-nav svg { width: 18px; height: 18px; }
+  .player-bar {
+    padding: 0 10px;
+  }
+
+  .pb-thumb {
+    width: 36px;
+    height: 36px;
+  }
+
+  .pb-title {
+    font-size: 10px;
+  }
+
+  .pb-artist {
+    display: none;
+  }
+
+  .pb-controls .ctrl {
+    width: 28px;
+    height: 28px;
+  }
+
+  .pb-controls .play-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .pb-controls .ctrl-nav svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .pb-controls .ctrl-nav svg {
+    width: 18px;
+    height: 18px;
+  }
 
   /* Sidebar now playing even more compact */
-  .now-playing-card { margin: 6px; }
-  .npc-info { padding: 10px 12px 12px; }
-  .npc-title { font-size: 12px; }
+  .now-playing-card {
+    margin: 6px;
+  }
+
+  .npc-info {
+    padding: 10px 12px 12px;
+  }
+
+  .npc-title {
+    font-size: 12px;
+  }
 
   /* Queue items compact */
-  .q-item { padding: 6px 10px; min-height: 44px; }
-  .q-thumb { width: 36px; height: 36px; }
-  .q-title { font-size: 11px; }
+  .q-item {
+    padding: 6px 10px;
+    min-height: 44px;
+  }
+
+  .q-thumb {
+    width: 36px;
+    height: 36px;
+  }
+
+  .q-title {
+    font-size: 11px;
+  }
 
   /* Right panel chat bubbles */
-  .cm-bubble { font-size: 11px; padding: 6px 9px; }
-  .chat-input-wrap { padding: 8px 10px; }
+  .cm-bubble {
+    font-size: 11px;
+    padding: 6px 9px;
+  }
+
+  .chat-input-wrap {
+    padding: 8px 10px;
+  }
 }

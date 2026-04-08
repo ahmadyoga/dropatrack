@@ -112,7 +112,8 @@ export function useYouTubePlayer({
     });
   }, [room.slug]);
 
-  // Silent audio keepalive
+  // Silent audio keepalive — keeps AudioContext alive on mobile/iOS
+  // but suspends when paused so the browser tab doesn't show a sound icon
   const startSilentAudio = useCallback(() => {
     if (audioContextRef.current) return;
     try {
@@ -127,11 +128,6 @@ export function useYouTubePlayer({
       gain.connect(ctx.destination);
       osc.start(0);
       oscillatorRef.current = osc;
-      (ctx as unknown as { onstatechange: (() => void) | null }).onstatechange = () => {
-        if (ctx.state === 'interrupted' || ctx.state === 'suspended') {
-          ctx.resume().catch(() => { /* ignore */ });
-        }
-      };
       const resumeOnce = () => {
         ctx.resume().catch(() => { /* ignore */ });
         document.removeEventListener('touchstart', resumeOnce);
@@ -151,11 +147,24 @@ export function useYouTubePlayer({
     } catch { /* ignore */ }
   }, []);
 
+  // Start/stop the AudioContext with speaker mode
   useEffect(() => {
     if (isSpeaker) startSilentAudio();
     else stopSilentAudio();
     return () => { stopSilentAudio(); };
   }, [isSpeaker, startSilentAudio, stopSilentAudio]);
+
+  // Suspend AudioContext when paused (removes tab sound icon),
+  // resume it when playing (re-activates iOS keepalive)
+  useEffect(() => {
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+    if (room.is_playing) {
+      ctx.resume().catch(() => { /* ignore */ });
+    } else {
+      ctx.suspend().catch(() => { /* ignore */ });
+    }
+  }, [room.is_playing]);
 
   // YouTube IFrame player lifecycle
   useEffect(() => {
