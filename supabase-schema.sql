@@ -129,7 +129,7 @@ CREATE POLICY "Anyone can delete rooms" ON rooms
 -- Index for cleanup queries
 CREATE INDEX idx_rooms_last_active ON rooms(last_active_at);
 
--- 7. Server-side cleanup function (deletes rooms inactive for 5+ minutes)
+-- 7. Server-side cleanup function (deletes rooms inactive for 30+ minutes)
 -- Queue items are cascade-deleted automatically
 CREATE OR REPLACE FUNCTION cleanup_stale_rooms()
 RETURNS INTEGER AS $$
@@ -137,7 +137,7 @@ DECLARE
   deleted_count INTEGER;
 BEGIN
   DELETE FROM rooms
-  WHERE last_active_at < NOW() - INTERVAL '5 minutes';
+  WHERE last_active_at < NOW() - INTERVAL '30 minutes';
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
   RETURN deleted_count;
 END;

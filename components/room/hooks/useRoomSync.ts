@@ -243,7 +243,10 @@ export function useRoomSync({
     updatePresence();
   }, [isSpeaker, myRole, currentUser?.username, currentUser?.avatar_color]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Room heartbeat
+  // Room heartbeat — uses Web Worker to survive background tab throttling.
+  // Browser setInterval gets throttled/suspended in background tabs, but
+  // Web Worker timers keep running, preventing cleanup_stale_rooms from
+  // deleting rooms while users are still connected.
   useEffect(() => {
     const ping = () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,10 +259,52 @@ export function useRoomSync({
       if (isSpeaker && playbackTime > 0) update.current_playback_time = playbackTime;
       supabase.from('rooms').update(update).eq('id', initialRoom.id).then();
     };
+
+    // Immediate heartbeat on mount
     ping();
-    const interval = setInterval(ping, 60_000);
-    return () => clearInterval(interval);
-  }, [isSpeaker, initialRoom.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Create inline Web Worker for background-safe timer
+    let worker: Worker | null = null;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+    try {
+      const workerCode = `
+        let interval = null;
+        self.onmessage = function(e) {
+          if (e.data === 'start') {
+            if (interval) clearInterval(interval);
+            interval = setInterval(() => self.postMessage('tick'), 30000);
+          } else if (e.data === 'stop') {
+            if (interval) clearInterval(interval);
+            interval = null;
+          }
+        };
+      `;
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      worker = new Worker(URL.createObjectURL(blob));
+      worker.onmessage = () => ping();
+      worker.postMessage('start');
+    } catch {
+      // Web Worker not available (e.g. SSR, restrictive CSP) — fall back to setInterval
+      fallbackInterval = setInterval(ping, 30_000);
+    }
+
+    // Backup: immediate heartbeat when tab becomes visible again
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        ping();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (worker) {
+        worker.postMessage('stop');
+        worker.terminate();
+      }
+      if (fallbackInterval) clearInterval(fallbackInterval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isSpeaker, initialRoom.id]);
 
   return { users };
 }

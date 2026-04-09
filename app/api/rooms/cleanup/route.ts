@@ -5,16 +5,16 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Called periodically to delete rooms inactive for 5+ minutes
+// Called periodically to delete rooms inactive for 30+ minutes
 // Can be triggered by: Vercel Cron, pg_cron, or client-side on page load
 export async function POST() {
   try {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
     const { data: staleRooms, error: fetchError } = await supabase
       .from('rooms')
       .select('id, slug, last_active_at')
-      .lt('last_active_at', fiveMinutesAgo);
+      .lt('last_active_at', thirtyMinutesAgo);
 
     if (fetchError) {
       console.error('Error finding stale rooms:', fetchError);
