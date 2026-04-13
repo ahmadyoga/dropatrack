@@ -101,6 +101,7 @@ export function usePlayback({
     const queueLen = queueRef.current.length;
     if (isTransitioningRef.current) return;
     isTransitioningRef.current = true;
+    setTimeout(() => { isTransitioningRef.current = false; }, 2000);
     let nextIndex: number;
     if (currentIdx >= queueLen - 1) {
       if (repeatRef.current && queueLen > 0) {

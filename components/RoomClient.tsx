@@ -51,7 +51,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [queue, setQueue] = useState<QueueItem[]>(initialQueue);
   const [activeTab, setActiveTab] = useState<'users' | 'chat'>('users');
   const [mobileTab, setMobileTab] = useState<'main' | 'queue' | 'chat'>('main');
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showExtensionPopup, setShowExtensionPopup] = useState(false);
   const [roleMenuUserId, setRoleMenuUserId] = useState<string | null>(null);
@@ -259,7 +259,10 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── Render ────────────────────────────────────────────────────────
   return (
     <div className="room-layout-wrapper">
-      <div className="room-bg" />
+      <div
+        className="room-bg"
+        style={currentSong?.thumbnail_url ? { backgroundImage: `url(${currentSong.thumbnail_url})` } : undefined}
+      />
       <div className={`app-card ${!isRightPanelOpen ? 'rp-closed' : ''} mobile-tab-${mobileTab}`}>
 
         <Sidebar
@@ -301,36 +304,62 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           startResizing={startResizing}
         />
 
-        <Discovery
-          queuedVideoIds={queuedVideoIds}
-          searching={searching}
-          addingUrl={addingUrl}
-          canAddSongs={true}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          searchResults={searchResults}
-          setSearchResults={setSearchResults}
-          nextPageToken={nextPageToken}
-          loadingMore={loadingMore}
-          latestVideos={latestVideos}
-          latestLoading={latestLoading}
-          trendingVideos={trendingVideos}
-          trendingLoading={trendingLoading}
-          curatedSections={curatedSections}
-          curatedLoading={curatedLoading}
-          selectedPlaylist={selectedPlaylist}
-          setSelectedPlaylist={setSelectedPlaylist}
-          playlistVideos={playlistVideos}
-          playlistVideosLoading={playlistVideosLoading}
-          showAllPlaylists={showAllPlaylists}
-          setShowAllPlaylists={setShowAllPlaylists}
-          onSearch={handleSearch}
-          onLoadMore={handleLoadMore}
-          onAddSong={addSongToQueue}
-          onOpenPlaylist={openPlaylist}
-          onRefreshTrending={() => fetchTrending(userTimezone)}
-          onRefreshLatest={fetchLatest}
-        />
+        <div className="main-col">
+          <Discovery
+            users={users}
+            queuedVideoIds={queuedVideoIds}
+            searching={searching}
+            addingUrl={addingUrl}
+            canAddSongs={true}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            searchResults={searchResults}
+            setSearchResults={setSearchResults}
+            nextPageToken={nextPageToken}
+            loadingMore={loadingMore}
+            latestVideos={latestVideos}
+            latestLoading={latestLoading}
+            trendingVideos={trendingVideos}
+            trendingLoading={trendingLoading}
+            curatedSections={curatedSections}
+            curatedLoading={curatedLoading}
+            selectedPlaylist={selectedPlaylist}
+            setSelectedPlaylist={setSelectedPlaylist}
+            playlistVideos={playlistVideos}
+            playlistVideosLoading={playlistVideosLoading}
+            showAllPlaylists={showAllPlaylists}
+            setShowAllPlaylists={setShowAllPlaylists}
+            onSearch={handleSearch}
+            onLoadMore={handleLoadMore}
+            onAddSong={addSongToQueue}
+            onOpenPlaylist={openPlaylist}
+            onRefreshTrending={() => fetchTrending(userTimezone)}
+            onRefreshLatest={fetchLatest}
+          />
+
+
+          <PlayerBar
+            room={room}
+            queue={queue}
+            currentSong={currentSong}
+            isSpeaker={isSpeaker}
+            canPlayPause={canPlayPause}
+            currentTime={currentTime}
+            duration={duration}
+            progressPercent={progressPercent}
+            isRightPanelOpen={isRightPanelOpen}
+            setIsRightPanelOpen={setIsRightPanelOpen}
+            playerRef={playerRef}
+            playerReady={playerReady}
+            channelRef={channelRef}
+            setRoom={setRoom}
+            setCurrentTime={setCurrentTime}
+            onPlayPause={handlePlayPause}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            onToggleSpeaker={toggleSpeaker}
+          />
+        </div>
 
         <RightPanel
           activeTab={activeTab}
@@ -360,29 +389,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           onAddSongFromChat={(youtubeId, title, _artist, _duration) => addSongToQueue(youtubeId, title, '', 0)}
           onPreviewImage={setPreviewImage}
         />
-
-        <PlayerBar
-          room={room}
-          queue={queue}
-          currentSong={currentSong}
-          isSpeaker={isSpeaker}
-          canPlayPause={canPlayPause}
-          currentTime={currentTime}
-          duration={duration}
-          progressPercent={progressPercent}
-          isRightPanelOpen={isRightPanelOpen}
-          setIsRightPanelOpen={setIsRightPanelOpen}
-          playerRef={playerRef}
-          playerReady={playerReady}
-          channelRef={channelRef}
-          setRoom={setRoom}
-          setCurrentTime={setCurrentTime}
-          onPlayPause={handlePlayPause}
-          onNext={handleNext}
-          onPrev={handlePrev}
-          onToggleSpeaker={toggleSpeaker}
-        />
-
         <MobileNav
           mobileTab={mobileTab}
           setMobileTab={setMobileTab}

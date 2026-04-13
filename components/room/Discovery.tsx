@@ -1,6 +1,6 @@
 'use client';
 
-import type { TrendingVideo } from '@/lib/types';
+import type { TrendingVideo, RoomUser } from '@/lib/types';
 import type { CuratedSection } from '@/lib/curatedPlaylists';
 import { formatDuration } from '@/lib/youtube';
 
@@ -22,6 +22,7 @@ const GRADIENT_COLORS = [
 ];
 
 interface DiscoveryProps {
+  users: RoomUser[];
   queuedVideoIds: Set<string>;
   searching: boolean;
   addingUrl: boolean;
@@ -53,7 +54,7 @@ interface DiscoveryProps {
 }
 
 export default function Discovery({
-  queuedVideoIds, searching, addingUrl, canAddSongs,
+  users, queuedVideoIds, searching, addingUrl, canAddSongs,
   searchQuery, setSearchQuery, searchResults, setSearchResults,
   nextPageToken, loadingMore,
   latestVideos, latestLoading, trendingVideos, trendingLoading,
@@ -66,8 +67,8 @@ export default function Discovery({
     <main className="main">
 
       {/* ── Search header ── */}
-      <div className="main-top">
-        <form onSubmit={onSearch} className="search-bar">
+      <div className="main-top" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <form onSubmit={onSearch} className="search-bar" style={{ flex: 1 }}>
           <span className="s-icon">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
           </span>
@@ -84,6 +85,13 @@ export default function Discovery({
             {searching ? '...' : (addingUrl ? 'Adding...' : 'Search')}
           </button>
         </form>
+        <div className="active-users-stack" style={{ display: 'flex', alignItems: 'center' }}>
+          {users.map((u, i) => (
+            <div key={u.user_id} className="avatar-circle" title={u.username} style={{ background: u.avatar_color, zIndex: 10 - i, marginLeft: i > 0 ? -8 : 0, width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 'bold', border: '2px solid var(--theme-glass-bg)', color: 'var(--theme-text-primary)' }}>
+              {u.username.charAt(0).toUpperCase()}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Scrollable content ── */}
@@ -99,38 +107,38 @@ export default function Discovery({
             <div className="search-results-grid">
               {searching && searchResults.length === 0
                 ? Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="search-result-row">
-                      <div className="skeleton-box" style={{ width: 84, height: 54, borderRadius: 6, flexShrink: 0 }} />
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <div className="skeleton-text" style={{ width: '75%' }} />
-                        <div className="skeleton-text" style={{ width: '45%' }} />
+                  <div key={i} className="search-result-row">
+                    <div className="skeleton-box" style={{ width: 84, height: 54, borderRadius: 6, flexShrink: 0 }} />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div className="skeleton-text" style={{ width: '75%' }} />
+                      <div className="skeleton-text" style={{ width: '45%' }} />
+                    </div>
+                  </div>
+                ))
+                : searchResults.map((result) => {
+                  const isAdded = queuedVideoIds.has(result.id);
+                  return (
+                    <div
+                      key={result.id}
+                      className={`search-result-row ${isAdded ? 'added' : ''}`}
+                      onClick={() => onAddSong(result.id, result.title, result.thumbnail, result.durationSeconds)}
+                    >
+                      <div className="sr-thumb">
+                        <img src={result.thumbnail} alt={result.title} />
+                      </div>
+                      <div className="sr-info">
+                        <div className="sr-title">{result.title}</div>
+                        <div className="sr-meta">{result.channelTitle} · {formatDuration(result.durationSeconds)}</div>
+                      </div>
+                      <div className={`sr-add ${isAdded ? 'sr-add--added' : ''}`}>
+                        {isAdded
+                          ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Added</>
+                          : <><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg> Add</>
+                        }
                       </div>
                     </div>
-                  ))
-                : searchResults.map((result) => {
-                    const isAdded = queuedVideoIds.has(result.id);
-                    return (
-                      <div
-                        key={result.id}
-                        className={`search-result-row ${isAdded ? 'added' : ''}`}
-                        onClick={() => onAddSong(result.id, result.title, result.thumbnail, result.durationSeconds)}
-                      >
-                        <div className="sr-thumb">
-                          <img src={result.thumbnail} alt={result.title} />
-                        </div>
-                        <div className="sr-info">
-                          <div className="sr-title">{result.title}</div>
-                          <div className="sr-meta">{result.channelTitle} · {formatDuration(result.durationSeconds)}</div>
-                        </div>
-                        <div className={`sr-add ${isAdded ? 'sr-add--added' : ''}`}>
-                          {isAdded
-                            ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg> Added</>
-                            : <><svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg> Add</>
-                          }
-                        </div>
-                      </div>
-                    );
-                  })
+                  );
+                })
               }
             </div>
             {nextPageToken && (
@@ -153,32 +161,32 @@ export default function Discovery({
             <div className="trend-list">
               {playlistVideosLoading
                 ? Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="trend-row">
-                      <div className="tr-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
-                      <div className="skeleton-box" style={{ width: 38, height: 38, borderRadius: 8, flexShrink: 0 }} />
-                      <div className="tr-info">
-                        <div className="skeleton-text" style={{ width: '70%', marginBottom: 6 }} />
-                        <div className="skeleton-text" style={{ width: '45%' }} />
-                      </div>
+                  <div key={i} className="trend-row">
+                    <div className="tr-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
+                    <div className="skeleton-box" style={{ width: 38, height: 38, borderRadius: 8, flexShrink: 0 }} />
+                    <div className="tr-info">
+                      <div className="skeleton-text" style={{ width: '70%', marginBottom: 6 }} />
+                      <div className="skeleton-text" style={{ width: '45%' }} />
                     </div>
-                  ))
+                  </div>
+                ))
                 : playlistVideos.map((video, index) => {
-                    const isAdded = queuedVideoIds.has(video.id);
-                    return (
-                      <div key={video.id} className={`trend-row ${isAdded ? 'trend-added' : ''}`} onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)}>
-                        <div className="tr-rank" style={{ opacity: 0.4 }}>{index + 1}</div>
-                        <div className="tr-av"><img src={video.thumbnail} alt={video.title} /></div>
-                        <div className="tr-info">
-                          <div className="tr-title">{video.title}</div>
-                          <div className="tr-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
-                        </div>
-                        {isAdded
-                          ? <button className="tr-btn done">✓ Added</button>
-                          : <button className="tr-btn add">+ Add</button>
-                        }
+                  const isAdded = queuedVideoIds.has(video.id);
+                  return (
+                    <div key={video.id} className={`trend-row ${isAdded ? 'trend-added' : ''}`} onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)}>
+                      <div className="tr-rank" style={{ opacity: 0.4 }}>{index + 1}</div>
+                      <div className="tr-av"><img src={video.thumbnail} alt={video.title} /></div>
+                      <div className="tr-info">
+                        <div className="tr-title">{video.title}</div>
+                        <div className="tr-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
                       </div>
-                    );
-                  })
+                      {isAdded
+                        ? <button className="tr-btn done">✓ Added</button>
+                        : <button className="tr-btn add">+ Add</button>
+                      }
+                    </div>
+                  );
+                })
               }
             </div>
           </>
@@ -223,165 +231,77 @@ export default function Discovery({
         ) : (
           /* ══ DEFAULT DISCOVERY VIEW ══ */
           <>
-            {/* Latest Drops — Hero layout */}
-            <div className="section-header">
-              <span className="sec-title">Latest Drops</span>
-              <span className="sec-see" onClick={onRefreshLatest}>{latestLoading ? '...' : 'Refresh'}</span>
-            </div>
+            {/* Hero & Popular Layout */}
+            <div className="hero-popular-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '24px', marginBottom: '32px' }}>
 
-            <div className="drops-hero-grid">
-              {latestLoading ? (
-                /* Skeleton */
-                <>
-                  <div className="skeleton-box drops-hero-card" style={{ borderRadius: 12 }} />
-                  <div className="drops-side-grid">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="skeleton-box" style={{ borderRadius: 10 }} />
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Hero card — first video, large */}
-                  {latestVideos[0] && (() => {
-                    const v = latestVideos[0];
+              {/* Left Column: Hero */}
+              <div className="hero-col">
+                <div className="section-header" style={{ marginTop: 0 }}>
+                  <span className="sec-title">Home &gt; Artists</span>
+                </div>
+                {trendingVideos[0] && (() => {
+                  const v = trendingVideos[0];
+                  const isAdded = queuedVideoIds.has(v.id);
+                  return (
+                    <div className="hero-banner" style={{ background: `url(${v.thumbnail}) center/cover no-repeat`, borderRadius: '24px', padding: '40px 32px 32px', position: 'relative', overflow: 'hidden', minHeight: '340px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)' }} />
+                      <div style={{ position: 'relative', zIndex: 2 }}>
+                        <h1 style={{ fontSize: '48px', fontWeight: 800, margin: '0 0 16px', lineHeight: 1.1 }}>{v.title}</h1>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                          <button onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '30px' }}>
+                            {isAdded ? '✓ Added' : '▶ Play'}
+                          </button>
+                          <button className="btn-ghost" style={{ borderRadius: '30px', borderColor: 'var(--theme-glass-border)' }}>Following</button>
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--theme-text-muted)', fontWeight: 500 }}>{formatViewCount(v.viewCount)} monthly listeners ({v.channelTitle})</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Fans Also Like (Square grid) */}
+                <div className="section-header" style={{ marginTop: '32px' }}>
+                  <span className="sec-title" style={{ fontSize: '16px', fontWeight: 700, textTransform: 'none', color: 'var(--theme-text-primary)' }}>Fans Also Like</span>
+                  <span className="sec-see" onClick={onRefreshLatest}>{latestLoading ? '...' : 'View All'}</span>
+                </div>
+                <div className="fans-also-like-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+                  {latestVideos.slice(0, 4).map((v) => {
                     const isAdded = queuedVideoIds.has(v.id);
                     return (
-                      <div className="drop-card drops-hero-card" onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)}>
-                        <div className="dc-thumb">
-                          <img src={v.thumbnail} alt={v.title} />
-                          <div className="dc-overlay" />
-                          <div className="dc-badge"><span className="badge b-hot">🔥 Trending</span></div>
-                          <div className={`dc-add ${isAdded ? 'added' : ''}`}>
-                            {isAdded
-                              ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-                              : <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
-                            }
-                          </div>
-                          <div className="dc-dur">{formatDuration(v.durationSeconds)}</div>
-                          {/* Hero title overlay */}
-                          <div className="hero-title-overlay">
-                            <div className="hero-title">{v.title}</div>
-                            <div className="hero-meta">{v.channelTitle} · {formatViewCount(v.viewCount)} views</div>
+                      <div key={v.id} className="fan-card" onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)} style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', aspectRatio: '1' }}>
+                        <img src={v.thumbnail} alt={v.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%)' }} />
+                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px' }}>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--theme-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--theme-text-muted)' }}>16 Tracks</span>
+                            <span style={{ fontSize: '11px', color: '#8b87a6' }}>View All</span>
                           </div>
                         </div>
                       </div>
                     );
-                  })()}
-
-                  {/* Side grid — next 4 videos */}
-                  <div className="drops-side-grid">
-                    {latestVideos.slice(1, 5).map((video, index) => {
-                      const isAdded = queuedVideoIds.has(video.id);
-                      return (
-                        <div key={video.id} className="drop-card" onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)}>
-                          <div className="dc-thumb">
-                            <img src={video.thumbnail} alt={video.title} />
-                            <div className="dc-overlay" />
-                            <div className="dc-badge">
-                              {index === 0 ? <span className="badge b-new">New</span> : null}
-                            </div>
-                            <div className={`dc-add ${isAdded ? 'added' : ''}`}>
-                              {isAdded
-                                ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" /></svg>
-                                : <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" /></svg>
-                              }
-                            </div>
-                            <div className="dc-dur">{formatDuration(video.durationSeconds)}</div>
-                          </div>
-                          <div className="dc-info">
-                            <div className="dc-title">{video.title}</div>
-                            <div className="dc-meta">
-                              <span className="dc-channel">{video.channelTitle}</span>
-                              <span className="dc-views">{formatViewCount(video.viewCount)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Lower section — 60/40 split */}
-            <div className="lower-grid">
-
-              {/* Trending — 60% */}
-              <div className="trending-col">
-                <div className="section-header">
-                  <span className="sec-title">Trending Now</span>
-                  <span className="sec-see" onClick={onRefreshTrending}>{trendingLoading ? '...' : 'Refresh'}</span>
-                </div>
-                <div className="trend-list">
-                  {trendingLoading
-                    ? Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="trend-row">
-                          <div className="tr-rank" style={{ opacity: 0.3 }}>{i + 1}</div>
-                          <div className="skeleton-box" style={{ width: 38, height: 38, borderRadius: 8, flexShrink: 0 }} />
-                          <div className="tr-info">
-                            <div className="skeleton-text" style={{ width: '70%', marginBottom: 6 }} />
-                            <div className="skeleton-text" style={{ width: '45%' }} />
-                          </div>
-                        </div>
-                      ))
-                    : trendingVideos.map((video, index) => {
-                        const isAdded = queuedVideoIds.has(video.id);
-                        const rank = index + 1;
-                        const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
-                        return (
-                          <div key={video.id} className={`trend-row ${isAdded ? 'trend-added' : ''}`} onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)}>
-                            <div className={`tr-rank ${rankClass}`}>{rank}</div>
-                            <div className="tr-av"><img src={video.thumbnail} alt={video.title} /></div>
-                            <div className="tr-info">
-                              <div className="tr-title">{video.title}</div>
-                              <div className="tr-meta">{video.channelTitle} · {formatViewCount(video.viewCount)} views</div>
-                            </div>
-                            {isAdded
-                              ? <button className="tr-btn done">✓ Added</button>
-                              : <button className="tr-btn add">+ Add</button>
-                            }
-                          </div>
-                        );
-                      })
-                  }
+                  })}
                 </div>
               </div>
 
-              {/* Playlists — 40% vertical list */}
-              <div className="playlists-col">
-                <div className="section-header">
-                  <span className="sec-title">Playlists</span>
-                  <span className="sec-see" onClick={() => setShowAllPlaylists(true)}>See all</span>
+              {/* Right Column: Popular */}
+              <div className="popular-col">
+                <div className="section-header" style={{ marginTop: 0 }}>
+                  <span className="sec-title" style={{ fontSize: '16px', fontWeight: 700, textTransform: 'none', color: 'var(--theme-text-primary)' }}>Popular</span>
                 </div>
-                <div className="playlist-list">
-                  {curatedLoading
-                    ? Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="playlist-row skeleton-box" />
-                      ))
-                    : curatedSections[0]?.playlists.slice(0, 6).map((pl, idx) => (
-                        <div key={pl.id} className="playlist-row" onClick={() => onOpenPlaylist(pl.id, pl.title)}>
-                          {/* Full-bleed background */}
-                          <div className="pl-art" style={!pl.thumbnail ? { background: GRADIENT_COLORS[idx % 4] } : {}}>
-                            {pl.thumbnail && <img src={pl.thumbnail} alt={pl.title} />}
-                            {!pl.thumbnail && <span style={{ fontSize: 24, position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 2 }}>{curatedSections[0].emoji}</span>}
-                          </div>
-                          <div className="pl-overlay" />
-                          {/* Play button */}
-                          <div className="pl-play">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
-                          </div>
-                          {/* Info overlay */}
-                          <div className="pl-info">
-                            <div className="pl-title">{pl.title}</div>
-                            <div className="pl-count">
-                              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-                              {pl.itemCount} songs
-                            </div>
-                          </div>
+                <div className="popular-list" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {trendingVideos.slice(1, 6).map((video, index) => {
+                    const isAdded = queuedVideoIds.has(video.id);
+                    return (
+                      <div key={video.id} className={`popular-item ${isAdded ? 'added' : ''}`} onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', borderRadius: '12px', cursor: 'pointer', transition: 'background 0.2s' }}>
+                        <img src={video.thumbnail} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--theme-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{video.title}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--theme-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{video.channelTitle} • {formatDuration(video.durationSeconds)}</div>
                         </div>
-                      ))
-                  }
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 

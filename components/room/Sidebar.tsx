@@ -58,22 +58,33 @@ export default function Sidebar({
   const effectiveDuration = currentSong?.duration_seconds ?? 0;
 
   return (
-    <aside className="sidebar" style={sidebarWidth !== undefined ? { width: sidebarWidth } : undefined}>
-      <div className="sidebar-resizer" onMouseDown={startResizing} />
+    <>
+      <div className="slim-sidebar">
+        <button className="slim-btn active" title="Music">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+        </button>
+        <button className="slim-btn" title="Queue">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+        </button>
+        {myRole === 'admin' && (
+          <button className="slim-btn" title="Settings" style={{ marginTop: 'auto' }} onClick={() => setShowSettings(true)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </button>
+        )}
+      </div>
 
-      {/* ── Logo bar ── */}
+      <aside className="sidebar-group" style={sidebarWidth !== undefined ? { width: sidebarWidth } : undefined}>
+        <div className="sidebar-resizer" onMouseDown={startResizing} />
+
+      <div className="sidebar-pill">{/* ── Logo bar ── */}
       <div className="sb-logo">
         <span className="logo-text">Drop<span>A</span>Track</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <ThemeToggle />
           <div className="room-badge"><div className="ldot" />/{room.slug}</div>
-          {myRole === 'admin' && (
-            <button className="settings-gear" onClick={() => setShowSettings(true)} title="Room Settings">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z" /></svg>
-            </button>
-          )}
         </div>
-      </div>
+
+</div>
 
       {/* ── Now Playing Card ── */}
       <div className="now-playing-card">
@@ -182,7 +193,8 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* ── Queue header ── */}
+      </div>
+      <div className="sidebar-pill queue-pill" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>{/* ── Queue header ── */}
       <div className="queue-header">
         <span className="queue-label">Up Next</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -242,6 +254,7 @@ export default function Sidebar({
           onDragEnd={() => { }}
         />
       </div>
-    </aside>
+    </div></aside>
+    </>
   );
 }

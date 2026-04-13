@@ -8,9 +8,8 @@
   display: none;
   grid-row: 3;
   grid-column: 1;
-  background: var(--theme-glass-bg);
+  background-color: var(--theme-glass-bg);
   backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
   border-top: 1px solid var(--theme-glass-border-subtle);
   z-index: 30;
   align-items: center;
