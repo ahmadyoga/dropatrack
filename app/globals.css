@@ -26,9 +26,13 @@
 
   /* ── Light Theme Defaults ── */
   --theme-bg-base: #f7f6fc;
-  --theme-text-primary: #110e20;       /* deeper for glass contrast */
-  --theme-text-secondary: #3a3560;     /* more saturated, less grey */
-  --theme-text-muted: #7a759e;         /* readable but recessive */
+
+  --theme-text-primary: #f2effe;
+  /* brighter cool-white on glass */
+  --theme-text-secondary: #b8b3d8;
+  /* clearly visible over frosted panels */
+  --theme-text-muted: #726b8a;
+  /* lifted from near-black for readability */
 
   --theme-glass-bg: rgba(255, 255, 255, 0.20);
   --theme-glass-border: rgba(0, 0, 0, 0.08);
@@ -48,9 +52,12 @@
 /* ── Dark Theme Overrides ── */
 [data-theme='dark'] {
   --theme-bg-base: #080812;
-  --theme-text-primary: #f2effe;       /* brighter cool-white on glass */
-  --theme-text-secondary: #b8b3d8;     /* clearly visible over frosted panels */
-  --theme-text-muted: #726b8a;         /* lifted from near-black for readability */
+  --theme-text-primary: #f2effe;
+  /* brighter cool-white on glass */
+  --theme-text-secondary: #b8b3d8;
+  /* clearly visible over frosted panels */
+  --theme-text-muted: #726b8a;
+  /* lifted from near-black for readability */
 
   --theme-glass-bg: rgba(15, 12, 28, 0.80);
   --theme-glass-border: rgba(255, 255, 255, 0.07);

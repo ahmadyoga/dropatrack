@@ -12,8 +12,10 @@ interface UseDiscoveryProps {
 export function useDiscovery({ userTimezone }: UseDiscoveryProps) {
   const [trendingVideos, setTrendingVideos] = useState<TrendingVideo[]>([]);
   const [latestVideos, setLatestVideos] = useState<TrendingVideo[]>([]);
+  const [freshVideos, setFreshVideos] = useState<TrendingVideo[]>([]);
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [latestLoading, setLatestLoading] = useState(true);
+  const [freshLoading, setFreshLoading] = useState(true);
   const [curatedSections, setCuratedSections] = useState<EnrichedSection[]>([]);
   const [curatedLoading, setCuratedLoading] = useState(true);
   const [selectedPlaylist, setSelectedPlaylist] = useState<{ id: string; title: string } | null>(null);
@@ -24,7 +26,7 @@ export function useDiscovery({ userTimezone }: UseDiscoveryProps) {
   const fetchTrending = useCallback(async (region: string) => {
     setTrendingLoading(true);
     try {
-      const res = await fetch(`/api/youtube/trending?timezone=${encodeURIComponent(region)}&maxResults=10`);
+      const res = await fetch(`/api/youtube/trending?timezone=${encodeURIComponent(region)}&maxResults=20`);
       const data = await res.json();
       if (data.results) setTrendingVideos(data.results);
     } catch (err) { console.error('Trending fetch failed:', err); }
@@ -34,11 +36,21 @@ export function useDiscovery({ userTimezone }: UseDiscoveryProps) {
   const fetchLatest = useCallback(async () => {
     setLatestLoading(true);
     try {
-      const res = await fetch(`/api/youtube/latest?maxResults=10&timezone=${userTimezone}`);
+      const res = await fetch(`/api/youtube/latest?maxResults=12&timezone=${userTimezone}`);
       const data = await res.json();
       if (data.results) setLatestVideos(data.results);
     } catch (err) { console.error('Latest fetch failed:', err); }
     finally { setLatestLoading(false); }
+  }, [userTimezone]);
+
+  const fetchFresh = useCallback(async () => {
+    setFreshLoading(true);
+    try {
+      const res = await fetch(`/api/youtube/fresh?maxResults=8&timezone=${userTimezone}`);
+      const data = await res.json();
+      if (data.results) setFreshVideos(data.results);
+    } catch (err) { console.error('Fresh fetch failed:', err); }
+    finally { setFreshLoading(false); }
   }, [userTimezone]);
 
   const openPlaylist = useCallback(async (playlistId: string, title: string) => {
@@ -55,6 +67,7 @@ export function useDiscovery({ userTimezone }: UseDiscoveryProps) {
 
   useEffect(() => { fetchTrending(userTimezone); }, [userTimezone, fetchTrending]);
   useEffect(() => { fetchLatest(); }, [fetchLatest]);
+  useEffect(() => { fetchFresh(); }, [fetchFresh]);
 
   useEffect(() => {
     const fetchCurated = async () => {
@@ -70,11 +83,11 @@ export function useDiscovery({ userTimezone }: UseDiscoveryProps) {
   }, [userTimezone]);
 
   return {
-    trendingVideos, latestVideos, trendingLoading, latestLoading,
+    trendingVideos, latestVideos, freshVideos, trendingLoading, latestLoading, freshLoading,
     curatedSections, curatedLoading,
     selectedPlaylist, setSelectedPlaylist,
     playlistVideos, playlistVideosLoading,
     showAllPlaylists, setShowAllPlaylists,
-    fetchTrending, fetchLatest, openPlaylist,
+    fetchTrending, fetchLatest, fetchFresh, openPlaylist,
   };
 }

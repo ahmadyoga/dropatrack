@@ -175,10 +175,10 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   // ── Discovery hook ────────────────────────────────────────────────
   const {
-    trendingVideos, latestVideos, trendingLoading, latestLoading,
+    trendingVideos, latestVideos, freshVideos, trendingLoading, latestLoading, freshLoading,
     curatedSections, curatedLoading, selectedPlaylist, setSelectedPlaylist,
     playlistVideos, playlistVideosLoading, showAllPlaylists, setShowAllPlaylists,
-    fetchTrending, fetchLatest, openPlaylist,
+    fetchTrending, fetchLatest, fetchFresh, openPlaylist,
   } = useDiscovery({ userTimezone });
 
   // ── Chat hook ─────────────────────────────────────────────────────
@@ -319,6 +319,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             loadingMore={loadingMore}
             latestVideos={latestVideos}
             latestLoading={latestLoading}
+            freshVideos={freshVideos}
+            freshLoading={freshLoading}
             trendingVideos={trendingVideos}
             trendingLoading={trendingLoading}
             curatedSections={curatedSections}
@@ -335,6 +337,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             onOpenPlaylist={openPlaylist}
             onRefreshTrending={() => fetchTrending(userTimezone)}
             onRefreshLatest={fetchLatest}
+            onRefreshFresh={fetchFresh}
           />
 
 

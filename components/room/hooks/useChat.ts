@@ -88,7 +88,15 @@ export function useChat({
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatEndRef.current) {
+      const parent = chatEndRef.current.parentElement;
+      if (parent) {
+        parent.scrollTo({
+          top: parent.scrollHeight,
+          behavior: 'smooth',
+        });
+      }
+    }
   }, [chatMessages]);
 
   const handleSendChat = useCallback(async (e?: React.FormEvent) => {

@@ -3,6 +3,7 @@
 import type { TrendingVideo, RoomUser } from '@/lib/types';
 import type { CuratedSection } from '@/lib/curatedPlaylists';
 import { formatDuration } from '@/lib/youtube';
+import '@/app/room/_discovery.css';
 
 interface EnrichedPlaylist { id: string; title: string; description: string; thumbnail: string; itemCount: number; }
 interface EnrichedSection extends Omit<CuratedSection, 'playlists'> { playlists: EnrichedPlaylist[]; }
@@ -35,6 +36,8 @@ interface DiscoveryProps {
   loadingMore: boolean;
   latestVideos: TrendingVideo[];
   latestLoading: boolean;
+  freshVideos: TrendingVideo[];
+  freshLoading: boolean;
   trendingVideos: TrendingVideo[];
   trendingLoading: boolean;
   curatedSections: EnrichedSection[];
@@ -51,17 +54,18 @@ interface DiscoveryProps {
   onOpenPlaylist: (id: string, title: string) => void;
   onRefreshTrending: () => void;
   onRefreshLatest: () => void;
+  onRefreshFresh: () => void;
 }
 
 export default function Discovery({
   users, queuedVideoIds, searching, addingUrl, canAddSongs,
   searchQuery, setSearchQuery, searchResults, setSearchResults,
   nextPageToken, loadingMore,
-  latestVideos, latestLoading, trendingVideos, trendingLoading,
+  latestVideos, latestLoading, freshVideos, freshLoading, trendingVideos, trendingLoading,
   curatedSections, curatedLoading,
   selectedPlaylist, setSelectedPlaylist, playlistVideos, playlistVideosLoading,
   showAllPlaylists, setShowAllPlaylists,
-  onSearch, onLoadMore, onAddSong, onOpenPlaylist, onRefreshTrending, onRefreshLatest,
+  onSearch, onLoadMore, onAddSong, onOpenPlaylist, onRefreshTrending, onRefreshLatest, onRefreshFresh,
 }: DiscoveryProps) {
   return (
     <main className="main">
@@ -265,7 +269,7 @@ export default function Discovery({
                   <span className="sec-see" onClick={onRefreshLatest}>{latestLoading ? '...' : 'View All'}</span>
                 </div>
                 <div className="fans-also-like-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
-                  {latestVideos.slice(0, 4).map((v) => {
+                  {latestVideos.slice(0, 6).map((v) => {
                     const isAdded = queuedVideoIds.has(v.id);
                     return (
                       <div key={v.id} className="fan-card" onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)} style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', aspectRatio: '1' }}>
@@ -273,10 +277,7 @@ export default function Discovery({
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%)' }} />
                         <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px' }}>
                           <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--theme-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                            <span style={{ fontSize: '12px', color: 'var(--theme-text-muted)' }}>16 Tracks</span>
-                            <span style={{ fontSize: '11px', color: '#8b87a6' }}>View All</span>
-                          </div>
+
                         </div>
                       </div>
                     );
@@ -290,7 +291,7 @@ export default function Discovery({
                   <span className="sec-title" style={{ fontSize: '16px', fontWeight: 700, textTransform: 'none', color: 'var(--theme-text-primary)' }}>Popular</span>
                 </div>
                 <div className="popular-list" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {trendingVideos.slice(1, 6).map((video, index) => {
+                  {trendingVideos.slice(1, 9).map((video, index) => {
                     const isAdded = queuedVideoIds.has(video.id);
                     return (
                       <div key={video.id} className={`popular-item ${isAdded ? 'added' : ''}`} onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', borderRadius: '12px', cursor: 'pointer', transition: 'background 0.2s' }}>
@@ -306,6 +307,77 @@ export default function Discovery({
               </div>
 
             </div>
+
+            {/* ✨ Fresh This Week */}
+            {freshVideos.length > 0 && (
+              <div className="fresh-row">
+                <div className="section-header">
+                  <span className="sec-title">✨ Fresh This Week</span>
+                  <span className="sec-see" onClick={onRefreshFresh}>{freshLoading ? '...' : 'Refresh'}</span>
+                </div>
+                <div className="fresh-scroll">
+                  {freshVideos.map((v) => {
+                    const isAdded = queuedVideoIds.has(v.id);
+                    return (
+                      <div key={v.id} className="fresh-card" onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)}>
+                        <div className="fresh-card-thumb">
+                          <img src={v.thumbnail} alt={v.title} />
+                          <div className={`fresh-card-add ${isAdded ? 'added' : ''}`}>
+                            {isAdded ? '✓' : '+'}
+                          </div>
+                          <div className="fresh-card-dur">{formatDuration(v.durationSeconds)}</div>
+                        </div>
+                        <div className="fresh-card-info">
+                          <div className="fresh-card-title">{v.title}</div>
+                          <div className="fresh-card-meta">{v.channelTitle} · {formatViewCount(v.viewCount)} views</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* 🔥 Curated Playlists Sections */}
+            {curatedSections.slice(0, 3).map((section, sIdx) => (
+              <div key={sIdx} className="curated-row">
+                <div className="section-header">
+                  <span className="sec-title">{section.emoji} {section.title}</span>
+                </div>
+                <div className="curated-scroll">
+                  {section.playlists.map((pl, idx) => (
+                    <div key={pl.id} className="curated-card" onClick={() => onOpenPlaylist(pl.id, pl.title)}>
+                      <div className="curated-card-art">
+                        {pl.thumbnail ? (
+                          <img src={pl.thumbnail} alt={pl.title} />
+                        ) : (
+                          <div className="curated-card-art-fallback" style={{ background: GRADIENT_COLORS[idx % 4] }}>
+                            {section.emoji}
+                          </div>
+                        )}
+                      </div>
+                      <div className="curated-card-overlay" />
+                      <div className="curated-card-play">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+                      </div>
+                      <div className="curated-card-info">
+                        <div className="curated-card-title">{pl.title}</div>
+                        <div className="curated-card-count">
+                          <svg width="6" height="6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" /></svg>
+                          {pl.itemCount}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {/* View All Playlists Button */}
+            <button className="view-all-btn" onClick={() => setShowAllPlaylists(true)}>
+              View All Playlists
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z" /></svg>
+            </button>
           </>
         )}
 
