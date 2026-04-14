@@ -125,11 +125,12 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  height: 100%;
+  height: auto;
   /* Leave room for player bar */
   position: relative;
   z-index: 10;
   flex-shrink: 0;
+  max-height: calc(100vh - 120px);
 }
 
 .sidebar-pill {
@@ -2076,13 +2077,11 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #fff;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0a0a1a;
   box-shadow: 0 4px 20px rgba(255, 255, 255, 0.25);
   transition: transform 0.15s, box-shadow 0.15s;
 }
@@ -3657,25 +3656,6 @@
   display: flex;
   align-items: center;
   gap: 20px;
-}
-
-.play-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--theme-text-primary);
-  color: var(--theme-bg-base);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 8px 24px rgba(255, 255, 255, 0.1);
-}
-
-.play-btn:hover {
-  transform: scale(1.05);
 }
 
 .pb-progress {

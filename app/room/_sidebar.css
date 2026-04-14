@@ -113,7 +113,7 @@
    NOW PLAYING CARD — compact horizontal
 ════════════════════════════════════════ */
 .now-playing-card {
-  flex-shrink: 0;
+  flex: 1;
   margin: 10px 12px;
   border-radius: 14px;
   overflow: hidden;
@@ -122,6 +122,7 @@
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.4),
     0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  max-height: 30vh;
 }
 
 /* Ambient blurred background */
@@ -190,7 +191,7 @@
 }
 
 .npc-yt-player iframe,
-.npc-yt-player > div {
+.npc-yt-player>div {
   width: 100% !important;
   height: 100% !important;
 }
@@ -243,8 +244,13 @@
 }
 
 @keyframes vinyl-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Equalizer bars (bottom-left corner of art) */
@@ -290,7 +296,9 @@
 }
 
 @keyframes eq-bounce {
-  to { height: 2px; }
+  to {
+    height: 2px;
+  }
 }
 
 /* Track info block — fills remaining space next to art */
@@ -466,6 +474,29 @@
 
 .queue-search-input::placeholder {
   color: var(--theme-text-muted);
+}
+
+/* Queue sections wrapper */
+.queue-section-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.queue-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.discovery-container {
+  flex: 2;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* Queue list */
@@ -645,4 +676,22 @@
   color: var(--theme-text-muted);
   border-top: 1px solid var(--theme-glass-border-subtle);
   margin-top: 4px;
+}
+
+/* Discovery component — flex 2 ratio */
+.discovery {
+  flex: 2;
+  overflow-y: auto;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.3) transparent;
+}
+
+.discovery::-webkit-scrollbar {
+  width: 2px;
+}
+
+.discovery::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.25);
+  border-radius: 2px;
 }
