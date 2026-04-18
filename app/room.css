@@ -233,25 +233,6 @@
   }
 }
 
-.settings-gear {
-  background: none;
-  border: none;
-  color: var(--theme-text-muted);
-  cursor: pointer;
-  padding: 5px;
-  border-radius: 7px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s, background 0.2s, transform 0.35s;
-}
-
-.settings-gear:hover {
-  color: var(--brand-primary);
-  background: var(--brand-glow);
-  transform: rotate(65deg);
-}
-
 /* ════════════════════════════════════════
    NOW PLAYING CARD — immersive redesign
 ════════════════════════════════════════ */
