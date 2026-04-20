@@ -224,7 +224,12 @@ export default function Sidebar({
                   if (e.key === 'Enter' && searchMatchIndices.length > 0) {
                     const nextIdx = (searchMatchCurrentIdx + 1) % searchMatchIndices.length;
                     setSearchMatchCurrentIdx(nextIdx);
-                    document.getElementById(`q-item-${searchMatchIndices[nextIdx]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    const el = document.getElementById(`q-item-${searchMatchIndices[nextIdx]}`);
+                    const container = document.querySelector('.queue-list') as HTMLElement | null;
+                    if (el && container) {
+                      const elTop = el.offsetTop - container.offsetTop;
+                      container.scrollTo({ top: elTop - container.clientHeight / 2 + el.clientHeight / 2, behavior: 'smooth' });
+                    }
                   }
                 }}
               />

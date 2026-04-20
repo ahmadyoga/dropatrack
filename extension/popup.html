@@ -135,6 +135,39 @@
       color: #a3a3a3;
     }
 
+    .playlist-card-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .btn-playlist-inline {
+      padding: 5px 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .btn-playlist-inline:hover:not(:disabled) {
+      background: rgba(245, 158, 11, 0.28);
+      transform: translateY(-1px);
+    }
+
+    .btn-playlist-inline:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
     /* Room selector */
     .room-section {
       margin-bottom: 12px;
@@ -269,6 +302,24 @@
       color: #525252;
       border-top: 1px solid rgba(255,255,255,0.05);
     }
+
+    /* Site badge */
+    .site-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .site-badge.ytm {
+      background: rgba(255, 0, 0, 0.12);
+      color: #ff6b6b;
+      border: 1px solid rgba(255, 0, 0, 0.2);
+    }
   </style>
 </head>
 <body>
@@ -282,7 +333,7 @@
   </div>
 
   <div class="footer">
-    💡 Selected room also activates inline buttons on YouTube playlists<br>
+    💡 Works on YouTube &amp; YouTube Music playlists/queues<br>
     dropatrack.vercel.app
   </div>
 

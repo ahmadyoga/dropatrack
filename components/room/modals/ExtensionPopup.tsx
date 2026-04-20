@@ -24,7 +24,7 @@ export default function ExtensionPopup({ onClose }: ExtensionPopupProps) {
         </div>
 
         <div className="ext-modal-desc">
-          Add YouTube videos to this room directly from YouTube! Install our Chrome extension in 3 easy steps:
+          Add YouTube &amp; YouTube Music tracks to this room directly from the browser! Install our Chrome extension in 3 easy steps:
         </div>
 
         <div className="ext-steps">
@@ -53,7 +53,7 @@ export default function ExtensionPopup({ onClose }: ExtensionPopupProps) {
                 Click <strong>&quot;Load unpacked&quot;</strong> and select the unzipped <code className="ext-code">extension</code> folder.
               </div>
               <div className="ext-step-text" style={{ color: '#4ade80' }}>
-                Done! Open any YouTube playlist and the DropATrack buttons will appear 🎉
+                Done! Open any YouTube or YouTube Music playlist/queue and the DropATrack buttons will appear 🎉
               </div>
             </div>
           </div>

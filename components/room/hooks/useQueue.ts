@@ -70,7 +70,11 @@ export function useQueue({
       setSearchMatchCurrentIdx(0);
       if (matches.length > 0) {
         const el = document.getElementById(`q-item-${matches[0]}`);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const container = document.querySelector('.queue-list') as HTMLElement | null;
+        if (el && container) {
+          const elTop = el.offsetTop - container.offsetTop;
+          container.scrollTo({ top: elTop - container.clientHeight / 2 + el.clientHeight / 2, behavior: 'smooth' });
+        }
       }
     }, 300);
     return () => clearTimeout(delay);

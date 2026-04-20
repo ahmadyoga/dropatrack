@@ -1,5 +1,9 @@
 const API_BASE = 'https://dropatrack.vercel.app';
 const DROPATRACK_PATTERN = /https?:\/\/(localhost:3000|dropatrack\.vercel\.app)\//;
+const YOUTUBE_PAGE_PATTERN = /^https?:\/\/(www\.)?(youtube\.com|music\.youtube\.com)\//;
+// Match watch pages on both YT/YTM AND browse pages on YTM (playlist, album)
+const YOUTUBE_WATCH_PATTERN = /^https?:\/\/(www\.)?(youtube\.com\/watch|music\.youtube\.com\/(watch|playlist|browse))/;
+const YTM_PATTERN = /^https?:\/\/music\.youtube\.com\//;
 
 const contentEl = document.getElementById('content');
 
@@ -13,22 +17,33 @@ let allRoomSlugs = [];
     // 1. Get current YouTube tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab?.url?.includes('youtube.com/watch')) {
+    if (!tab?.url || !YOUTUBE_WATCH_PATTERN.test(tab.url)) {
       contentEl.innerHTML = `
         <div class="status error">
-          Navigate to a YouTube video page to use DropATrack
+          Navigate to a YouTube video, or a YouTube Music video/playlist/album page.
         </div>
       `;
       return;
     }
 
+    const isYTM = YTM_PATTERN.test(tab.url);
     // 2. Get video info from content script
     videoInfo = await chrome.tabs.sendMessage(tab.id, { action: 'getVideoInfo' });
 
-    if (!videoInfo?.currentVideo) {
+    if (!videoInfo) {
       contentEl.innerHTML = `
         <div class="status error">
-          Could not detect video. Try refreshing the YouTube page.
+          Could not read page. Try refreshing the YouTube page.
+        </div>
+      `;
+      return;
+    }
+
+    // If no video and no playlist tracks detected, show a hint
+    if (!videoInfo.currentVideo && (!videoInfo.playlistVideos || videoInfo.playlistVideos.length === 0)) {
+      contentEl.innerHTML = `
+        <div class="status info">
+          No tracks detected on this page. Try opening a playlist or album.
         </div>
       `;
       return;
@@ -56,7 +71,7 @@ let allRoomSlugs = [];
     } catch { /* ignore */ }
 
     // 5. Render UI
-    render(roomTabs);
+    render(roomTabs, isYTM);
   } catch (err) {
     contentEl.innerHTML = `
       <div class="status error">
@@ -67,14 +82,19 @@ let allRoomSlugs = [];
   }
 })();
 
-function render(roomTabs) {
+function render(roomTabs, isYTM = false) {
   let html = '';
 
-  // Current video
+  // Site badge
+  if (isYTM) {
+    html += `<div class="site-badge ytm">🎵 YouTube Music</div>`;
+  }
+
+  // Current video (only shown when playing — not on browse/playlist pages)
   if (videoInfo.currentVideo) {
     html += `
       <div class="video-card">
-        <div class="label">🎬 Current Video</div>
+        <div class="label">${isYTM ? '🎵 Now Playing' : '🎬 Current Video'}</div>
         <div class="video-info">
           <img src="${videoInfo.currentVideo.thumbnail_url}" alt="">
           <div class="title">${escapeHtml(videoInfo.currentVideo.title)}</div>
@@ -83,12 +103,19 @@ function render(roomTabs) {
     `;
   }
 
-  // Playlist/Mix
+  // Playlist/Queue
   if (videoInfo.isPlaylist && videoInfo.playlistVideos.length > 0) {
+    const label = isYTM ? '🎶 Queue / Album Detected' : '📋 Playlist / Mix Detected';
+    const count = videoInfo.playlistVideos.length;
+    const addAllLabel = isYTM ? `Add All ${count} Tracks` : `Add All ${count} Videos`;
+    const showAddAll = roomTabs.length > 0;
     html += `
       <div class="playlist-card">
-        <div class="label">📋 Playlist / Mix Detected</div>
-        <div class="count">${videoInfo.playlistVideos.length} videos in queue</div>
+        <div class="label">${label}</div>
+        <div class="playlist-card-row">
+          <div class="count">${count} ${isYTM ? 'tracks' : 'videos'} detected</div>
+          ${showAddAll ? `<button class="btn btn-playlist-inline" id="btn-add-playlist">📋 ${addAllLabel}</button>` : ''}
+        </div>
       </div>
     `;
   }
@@ -132,20 +159,15 @@ function render(roomTabs) {
   html += `<div class="actions" id="actions">`;
 
   if (videoInfo.currentVideo && roomTabs.length > 0) {
+    const addLabel = isYTM ? '➕ Add Current Track' : '➕ Add Current Video';
     html += `
       <button class="btn btn-primary" id="btn-add-video">
-        ➕ Add Current Video
+        ${addLabel}
       </button>
     `;
   }
 
-  if (videoInfo.isPlaylist && videoInfo.playlistVideos.length > 0 && roomTabs.length > 0) {
-    html += `
-      <button class="btn btn-secondary" id="btn-add-playlist">
-        📋 Add All ${videoInfo.playlistVideos.length} Videos
-      </button>
-    `;
-  }
+
 
   html += `</div>`;
   html += `<div id="status-area" style="margin-top:10px"></div>`;
@@ -282,7 +304,7 @@ async function persistRoomSelection() {
     });
     // Also notify the active YouTube tab's content script
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id && tab.url?.includes('youtube.com')) {
+    if (tab?.id && tab.url && YOUTUBE_PAGE_PATTERN.test(tab.url)) {
       chrome.tabs.sendMessage(tab.id, {
         action: 'roomUpdated',
         selectedRoom,
