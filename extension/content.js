@@ -436,6 +436,17 @@
       });
     }
 
+    // Also inject into automix/autoplay recommendation items
+    if (queue) {
+      const automixItems = queue.querySelectorAll(
+        'ytmusic-player-queue-item[is-automix]'
+      );
+      automixItems.forEach((item) => {
+        if (item.querySelector(`.${ITEM_BTN_CLASS}`)) return;
+        injectYTMItemButton(item);
+      });
+    }
+
     // Shelf items (album/playlist browse pages only).
     // On /watch pages, ytmusic-responsive-list-item-renderer items below the
     // queue are autoplay recommendations — we don't want buttons there.
@@ -449,6 +460,7 @@
       });
     }
   }
+
 
   function injectYTMItemButton(item) {
     if (!selectedRoom && rooms.length === 0) return;
