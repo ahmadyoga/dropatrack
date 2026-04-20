@@ -3559,6 +3559,45 @@
   }
 }
 
+/* ============================================================
+   Mobile safe-area fix for fixed player/nav overlays
+   ============================================================ */
+@media (max-width: 768px) {
+  :root {
+    --mobile-player-h: 64px;
+    --mobile-nav-h: 58px;
+    --mobile-safe-bottom: calc(var(--mobile-player-h) + var(--mobile-nav-h) + 26px);
+  }
+
+  /* Discovery/Home content should fully scroll above overlays */
+  .main-scroll {
+    padding-bottom: var(--mobile-safe-bottom) !important;
+  }
+
+  /* Playlist tab: queue can scroll past fixed player */
+  .queue-list {
+    padding-bottom: var(--mobile-safe-bottom) !important;
+  }
+
+  /* Room tab: chat/users body can scroll above fixed player */
+  .users-list,
+  .chat-messages {
+    padding-bottom: var(--mobile-safe-bottom) !important;
+  }
+
+  /* Keep chat composer visible (not hidden behind player bar) */
+  .chat-input-wrap {
+    margin-bottom: calc(var(--mobile-player-h) + var(--mobile-nav-h) + 10px) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --mobile-player-h: 60px;
+    --mobile-nav-h: 58px;
+  }
+}
+
 
 /* ============================================================
    _player.css — Floating Player Bar

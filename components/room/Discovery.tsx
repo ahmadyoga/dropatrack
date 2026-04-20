@@ -71,8 +71,8 @@ export default function Discovery({
     <main className="main">
 
       {/* ── Search header ── */}
-      <div className="main-top" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-        <form onSubmit={onSearch} className="search-bar" style={{ flex: 1 }}>
+      <div className="main-top discovery-main-top">
+        <form onSubmit={onSearch} className="search-bar discovery-search-bar">
           <span className="s-icon">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
           </span>
@@ -89,7 +89,7 @@ export default function Discovery({
             {searching ? '...' : (addingUrl ? 'Adding...' : 'Search')}
           </button>
         </form>
-        <div className="active-users-stack" style={{ display: 'flex', alignItems: 'center' }}>
+        <div className="active-users-stack discovery-active-users">
           {users.map((u, i) => (
             <div key={u.user_id} className="avatar-circle" title={u.username} style={{ background: u.avatar_color, zIndex: 10 - i, marginLeft: i > 0 ? -8 : 0, width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 'bold', border: '2px solid var(--theme-glass-bg)', color: 'var(--theme-text-primary)' }}>
               {u.username.charAt(0).toUpperCase()}
@@ -236,28 +236,28 @@ export default function Discovery({
           /* ══ DEFAULT DISCOVERY VIEW ══ */
           <>
             {/* Hero & Popular Layout */}
-            <div className="hero-popular-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: '24px', marginBottom: '32px' }}>
+            <div className="hero-popular-grid">
 
               {/* Left Column: Hero */}
               <div className="hero-col">
                 <div className="section-header" style={{ marginTop: 0 }}>
-                  <span className="sec-title">Home &gt; Artists</span>
+                  <span className="sec-title hero-path-title">Home &gt; Artists</span>
                 </div>
                 {trendingVideos[0] && (() => {
                   const v = trendingVideos[0];
                   const isAdded = queuedVideoIds.has(v.id);
                   return (
-                    <div className="hero-banner" style={{ background: `url(${v.thumbnail}) center/cover no-repeat`, borderRadius: '24px', padding: '40px 32px 32px', position: 'relative', overflow: 'hidden', minHeight: '340px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)' }} />
-                      <div style={{ position: 'relative', zIndex: 2 }}>
-                        <h1 style={{ fontSize: '48px', fontWeight: 800, margin: '0 0 16px', lineHeight: 1.1 }}>{v.title}</h1>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-                          <button onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)} className="btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', borderRadius: '30px' }}>
+                    <div className="hero-banner" style={{ backgroundImage: `url(${v.thumbnail})` }}>
+                      <div className="hero-banner-overlay" />
+                      <div className="hero-banner-content">
+                        <h1 className="hero-banner-title">{v.title}</h1>
+                        <div className="hero-banner-actions">
+                          <button onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)} className="btn-primary hero-banner-primary-btn">
                             {isAdded ? '✓ Added' : '▶ Play'}
                           </button>
-                          <button className="btn-ghost" style={{ borderRadius: '30px', borderColor: 'var(--theme-glass-border)' }}>Following</button>
+                          <button className="btn-ghost hero-banner-secondary-btn">Following</button>
                         </div>
-                        <div style={{ fontSize: '13px', color: 'var(--theme-text-muted)', fontWeight: 500 }}>{formatViewCount(v.viewCount)} monthly listeners ({v.channelTitle})</div>
+                        <div className="hero-banner-meta">{formatViewCount(v.viewCount)} monthly listeners ({v.channelTitle})</div>
                       </div>
                     </div>
                   );
@@ -268,15 +268,15 @@ export default function Discovery({
                   <span className="sec-title" style={{ fontSize: '16px', fontWeight: 700, textTransform: 'none', color: 'var(--theme-text-primary)' }}>Fans Also Like</span>
                   <span className="sec-see" onClick={onRefreshLatest}>{latestLoading ? '...' : 'View All'}</span>
                 </div>
-                <div className="fans-also-like-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '16px' }}>
+                <div className="fans-also-like-grid">
                   {latestVideos.slice(0, 6).map((v) => {
                     const isAdded = queuedVideoIds.has(v.id);
                     return (
-                      <div key={v.id} className="fan-card" onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)} style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', aspectRatio: '1' }}>
-                        <img src={v.thumbnail} alt={v.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%)' }} />
-                        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '16px' }}>
-                          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--theme-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.title}</div>
+                      <div key={v.id} className="fan-card" onClick={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)}>
+                        <img src={v.thumbnail} alt={v.title} className="fan-card-img" />
+                        <div className="fan-card-overlay" />
+                        <div className="fan-card-content">
+                          <div className="fan-card-title">{v.title}</div>
 
                         </div>
                       </div>
@@ -290,15 +290,15 @@ export default function Discovery({
                 <div className="section-header" style={{ marginTop: 0 }}>
                   <span className="sec-title" style={{ fontSize: '16px', fontWeight: 700, textTransform: 'none', color: 'var(--theme-text-primary)' }}>Popular</span>
                 </div>
-                <div className="popular-list" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div className="popular-list">
                   {trendingVideos.slice(1, 9).map((video, index) => {
                     const isAdded = queuedVideoIds.has(video.id);
                     return (
-                      <div key={video.id} className={`popular-item ${isAdded ? 'added' : ''}`} onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px', borderRadius: '12px', cursor: 'pointer', transition: 'background 0.2s' }}>
-                        <img src={video.thumbnail} alt="" style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--theme-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{video.title}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--theme-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{video.channelTitle} • {formatDuration(video.durationSeconds)}</div>
+                      <div key={video.id} className={`popular-item ${isAdded ? 'added' : ''}`} onClick={() => onAddSong(video.id, video.title, video.thumbnail, video.durationSeconds)}>
+                        <img src={video.thumbnail} alt="" className="popular-item-thumb" />
+                        <div className="popular-item-info">
+                          <div className="popular-item-title">{video.title}</div>
+                          <div className="popular-item-meta">{video.channelTitle} • {formatDuration(video.durationSeconds)}</div>
                         </div>
                       </div>
                     );

@@ -312,3 +312,120 @@
     padding: 8px 10px;
   }
 }
+
+/* ============================================================
+   MOBILE LAYOUT V2 — docked player + safe scroll areas
+   Single source of truth for tab visibility and spacing
+   ============================================================ */
+@media (max-width: 768px) {
+  :root {
+    --mobile-player-h: 64px;
+    --mobile-nav-h: 60px;
+    --mobile-safe-bottom: calc(var(--mobile-player-h) + var(--mobile-nav-h) + 24px);
+  }
+
+  .app-card {
+    position: relative !important;
+    padding: 10px !important;
+    padding-bottom: calc(var(--mobile-nav-h) + 10px) !important;
+  }
+
+  /* All tab panels occupy one shared content viewport */
+  .sidebar-group,
+  .main-col,
+  .right-panel {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+
+  /*
+    Keep player globally visible:
+    - main-col stays mounted for all tabs
+    - only discovery content toggles
+  */
+  .main-col {
+    display: flex !important;
+    gap: 0 !important;
+    pointer-events: none;
+  }
+
+  .main-col .main,
+  .main-col .player-bar {
+    pointer-events: auto;
+  }
+
+  .app-card.mobile-tab-main .main {
+    display: flex !important;
+  }
+
+  .app-card.mobile-tab-main .sidebar-group,
+  .app-card.mobile-tab-main .right-panel {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-queue .main {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-queue .sidebar-group {
+    display: flex !important;
+  }
+
+  .app-card.mobile-tab-queue .right-panel {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-chat .main {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-chat .sidebar-group {
+    display: none !important;
+  }
+
+  .app-card.mobile-tab-chat .right-panel {
+    display: flex !important;
+  }
+
+  /* Fixed dock: player above nav */
+  .player-bar {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: calc(var(--mobile-nav-h) + 8px) !important;
+    z-index: 95 !important;
+  }
+
+  .mobile-nav {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    width: auto !important;
+    z-index: 96 !important;
+  }
+
+  /* Ensure last content is never hidden behind docked player/nav */
+  .main-scroll,
+  .queue-list,
+  .users-list,
+  .chat-messages {
+    padding-bottom: var(--mobile-safe-bottom) !important;
+  }
+
+  /* Keep composer usable in chat tab */
+  .chat-input-wrap {
+    margin-bottom: var(--mobile-safe-bottom) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --mobile-player-h: 60px;
+    --mobile-nav-h: 58px;
+  }
+}
