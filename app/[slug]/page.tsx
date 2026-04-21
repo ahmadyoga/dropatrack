@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import RoomClient from '@/components/RoomClient';
+import { notFound } from 'next/navigation';
 
 export default async function RoomPage({
   params,
@@ -7,6 +8,12 @@ export default async function RoomPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+
+  // Prevent asset/metadata paths (e.g. /favicon.ico) from being treated as room slugs.
+  const isValidRoomSlug = /^[a-z0-9-]+$/i.test(slug);
+  if (!isValidRoomSlug) {
+    notFound();
+  }
 
   // Fetch room data server-side
   let { data: room } = await supabase
@@ -57,7 +64,6 @@ export default async function RoomPage({
 
   // Final safety net — should never happen but prevents runtime crash
   if (!room) {
-    const { notFound } = await import('next/navigation');
     notFound();
   }
 
