@@ -7,7 +7,12 @@ interface MobileNavProps {
   setUnreadChatCount: (n: number) => void;
 }
 
-export default function MobileNav({ mobileTab, setMobileTab, unreadChatCount, setUnreadChatCount }: MobileNavProps) {
+export default function MobileNav({
+  mobileTab,
+  setMobileTab,
+  unreadChatCount,
+  setUnreadChatCount,
+}: MobileNavProps) {
   return (
     <div className="mobile-nav">
       <button className={`mn-btn ${mobileTab === 'main' ? 'active' : ''}`} onClick={() => setMobileTab('main')}>

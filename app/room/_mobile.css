@@ -138,7 +138,10 @@
 
   .pb-right {
     grid-area: right !important;
+    display: flex !important;
     justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
   }
 
   /* Show center controls below track */
@@ -148,29 +151,50 @@
     width: 100% !important;
   }
 
+  .mobile-speaker-btn {
+    display: flex !important;
+    gap: 4px;
+    width: auto !important;
+    padding: 0 8px !important;
+    border-radius: 999px;
+  }
+
   .pb-progress {
     display: flex !important;
     margin-top: 4px;
   }
 
-  .vol-wrap {
-    display: flex !important;
-  }
 
   .vol-bar {
     width: 50px;
   }
 
-  /* Slightly shorter volume bar for mobile fit */
+  .mobile-volume-wrap {
+    display: flex !important;
+  }
 
-  /* Keep speaker pill but remove label text */
-  .speaker-pill span {
-    display: none;
+  .pb-right .mobile-volume-btn {
+    display: flex !important;
+    gap: 4px;
+    width: auto !important;
+    padding: 0 8px !important;
+    border-radius: 999px;
+  }
+
+  .mobile-speaker-label,
+  .mobile-volume-label {
+    display: inline;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+
+  .pb-right .icon-btn {
+    display: none !important;
   }
 
   .speaker-pill {
-    padding: 6px 10px;
-    gap: 0;
+    display: none !important;
   }
 
   /* Mobile nav shows on row 3 */

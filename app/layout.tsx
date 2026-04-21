@@ -8,6 +8,19 @@ export const metadata: Metadata = {
   description:
     "Share music across devices in real-time. Create a room, drop tracks, and listen together with friends.",
   keywords: ["music", "collaborative", "jukebox", "youtube", "rooms", "sync"],
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      "max-video-preview": -1,
+      "max-image-preview": "none",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
     title: "DropATrack — Collaborative Music Rooms",
     description:
