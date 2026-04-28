@@ -215,7 +215,7 @@ export async function GET(req: NextRequest) {
         const card = await page.$('.card');
         const png = await (card ?? page).screenshot({ type: 'png' });
 
-        return new Response(png, {
+        return new Response(Buffer.from(png), {
             headers: {
                 'Content-Type': 'image/png',
                 'Cache-Control': 'public, max-age=60, stale-while-revalidate=300',
