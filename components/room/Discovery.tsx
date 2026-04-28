@@ -4,6 +4,7 @@ import type { TrendingVideo, RoomUser } from '@/lib/types';
 import type { CuratedSection } from '@/lib/curatedPlaylists';
 import { formatDuration } from '@/lib/youtube';
 import '@/app/room/_discovery.css';
+import ThemeToggle from '../ThemeToggle';
 
 interface EnrichedPlaylist { id: string; title: string; description: string; thumbnail: string; itemCount: number; }
 interface EnrichedSection extends Omit<CuratedSection, 'playlists'> { playlists: EnrichedPlaylist[]; }
@@ -90,12 +91,13 @@ export default function Discovery({
           </button>
         </form>
         <div className="active-users-stack discovery-active-users">
-          {users.map((u, i) => (
+          {users.slice(0, 5).map((u, i) => (
             <div key={u.user_id} className="avatar-circle" title={u.username} style={{ background: u.avatar_color, zIndex: 10 - i, marginLeft: i > 0 ? -8 : 0, width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 'bold', border: '2px solid var(--theme-glass-bg)', color: 'var(--theme-text-primary)' }}>
               {u.username.charAt(0).toUpperCase()}
             </div>
           ))}
         </div>
+        <ThemeToggle />
       </div>
 
       {/* ── Scrollable content ── */}

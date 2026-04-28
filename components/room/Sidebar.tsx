@@ -1,10 +1,13 @@
 'use client';
 
+import { useState, useCallback } from 'react';
+
 import ThemeToggle from '@/components/ThemeToggle';
 import QueueList from './QueueList';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 import { formatDuration } from '@/lib/youtube';
+import "@/app/room/_sidebar.css";
 
 interface SidebarProps {
   room: Room;
@@ -57,6 +60,42 @@ export default function Sidebar({
 }: SidebarProps) {
   const effectiveDuration = currentSong?.duration_seconds ?? 0;
 
+  // ── Share ─────────────────────────────────────────────────────────────
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(async () => {
+    const url = `${window.location.origin}/${room.slug}`;
+    const shareData = {
+      title: `Join ${room.name} on DropATrack`,
+      text: 'Listen together in real-time.',
+      url,
+    };
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // User dismissed — fall through to clipboard
+      }
+    }
+
+    // Clipboard fallback
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Last resort: legacy execCommand
+      const el = document.createElement('input');
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [room.slug, room.name]);
+
   return (
     <>
       {(
@@ -78,8 +117,31 @@ export default function Sidebar({
           <div className="sb-logo">
             <span className="logo-text">Drop<span>A</span>Track</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <ThemeToggle />
               <div className="room-badge"><div className="ldot" />/{room.slug}</div>
+              <button
+                className={`share-btn ${copied ? 'share-btn--copied' : ''}`}
+                onClick={handleShare}
+                title="Share room link"
+                aria-label="Share room link"
+              >
+                {copied ? (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                    <span>Share</span>
+                  </>
+                )}
+              </button>
             </div>
 
           </div>
@@ -192,7 +254,7 @@ export default function Sidebar({
           </div>
 
         </div>
-        <div className="sidebar-pill queue-pill" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>{/* ── Queue header ── */}
+        <div className="sidebar-pill queue-pill" style={{ flex: 2, overflow: "hidden", display: "flex", flexDirection: "column" }}>{/* ── Queue header ── */}
           <div className="queue-header">
             <span className="queue-label">Up Next</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

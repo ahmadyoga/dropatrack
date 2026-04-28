@@ -13,14 +13,9 @@ export default function ExtensionPopup({ onClose }: ExtensionPopupProps) {
           <button onClick={onClose} className="ext-close-btn">✕</button>
         </div>
 
-        <div style={{ backgroundColor: '#2d1a1a', border: '1px solid #ef4444', borderRadius: '8px', padding: '12px', margin: '0px 0px 16px', color: '#fca5a5', fontSize: '13px' }}>
-          <strong>⚠️ Peringatan Penting</strong><br />
-          Jika kamu memiliki feedback atau menemukan bug, silakan perbaiki sendiri. Kami open-source!<br />
-          Kunjungi repo GitHub kami:{' '}
-          <a href="https://github.com/ahmadyoga/dropatrack" target="_blank" rel="noreferrer" style={{ textDecoration: 'underline', color: '#f87171', fontWeight: 'bold' }}>
-            GitHub DropATrack
-          </a>.<br /><br />
-          <em>&quot;tidak menerima wong ruwet, gaweo dewe bug/feature,e&quot;</em>
+        <div style={{ backgroundColor: '#1a2030', border: '1px solid #3b82f6', borderRadius: '8px', padding: '12px', margin: '0px 0px 16px', color: '#93c5fd', fontSize: '13px' }}>
+          <strong>💡 Tip: Tampilan kurang pas?</strong><br />
+          Coba zoom out browser kamu (<strong>Ctrl + −</strong>) ke sekitar 60–80% untuk tampilan terbaik. Aplikasi ini belum sepenuhnya responsif untuk semua ukuran layar.
         </div>
 
         <div className="ext-modal-desc">

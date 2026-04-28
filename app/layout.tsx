@@ -4,6 +4,9 @@ import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL ?? 'https://dropatrack.vercel.app'
+  ),
   title: "DropATrack — Collaborative Music Rooms",
   description:
     "Share music across devices in real-time. Create a room, drop tracks, and listen together with friends.",

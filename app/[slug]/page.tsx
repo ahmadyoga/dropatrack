@@ -1,6 +1,52 @@
 import { supabase } from '@/lib/supabase';
 import RoomClient from '@/components/RoomClient';
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
+
+// ── Dynamic OG metadata per room ──────────────────────────────────────────
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+
+  const { data: room } = await supabase
+    .from('rooms')
+    .select('name, slug')
+    .eq('slug', slug)
+    .single();
+
+  const roomName = room?.name ?? slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const title = `Join ${roomName} on DropATrack`;
+  const description = `Listen together in real-time. Join the "${roomName}" room and drop tracks with friends.`;
+  const ogImageUrl = `/api/og?room=${encodeURIComponent(slug)}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      url: `/${slug}`,
+      images: [
+        {
+          url: ogImageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${roomName} — DropATrack Room`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [ogImageUrl],
+    },
+  };
+}
 
 export default async function RoomPage({
   params,
