@@ -65,9 +65,23 @@ export default function Sidebar({
 
   const handleShare = useCallback(async () => {
     const url = `${window.location.origin}/${room.slug}`;
+
+    // Refresh the OG snapshot with live track data (fire-and-forget)
+    // so the social preview shows what's currently playing
+    fetch('/api/og/shorten', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug: room.slug,
+        track: currentSong?.title ?? '',
+      }),
+    }).catch(() => { /* non-critical */ });
+
     const shareData = {
       title: `Join ${room.name} on DropATrack`,
-      text: 'Listen together in real-time.',
+      text: currentSong
+        ? `🎵 Now playing: ${currentSong.title} — Listen together in real-time.`
+        : 'Listen together in real-time.',
       url,
     };
 
@@ -94,7 +108,7 @@ export default function Sidebar({
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [room.slug, room.name]);
+  }, [room.slug, room.name, currentSong]);
 
   return (
     <>

@@ -13,14 +13,33 @@ export async function generateMetadata({
 
   const { data: room } = await supabase
     .from('rooms')
-    .select('name, slug')
+    .select('id, name, slug, current_song_index')
     .eq('slug', slug)
     .single();
 
   const roomName = room?.name ?? slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const title = `Join ${roomName} on DropATrack`;
   const description = `Listen together in real-time. Join the "${roomName}" room and drop tracks with friends.`;
-  const ogImageUrl = `/api/og?room=${encodeURIComponent(slug)}`;
+
+  // Fetch current track so the OG image shows what's playing
+  let currentTrack = '';
+  if (room?.id) {
+    const { data: queueItems } = await supabase
+      .from('queue_items')
+      .select('title')
+      .eq('room_id', room.id)
+      .order('position', { ascending: true });
+
+    currentTrack = queueItems?.[room.current_song_index ?? 0]?.title ?? '';
+  }
+
+  // Upsert snapshot into og_tokens so /api/og?t=slug stays short
+  await supabase.from('og_tokens').upsert(
+    { slug, track: currentTrack, listeners: '', extra: '', updated_at: new Date().toISOString() },
+    { onConflict: 'slug' },
+  );
+
+  const ogImageUrl = `/api/og?t=${encodeURIComponent(slug)}`;
 
   return {
     title,
