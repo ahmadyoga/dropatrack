@@ -13,7 +13,7 @@ export async function generateMetadata({
 
   const { data: room } = await supabase
     .from('rooms')
-    .select('id, name, slug, current_song_index')
+    .select('name, slug')
     .eq('slug', slug)
     .single();
 
@@ -21,24 +21,7 @@ export async function generateMetadata({
   const title = `Join ${roomName} on DropATrack`;
   const description = `Listen together in real-time. Join the "${roomName}" room and drop tracks with friends.`;
 
-  // Fetch current track so the OG image shows what's playing
-  let currentTrack = '';
-  if (room?.id) {
-    const { data: queueItems } = await supabase
-      .from('queue_items')
-      .select('title')
-      .eq('room_id', room.id)
-      .order('position', { ascending: true });
-
-    currentTrack = queueItems?.[room.current_song_index ?? 0]?.title ?? '';
-  }
-
-  // Upsert snapshot into og_tokens so /api/og?t=slug stays short
-  await supabase.from('og_tokens').upsert(
-    { slug, track: currentTrack, listeners: '', extra: '', updated_at: new Date().toISOString() },
-    { onConflict: 'slug' },
-  );
-
+  // /api/og?t=slug fetches room, current track, and recent chatters directly from DB
   const ogImageUrl = `/api/og?t=${encodeURIComponent(slug)}`;
 
   return {

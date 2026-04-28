@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 import { supabase } from '@/lib/supabase';
 import type { NextRequest } from 'next/server';
 
@@ -172,7 +173,8 @@ function buildHtml(params: {
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
 
-    // Short-token lookup: ?t=slug → pull stored params from og_tokens
+    // ?t=slug  →  resolve all params directly from DB (short, clean URL)
+    // ?room=…&track=…&…  →  legacy / direct mode (backward compat)
     let room = searchParams.get('room') || 'room';
     let track = searchParams.get('track') || '';
     let listenersRaw = searchParams.get('listeners') || '';
@@ -180,16 +182,38 @@ export async function GET(req: NextRequest) {
 
     const t = searchParams.get('t');
     if (t) {
-        const { data } = await supabase
-            .from('og_tokens')
-            .select('track, listeners, extra')
+        // 1. Fetch room
+        const { data: roomRow } = await supabase
+            .from('rooms')
+            .select('id, name, current_song_index')
             .eq('slug', t)
             .single();
-        room = t;  // slug is the room identifier
-        if (data) {
-            track        = data.track       ?? '';
-            listenersRaw = data.listeners   ?? '';
-            extraCount   = data.extra       ?? '';
+
+        if (roomRow) {
+            room = roomRow.name || t;
+
+            // 2. Current track from queue
+            const { data: queueItems } = await supabase
+                .from('queue_items')
+                .select('title')
+                .eq('room_id', roomRow.id)
+                .order('position', { ascending: true });
+
+            track = queueItems?.[roomRow.current_song_index ?? 0]?.title ?? '';
+
+            // 3. Recent listeners — distinct usernames from chat (presence is ephemeral)
+            const { data: chatRows } = await supabase
+                .from('chat_messages')
+                .select('username')
+                .eq('room_id', roomRow.id)
+                .order('created_at', { ascending: false })
+                .limit(30);
+
+            const uniqueNames = [...new Set((chatRows ?? []).map(c => c.username))];
+            listenersRaw = uniqueNames.slice(0, 3).map(n => n.charAt(0).toUpperCase()).join(',');
+            extraCount = uniqueNames.length > 3 ? String(uniqueNames.length - 3) : '';
+        } else {
+            room = t; // fallback to slug as display name
         }
     }
 
@@ -200,8 +224,10 @@ export async function GET(req: NextRequest) {
     const html = buildHtml({ roomName, nowPlaying, hasTrack: Boolean(track), listeners, extraCount });
 
     const browser = await puppeteer.launch({
-        executablePath: '/usr/bin/google-chrome',
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        args: chromium.args,
+        executablePath: process.env.NODE_ENV === 'production'
+            ? await chromium.executablePath()
+            : (process.env.CHROME_EXECUTABLE_PATH ?? '/usr/bin/google-chrome'),
         headless: true,
     });
 
