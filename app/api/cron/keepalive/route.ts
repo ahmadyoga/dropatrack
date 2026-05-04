@@ -29,6 +29,20 @@ export async function GET() {
     //    pg_cron `cleanup_stale_rooms` deletes rooms from DB (cascade deletes chat_messages),
     //    but storage files remain. We list all folders in chat-images and remove any
     //    whose room_id no longer exists in the DB.
+    
+    // clean up
+    const { error: delErr } = await supabase
+      .from('rooms')
+      .delete();
+
+    if (delErr) {
+      console.error('Error Detele room', delErr);
+      return NextResponse.json(
+        { error: 'Failed delete room', details: delErr.message },
+        { status: 500 }
+      );
+    }
+    
     let cleanedFolders = 0;
     try {
       const { data: folders } = await supabase.storage
