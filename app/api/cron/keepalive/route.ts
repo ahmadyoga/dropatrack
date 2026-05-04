@@ -33,7 +33,8 @@ export async function GET() {
     // clean up
     const { error: delErr } = await supabase
       .from('rooms')
-      .delete();
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
 
     if (delErr) {
       console.error('Error Detele room', delErr);
