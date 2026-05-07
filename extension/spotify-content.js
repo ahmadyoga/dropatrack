@@ -3,10 +3,9 @@
 
 (() => {
   const API_BASE_PROD = 'https://dropatrack.vercel.app';
-  const API_BASE_DEV = 'http://localhost:3000';
   // Use dev server if extension was loaded from localhost context, otherwise prod
   // Toggle this to 'API_BASE_DEV' for local testing, 'API_BASE_PROD' for production
-  const API_BASE = API_BASE_DEV;
+  const API_BASE = API_BASE_PROD;
   const ITEM_BTN_CLASS = 'dropatrack-item-btn';
 
   let selectedRoom = null;
