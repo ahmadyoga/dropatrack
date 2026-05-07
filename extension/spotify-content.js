@@ -323,6 +323,64 @@
     return { title, artist, duration_seconds: 0, spotify_url: '' };
   }
 
+  // ─── Add all queue tracks one by one ────────────────────────────
+  async function addAllQueueTracks(button) {
+    if (!selectedRoom) {
+      throw new Error('No room selected');
+    }
+
+    // Get all queue items
+    const queuePanel =
+      document.querySelector('aside[aria-label*="queue" i]') ||
+      document.querySelector('aside[aria-label*="Queue"]') ||
+      document.querySelector('[data-testid="queue-page"]') ||
+      document.querySelector('[aria-label="Queue"]');
+
+    let queueItems = [];
+
+    if (queuePanel) {
+      queueItems = [...queuePanel.querySelectorAll('li[role="row"]')];
+    } else {
+      const allLiRows = document.querySelectorAll('li[role="row"]');
+      allLiRows.forEach((li) => {
+        if (!li.closest('[role="grid"]')) {
+          queueItems.push(li);
+        }
+      });
+    }
+
+    const tracks = queueItems
+      .map((item) => extractTrackFromQueueItem(item))
+      .filter(Boolean);
+
+    if (tracks.length === 0) {
+      throw new Error('No tracks found in queue');
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
+      try {
+        await resolveAndAddTrack(track);
+        successCount++;
+      } catch (err) {
+        console.error(`DropATrack: Failed to add "${track.title}"`, err);
+        failCount++;
+      }
+      // Small delay between adds to avoid rate limiting
+      if (i < tracks.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
+
+    const message = `Added ${successCount}/${tracks.length} tracks`;
+    button.title = failCount > 0 ? `${message} (${failCount} failed)` : message;
+
+    return { successCount, failCount, total: tracks.length };
+  }
+
   // ─── Inject buttons into Queue panel (right sidebar) ─────────────
   function injectQueueButtons() {
     if (!selectedRoom && rooms.length === 0) return;
@@ -374,6 +432,105 @@
         item.appendChild(btn);
       }
     });
+
+    // Inject "Add All" button in queue header
+    injectAddAllButton();
+  }
+
+  // ─── Inject "Add All" button in queue header ─────────────────────
+  function injectAddAllButton() {
+    const ADD_ALL_BTN_ID = 'dropatrack-add-all-btn';
+
+    // Avoid re-injecting
+    if (document.getElementById(ADD_ALL_BTN_ID)) return;
+
+    // Find the queue aside section
+    const queueAside = document.querySelector('aside[aria-label*="Queue" i]') ||
+      document.querySelector('aside[aria-label*="queue" i]');
+
+    if (!queueAside) return;
+
+    // Find the header section within the queue aside (usually first div with text)
+    const queueHeaderText = queueAside.querySelector('h2, h1, [role="heading"], .text-2xl');
+    let insertTarget = queueHeaderText?.parentElement || queueAside.querySelector('div:first-of-type');
+
+    if (!insertTarget) return;
+
+    const btn = document.createElement('button');
+    btn.id = ADD_ALL_BTN_ID;
+    btn.className = 'dropatrack-add-all-btn';
+    btn.textContent = 'Add All';
+    btn.title = selectedRoom
+      ? 'Add all queue tracks to DropATrack'
+      : 'No room selected';
+    btn.style.cssText = `
+      display: inline-block;
+      margin-left: 8px;
+      padding: 4px 12px;
+      background: #1DB954;
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      vertical-align: middle;
+    `;
+
+    btn.addEventListener('mouseover', () => {
+      if (!btn.disabled) btn.style.background = '#1ed760';
+    });
+
+    btn.addEventListener('mouseout', () => {
+      if (!btn.disabled) btn.style.background = '#1DB954';
+    });
+
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!selectedRoom) {
+        btn.textContent = '⚠ No Room';
+        btn.style.background = '#ff6b6b';
+        setTimeout(() => {
+          btn.textContent = 'Add All';
+          btn.style.background = '#1DB954';
+        }, 2000);
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<div class="dropatrack-spinner"></div>';
+      btn.style.background = '#999';
+
+      try {
+        const result = await addAllQueueTracks(btn);
+        btn.innerHTML = `✓ ${result.successCount}/${result.total}`;
+        btn.style.background = result.failCount === 0 ? '#1DB954' : '#ff8800';
+        setTimeout(() => {
+          btn.innerHTML = 'Add All';
+          btn.style.background = '#1DB954';
+          btn.disabled = false;
+        }, 2500);
+      } catch (err) {
+        btn.innerHTML = '✗ Error';
+        btn.style.background = '#ff6b6b';
+        console.error('DropATrack: Add all failed', err);
+        setTimeout(() => {
+          btn.innerHTML = 'Add All';
+          btn.style.background = '#1DB954';
+          btn.disabled = false;
+        }, 2000);
+      }
+    });
+
+    // Insert the button right after the header text
+    if (queueHeaderText) {
+      queueHeaderText.insertAdjacentElement('afterend', btn);
+    } else {
+      insertTarget.appendChild(btn);
+    }
   }
 
   // ─── Inject room indicator (small floating badge) ────────────────
