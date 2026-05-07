@@ -42,9 +42,11 @@ async function scanAndUpdateRooms() {
         if (roomsChanged || roomChanged) {
             await chrome.storage.local.set({ selectedRoom, rooms: roomSlugs });
 
-            // Notify all YouTube tabs
-            const ytTabs = allTabs.filter(t => t.url?.includes('youtube.com'));
-            for (const tab of ytTabs) {
+            // Notify all YouTube and Spotify tabs
+            const contentTabs = allTabs.filter(t =>
+                t.url?.includes('youtube.com') || t.url?.includes('open.spotify.com')
+            );
+            for (const tab of contentTabs) {
                 chrome.tabs.sendMessage(tab.id, {
                     action: 'roomUpdated',
                     selectedRoom,

@@ -4,6 +4,7 @@ const YOUTUBE_PAGE_PATTERN = /^https?:\/\/(www\.)?(youtube\.com|music\.youtube\.
 // Match watch pages on both YT/YTM AND browse pages on YTM (playlist, album)
 const YOUTUBE_WATCH_PATTERN = /^https?:\/\/(www\.)?(youtube\.com\/watch|music\.youtube\.com\/(watch|playlist|browse))/;
 const YTM_PATTERN = /^https?:\/\/music\.youtube\.com\//;
+const SPOTIFY_PATTERN = /^https?:\/\/open\.spotify\.com\/(playlist|album|track|artist)\//;
 
 const contentEl = document.getElementById('content');
 
@@ -14,19 +15,71 @@ let allRoomSlugs = [];
 // Initialize
 (async () => {
   try {
-    // 1. Get current YouTube tab
+    // 1. Get current tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    if (!tab?.url || !YOUTUBE_WATCH_PATTERN.test(tab.url)) {
+    const isSpotify = tab?.url && SPOTIFY_PATTERN.test(tab.url);
+    const isYouTube = tab?.url && YOUTUBE_WATCH_PATTERN.test(tab.url);
+
+    if (!tab?.url || (!isYouTube && !isSpotify)) {
       contentEl.innerHTML = `
         <div class="status error">
-          Navigate to a YouTube video, or a YouTube Music video/playlist/album page.
+          Navigate to a YouTube video, YouTube Music playlist/album, or a Spotify playlist/album page.
         </div>
       `;
       return;
     }
 
     const isYTM = YTM_PATTERN.test(tab.url);
+
+    if (isSpotify) {
+      // ─── Spotify flow ─────────────────────────────────────────
+      let spotifyInfo = null;
+      try {
+        spotifyInfo = await chrome.tabs.sendMessage(tab.id, { action: 'getTrackInfo' });
+      } catch {
+        contentEl.innerHTML = `
+          <div class="status error">
+            Could not read Spotify page. Try refreshing the page.
+          </div>
+        `;
+        return;
+      }
+
+      if (!spotifyInfo || spotifyInfo.trackCount === 0) {
+        contentEl.innerHTML = `
+          <div class="status info">
+            No tracks detected on this page. Try scrolling down to load all tracks, then reopen the popup.
+          </div>
+        `;
+        return;
+      }
+
+      // Find open DropATrack tabs
+      const allTabs = await chrome.tabs.query({});
+      const roomTabs = allTabs
+        .filter(t => t.url && DROPATRACK_PATTERN.test(t.url))
+        .map(t => {
+          const url = new URL(t.url);
+          const slug = url.pathname.replace(/^\//, '').split('/')[0];
+          return slug && slug !== '' ? { slug, title: t.title, tabId: t.id } : null;
+        })
+        .filter(Boolean)
+        .filter((room, idx, arr) => arr.findIndex(r => r.slug === room.slug) === idx);
+
+      try {
+        const stored = await chrome.storage.local.get(['selectedRoom']);
+        if (stored.selectedRoom) {
+          const match = roomTabs.find(r => r.slug === stored.selectedRoom);
+          if (match) selectedRoom = match.slug;
+        }
+      } catch { /* ignore */ }
+
+      renderSpotify(roomTabs, spotifyInfo);
+      return;
+    }
+
+    // ─── YouTube flow (existing) ──────────────────────────────
     // 2. Get video info from content script
     videoInfo = await chrome.tabs.sendMessage(tab.id, { action: 'getVideoInfo' });
 
@@ -76,7 +129,7 @@ let allRoomSlugs = [];
     contentEl.innerHTML = `
       <div class="status error">
         Error: ${err.message}<br>
-        <small>Try refreshing the YouTube page</small>
+        <small>Try refreshing the page</small>
       </div>
     `;
   }
@@ -302,9 +355,9 @@ async function persistRoomSelection() {
       selectedRoom,
       rooms: allRoomSlugs,
     });
-    // Also notify the active YouTube tab's content script
+    // Also notify the active tab's content script (YouTube or Spotify)
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab?.id && tab.url && YOUTUBE_PAGE_PATTERN.test(tab.url)) {
+    if (tab?.id && tab.url && (YOUTUBE_PAGE_PATTERN.test(tab.url) || SPOTIFY_PATTERN.test(tab.url))) {
       chrome.tabs.sendMessage(tab.id, {
         action: 'roomUpdated',
         selectedRoom,
@@ -312,4 +365,76 @@ async function persistRoomSelection() {
       }).catch(() => { });
     }
   } catch { /* ignore */ }
+}
+
+// ─── Spotify-specific render ────────────────────────────────────────
+function renderSpotify(roomTabs, spotifyInfo) {
+  let html = '';
+
+  // Site badge
+  html += `<div class="site-badge spotify">🎵 Spotify ${spotifyInfo.pageType || ''}</div>`;
+
+  // Track count
+  html += `
+    <div class="playlist-card">
+      <div class="label">🎶 Tracks Detected</div>
+      <div class="playlist-card-row">
+        <div class="count">${spotifyInfo.trackCount} tracks found on this page</div>
+      </div>
+      <div class="spotify-hint">Use the + buttons on the Spotify page to add individual tracks</div>
+    </div>
+  `;
+
+  // Room selector
+  html += `<div class="room-section">`;
+  html += `<div class="label">Select Room</div>`;
+
+  if (roomTabs.length > 0) {
+    html += `<div class="room-tabs" id="room-tabs">`;
+    roomTabs.forEach((room, idx) => {
+      html += `
+        <div class="room-tab ${idx === 0 ? 'selected' : ''}" data-slug="${room.slug}">
+          <div class="dot"></div>
+          <div class="slug">${room.slug}</div>
+        </div>
+      `;
+    });
+    html += `</div>`;
+    if (!selectedRoom) selectedRoom = roomTabs[0].slug;
+    allRoomSlugs = roomTabs.map(r => r.slug);
+    persistRoomSelection();
+  } else {
+    selectedRoom = null;
+    allRoomSlugs = [];
+    persistRoomSelection();
+
+    html += `
+      <div class="no-rooms">
+        No DropATrack rooms open.<br>
+        Open a room at <a href="${API_BASE}" target="_blank" style="color:#1ed760">dropatrack.vercel.app</a> first.
+      </div>
+    `;
+  }
+
+  html += `</div>`;
+  html += `<div id="status-area" style="margin-top:10px"></div>`;
+
+  contentEl.innerHTML = html;
+
+  // Attach room tab events
+  document.querySelectorAll('.room-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.room-tab').forEach(t => t.classList.remove('selected'));
+      tab.classList.add('selected');
+      selectedRoom = tab.dataset.slug;
+      persistRoomSelection();
+    });
+  });
+
+  // Pre-select saved room
+  if (selectedRoom) {
+    document.querySelectorAll('.room-tab').forEach(t => {
+      t.classList.toggle('selected', t.dataset.slug === selectedRoom);
+    });
+  }
 }
