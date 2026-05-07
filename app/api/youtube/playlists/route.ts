@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
 // Server-side only — fetches curated playlists from YouTube Music channel
 // Uses playlists.list (1 quota unit per call)
@@ -11,8 +12,10 @@ export async function GET(request: NextRequest) {
   const pageToken = searchParams.get('pageToken');
   const hl = searchParams.get('hl') || 'en'; // Host language for localized results
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  let apiKey: string;
+  try {
+    apiKey = getYouTubeApiKey();
+  } catch (error) {
     return Response.json({ error: 'YouTube API key not configured' }, { status: 500 });
   }
 
@@ -33,8 +36,11 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       const err = await res.text();
       console.error('YouTube playlists API error:', err);
+      recordApiError(apiKey, res.status, err);
       return Response.json({ error: 'YouTube playlists fetch failed' }, { status: res.status });
     }
+
+    recordApiSuccess(apiKey);
 
     const data = await res.json();
 

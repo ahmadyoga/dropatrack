@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
 // Server-side only — YOUTUBE_API_KEY is never exposed to browser
 export async function GET(request: NextRequest) {
@@ -11,8 +12,10 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: 'Missing search query' }, { status: 400 });
   }
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  let apiKey: string;
+  try {
+    apiKey = getYouTubeApiKey();
+  } catch (error) {
     return Response.json(
       { error: 'YouTube API key not configured' },
       { status: 500 }
@@ -34,11 +37,14 @@ export async function GET(request: NextRequest) {
     if (!searchRes.ok) {
       const err = await searchRes.text();
       console.error('YouTube search API error:', err);
+      recordApiError(apiKey, searchRes.status, err);
       return Response.json(
         { error: 'YouTube search failed' },
         { status: searchRes.status }
       );
     }
+
+    recordApiSuccess(apiKey);
 
     const searchData = await searchRes.json();
 
@@ -58,11 +64,14 @@ export async function GET(request: NextRequest) {
     if (!detailsRes.ok) {
       const err = await detailsRes.text();
       console.error('YouTube details API error:', err);
+      recordApiError(apiKey, detailsRes.status, err);
       return Response.json(
         { error: 'YouTube details failed' },
         { status: detailsRes.status }
       );
     }
+
+    recordApiSuccess(apiKey);
 
     const detailsData = await detailsRes.json();
 

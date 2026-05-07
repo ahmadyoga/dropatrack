@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
 import { getRegionCodeFromTimezone } from '@/lib/region';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
 // Fresh This Week — music released in the last 7 days ordered by view count.
 // Step 1: search.list (100 quota units) to find new music videos.
@@ -12,8 +13,10 @@ export async function GET(request: NextRequest) {
   const regionCode = getRegionCodeFromTimezone(searchParams.get('timezone'));
   const maxResults = parseInt(searchParams.get('maxResults') || '8', 10);
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  let apiKey: string;
+  try {
+    apiKey = getYouTubeApiKey();
+  } catch (error) {
     return Response.json({ error: 'YouTube API key not configured' }, { status: 500 });
   }
 
@@ -43,8 +46,11 @@ export async function GET(request: NextRequest) {
     if (!searchRes.ok) {
       const err = await searchRes.text();
       console.error('YouTube fresh search error:', err);
+      recordApiError(apiKey, searchRes.status, err);
       return Response.json({ error: 'YouTube fresh fetch failed' }, { status: searchRes.status });
     }
+
+    recordApiSuccess(apiKey);
 
     const searchData = await searchRes.json();
 
@@ -71,8 +77,11 @@ export async function GET(request: NextRequest) {
     if (!videosRes.ok) {
       const err = await videosRes.text();
       console.error('YouTube fresh videos.list error:', err);
+      recordApiError(apiKey, videosRes.status, err);
       return Response.json({ error: 'YouTube videos detail fetch failed' }, { status: videosRes.status });
     }
+
+    recordApiSuccess(apiKey);
 
     const videosData = await videosRes.json();
 

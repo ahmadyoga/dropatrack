@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
 import { getRegionCodeFromTimezone } from '@/lib/region';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
 // Server-side only — fetches trending music videos from YouTube Data API v3
 // Uses videos.list with chart=mostPopular and videoCategoryId=10 (Music)
@@ -9,8 +10,10 @@ export async function GET(request: NextRequest) {
   const regionCode = getRegionCodeFromTimezone(searchParams.get('timezone'));
   const maxResults = searchParams.get('maxResults') || '10';
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  let apiKey: string;
+  try {
+    apiKey = getYouTubeApiKey();
+  } catch (error) {
     return Response.json(
       { error: 'YouTube API key not configured' },
       { status: 500 }
@@ -31,11 +34,14 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       const err = await res.text();
       console.error('YouTube trending API error:', err);
+      recordApiError(apiKey, res.status, err);
       return Response.json(
         { error: 'YouTube trending fetch failed' },
         { status: res.status }
       );
     }
+
+    recordApiSuccess(apiKey);
 
     const data = await res.json();
 

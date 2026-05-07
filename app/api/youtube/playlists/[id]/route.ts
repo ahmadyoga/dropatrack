@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
 // Server-side only — fetches videos from a specific YouTube playlist
 // Uses playlistItems.list (1 quota) + videos.list (1 quota) = 2 quota units
@@ -12,8 +13,10 @@ export async function GET(
   const searchParams = request.nextUrl.searchParams;
   const maxResults = searchParams.get('maxResults') || '20';
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  let apiKey: string;
+  try {
+    apiKey = getYouTubeApiKey();
+  } catch (error) {
     return Response.json({ error: 'YouTube API key not configured' }, { status: 500 });
   }
 
@@ -32,8 +35,11 @@ export async function GET(
     if (!playlistRes.ok) {
       const err = await playlistRes.text();
       console.error('YouTube playlistItems error:', err);
+      recordApiError(apiKey, playlistRes.status, err);
       return Response.json({ error: 'Playlist fetch failed' }, { status: playlistRes.status });
     }
+
+    recordApiSuccess(apiKey);
 
     const playlistData = await playlistRes.json();
 
@@ -53,8 +59,11 @@ export async function GET(
     );
 
     if (!detailsRes.ok) {
+      recordApiError(apiKey, detailsRes.status);
       return Response.json({ error: 'Video details failed' }, { status: detailsRes.status });
     }
+
+    recordApiSuccess(apiKey);
 
     const detailsData = await detailsRes.json();
 

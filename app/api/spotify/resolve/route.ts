@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY!;
 const REFERER = 'https://dropatrack.vercel.app';
 
 interface SpotifyTrackInput {
@@ -32,17 +32,21 @@ function jsonResponse(data: unknown, status = 200) {
  */
 async function resolveTrack(track: SpotifyTrackInput): Promise<ResolvedVideo | null> {
   const query = `${track.title} ${track.artist}`;
+  const apiKey = getYouTubeApiKey();
 
   try {
     // Step 1: Search for the track on YouTube
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=1&key=${YOUTUBE_API_KEY}`;
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&videoCategoryId=10&maxResults=1&key=${apiKey}`;
     const searchRes = await fetch(searchUrl, { headers: { Referer: REFERER } });
 
     if (!searchRes.ok) {
-      console.error('YouTube search API error:', await searchRes.text());
+      const err = await searchRes.text();
+      console.error('YouTube search API error:', err);
+      recordApiError(apiKey, searchRes.status, err);
       return null;
     }
 
+    recordApiSuccess(apiKey);
     const searchData = await searchRes.json();
     const item = searchData.items?.[0];
     if (!item) return null;
@@ -50,10 +54,11 @@ async function resolveTrack(track: SpotifyTrackInput): Promise<ResolvedVideo | n
     const videoId = item.id.videoId;
 
     // Step 2: Get video details (duration)
-    const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${videoId}&key=${YOUTUBE_API_KEY}`;
+    const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${videoId}&key=${apiKey}`;
     const detailsRes = await fetch(detailsUrl, { headers: { Referer: REFERER } });
 
     if (!detailsRes.ok) {
+      recordApiError(apiKey, detailsRes.status);
       // Return without duration if details call fails
       return {
         youtube_id: videoId,
@@ -63,6 +68,7 @@ async function resolveTrack(track: SpotifyTrackInput): Promise<ResolvedVideo | n
       };
     }
 
+    recordApiSuccess(apiKey);
     const detailsData = await detailsRes.json();
     const videoDetails = detailsData.items?.[0];
 

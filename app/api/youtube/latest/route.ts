@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
 import { getRegionCodeFromTimezone } from '@/lib/region';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
 // Server-side only — fetches the latest (newest) popular music videos
 // Uses videos.list with chart=mostPopular, videoCategoryId=10 (2 quota units total)
@@ -11,8 +12,10 @@ export async function GET(request: NextRequest) {
   const maxResults = searchParams.get('maxResults') || '10';
   const regionCode = getRegionCodeFromTimezone(searchParams.get('timezone'));
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) {
+  let apiKey: string;
+  try {
+    apiKey = getYouTubeApiKey();
+  } catch (error) {
     return Response.json(
       { error: 'YouTube API key not configured' },
       { status: 500 }
@@ -34,11 +37,14 @@ export async function GET(request: NextRequest) {
     if (!res.ok) {
       const err = await res.text();
       console.error('YouTube latest API error:', err);
+      recordApiError(apiKey, res.status, err);
       return Response.json(
         { error: 'YouTube fetch failed' },
         { status: res.status }
       );
     }
+
+    recordApiSuccess(apiKey);
 
     const data = await res.json();
 

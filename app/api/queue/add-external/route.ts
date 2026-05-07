@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -7,7 +8,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY!;
 const REFERER = 'https://dropatrack.vercel.app';
 
 interface VideoInput {
@@ -21,18 +21,21 @@ interface VideoInput {
 async function fetchPlaylistItems(playlistId: string): Promise<VideoInput[]> {
   const videos: VideoInput[] = [];
   let pageToken = '';
+  const apiKey = getYouTubeApiKey();
 
   do {
-    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${encodeURIComponent(playlistId)}&key=${YOUTUBE_API_KEY}`;
+    let url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${encodeURIComponent(playlistId)}&key=${apiKey}`;
     if (pageToken) url += `&pageToken=${encodeURIComponent(pageToken)}`;
 
     const res = await fetch(url, { headers: { Referer: REFERER } });
     if (!res.ok) {
       const err = await res.text();
       console.error('YouTube playlist API error:', err);
+      recordApiError(apiKey, res.status, err);
       break;
     }
 
+    recordApiSuccess(apiKey);
     const data = await res.json();
     const videoIds = data.items
       ?.map((item: { snippet: { resourceId: { videoId: string } } }) => item.snippet.resourceId.videoId)
@@ -42,11 +45,12 @@ async function fetchPlaylistItems(playlistId: string): Promise<VideoInput[]> {
     if (videoIds) {
       // Get durations
       const detailsRes = await fetch(
-        `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${videoIds}&key=${YOUTUBE_API_KEY}`,
+        `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${videoIds}&key=${apiKey}`,
         { headers: { Referer: REFERER } }
       );
 
       if (detailsRes.ok) {
+        recordApiSuccess(apiKey);
         const detailsData = await detailsRes.json();
         for (const item of detailsData.items) {
           videos.push({
@@ -56,6 +60,8 @@ async function fetchPlaylistItems(playlistId: string): Promise<VideoInput[]> {
             duration_seconds: parseISO8601Duration(item.contentDetails.duration),
           });
         }
+      } else {
+        recordApiError(apiKey, detailsRes.status);
       }
     }
 
@@ -120,11 +126,13 @@ export async function POST(request: NextRequest) {
     if (needDuration.length > 0) {
       const ids = needDuration.map(v => v.youtube_id).join(',');
       try {
+        const apiKey = getYouTubeApiKey();
         const res = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${ids}&key=${YOUTUBE_API_KEY}`,
+          `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${ids}&key=${apiKey}`,
           { headers: { Referer: REFERER } }
         );
         if (res.ok) {
+          recordApiSuccess(apiKey);
           const data = await res.json();
           const durationMap: Record<string, number> = {};
           for (const item of data.items || []) {
@@ -135,6 +143,8 @@ export async function POST(request: NextRequest) {
               v.duration_seconds = durationMap[v.youtube_id];
             }
           }
+        } else {
+          recordApiError(apiKey, res.status);
         }
       } catch (e) {
         console.error('Failed to fetch durations:', e);

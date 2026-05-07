@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getCuratedSections } from '@/lib/curatedPlaylists';
 import { getRegionCodeFromTimezone } from '@/lib/region';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
 
 // Serves curated playlist sections based on user's region
 // No YouTube API quota cost — data is static/hardcoded
@@ -12,7 +13,12 @@ export async function GET(request: NextRequest) {
   const sections = getCuratedSections(regionCode);
 
   // Fetch thumbnails for each playlist from YouTube API (optional, 1 quota unit per playlist)
-  const apiKey = process.env.YOUTUBE_API_KEY;
+  let apiKey: string | null = null;
+  try {
+    apiKey = getYouTubeApiKey();
+  } catch (e) {
+    // Key rotation not available, continue without thumbnails
+  }
   const rawReferer = request.headers.get('referer');
   const referer = rawReferer ? new URL(rawReferer).origin : request.nextUrl.origin;
 
@@ -36,6 +42,7 @@ export async function GET(request: NextRequest) {
         });
 
         if (res.ok) {
+          if (apiKey) recordApiSuccess(apiKey);
           const data = await res.json();
           if (data.items) {
             for (const item of data.items) {
@@ -48,6 +55,8 @@ export async function GET(request: NextRequest) {
               };
             }
           }
+        } else if (apiKey) {
+          recordApiError(apiKey, res.status);
         }
       }
 
