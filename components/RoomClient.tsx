@@ -26,6 +26,7 @@ import Discovery from './room/Discovery';
 import RightPanel from './room/RightPanel';
 import PlayerBar from './room/PlayerBar';
 import MobileNav from './room/MobileNav';
+import FloatingReactions from './room/FloatingReactions';
 import SettingsModal from './room/modals/SettingsModal';
 import ExtensionPopup from './room/modals/ExtensionPopup';
 import ImagePreviewModal from './room/modals/ImagePreviewModal';
@@ -290,6 +291,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         className="room-bg"
         style={currentSong?.thumbnail_url ? { backgroundImage: `url(${currentSong.thumbnail_url})` } : undefined}
       />
+      <FloatingReactions />
       <div className={`app-card ${!isRightPanelOpen ? 'rp-closed' : ''} mobile-tab-${mobileTab}`}>
 
         <Sidebar

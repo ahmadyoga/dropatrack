@@ -3860,3 +3860,23 @@
   overflow: hidden;
   flex: 1;
 }
+/* ── Floating emoji reactions ─────────────────────────────────────── */
+.floating-reactions-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 50;
+}
+.floating-reaction {
+  position: absolute;
+  bottom: 90px;
+  font-size: 28px;
+  will-change: transform, opacity;
+  animation: float-up 3.5s ease-out forwards;
+}
+@keyframes float-up {
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  15% { opacity: 1; transform: translateY(-20px) scale(1.1); }
+  100% { transform: translateY(-260px) scale(1); opacity: 0; }
+}
