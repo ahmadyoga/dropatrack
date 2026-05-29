@@ -3908,3 +3908,28 @@
 }
 .reaction-emoji-btn:hover { transform: scale(1.25); }
 .reaction-emoji-btn:active { transform: scale(0.9); }
+
+.reaction-more-btn {
+  font-weight: 700;
+  color: var(--theme-text-muted, #8a8a9a);
+}
+.reaction-picker {
+  position: absolute;
+  bottom: calc(100% + 56px);
+  right: 0;
+  width: 286px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 16px;
+  background-color: var(--theme-glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translateZ(0);
+  border: 1px solid var(--theme-glass-border-subtle);
+  box-shadow: var(--theme-glass-shadow);
+  z-index: 61;
+}

@@ -10,6 +10,7 @@ import TimeLabel from './TimeLabel';
 import ProgressFill from './ProgressFill';
 import { setTime as setStoreTime } from './playbackTimeStore';
 import { addReaction } from './reactionsStore';
+import EmojiPicker from './EmojiPicker';
 
 const REACTION_EMOJIS = ['❤️', '🔥', '😂', '👍', '🎉', '🙌'];
 
@@ -43,6 +44,7 @@ export default function PlayerBar({
   const [isVolumeModalOpen, setIsVolumeModalOpen] = useState(false);
   const volumeModalRef = useRef<HTMLDivElement | null>(null);
   const [isReactionOpen, setIsReactionOpen] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export default function PlayerBar({
     const onPointerDown = (event: PointerEvent) => {
       if (reactionWrapRef.current && !reactionWrapRef.current.contains(event.target as Node)) {
         setIsReactionOpen(false);
+        setIsPickerOpen(false);
       }
     };
     window.addEventListener('pointerdown', onPointerDown);
@@ -71,6 +74,11 @@ export default function PlayerBar({
   const sendReaction = (emoji: string) => {
     channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { emoji } });
     addReaction(emoji); // sender sees it immediately (channel does not echo to self)
+  };
+
+  const pickFromPicker = (emoji: string) => {
+    sendReaction(emoji);
+    setIsPickerOpen(false);
   };
 
   const getClientX = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
@@ -264,8 +272,17 @@ export default function PlayerBar({
                     {emoji}
                   </button>
                 ))}
+                <button
+                  className={`reaction-emoji-btn reaction-more-btn ${isPickerOpen ? 'active' : ''}`}
+                  onClick={() => setIsPickerOpen((v) => !v)}
+                  aria-label="More emoji"
+                  title="More emoji"
+                >
+                  +
+                </button>
               </div>
             )}
+            {isReactionOpen && isPickerOpen && <EmojiPicker onPick={pickFromPicker} />}
           </div>
           <button
             className={`icon-btn ${isRightPanelOpen ? 'active' : ''}`}
