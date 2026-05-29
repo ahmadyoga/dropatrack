@@ -3880,3 +3880,28 @@
   15% { opacity: 1; transform: translateY(-20px) scale(1.1); }
   100% { transform: translateY(-260px) scale(1); opacity: 0; }
 }
+
+.reaction-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background: var(--theme-surface, #fff);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  z-index: 60;
+}
+.reaction-emoji-btn {
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: transform 0.12s ease;
+}
+.reaction-emoji-btn:hover { transform: scale(1.25); }
+.reaction-emoji-btn:active { transform: scale(0.9); }

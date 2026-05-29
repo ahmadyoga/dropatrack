@@ -9,6 +9,9 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import TimeLabel from './TimeLabel';
 import ProgressFill from './ProgressFill';
 import { setTime as setStoreTime } from './playbackTimeStore';
+import { addReaction } from './reactionsStore';
+
+const REACTION_EMOJIS = ['❤️', '🔥', '😂', '👍', '🎉', '🙌'];
 
 interface PlayerBarProps {
   room: Room;
@@ -39,6 +42,8 @@ export default function PlayerBar({
   const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
   const [isVolumeModalOpen, setIsVolumeModalOpen] = useState(false);
   const volumeModalRef = useRef<HTMLDivElement | null>(null);
+  const [isReactionOpen, setIsReactionOpen] = useState(false);
+  const reactionWrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!isVolumeModalOpen) return;
@@ -51,6 +56,22 @@ export default function PlayerBar({
     window.addEventListener('pointerdown', onPointerDown);
     return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [isVolumeModalOpen]);
+
+  useEffect(() => {
+    if (!isReactionOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (reactionWrapRef.current && !reactionWrapRef.current.contains(event.target as Node)) {
+        setIsReactionOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [isReactionOpen]);
+
+  const sendReaction = (emoji: string) => {
+    channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { emoji } });
+    addReaction(emoji); // sender sees it immediately (channel does not echo to self)
+  };
 
   const getClientX = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if ('touches' in e) {
@@ -222,6 +243,30 @@ export default function PlayerBar({
           )}
         </div>
         <div className="pb-extra">
+          <div className="reaction-wrap" ref={reactionWrapRef} style={{ position: 'relative' }}>
+            <button
+              className={`icon-btn ${isReactionOpen ? 'active' : ''}`}
+              title="Send a reaction"
+              aria-label="Send a reaction"
+              onClick={() => setIsReactionOpen((v) => !v)}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-3.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM12 17.5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z" /></svg>
+            </button>
+            {isReactionOpen && (
+              <div className="reaction-popover" role="menu" aria-label="Reactions">
+                {REACTION_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    className="reaction-emoji-btn"
+                    onClick={() => sendReaction(emoji)}
+                    aria-label={`React ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             className={`icon-btn ${isRightPanelOpen ? 'active' : ''}`}
             title="Toggle Users/Chat"
