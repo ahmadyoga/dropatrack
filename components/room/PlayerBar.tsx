@@ -76,11 +76,6 @@ export default function PlayerBar({
     addReaction(emoji); // sender sees it immediately (channel does not echo to self)
   };
 
-  const pickFromPicker = (emoji: string) => {
-    sendReaction(emoji);
-    setIsPickerOpen(false);
-  };
-
   const getClientX = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if ('touches' in e) {
       const touch = e.touches[0] ?? e.changedTouches[0];
@@ -282,7 +277,7 @@ export default function PlayerBar({
                 </button>
               </div>
             )}
-            {isReactionOpen && isPickerOpen && <EmojiPicker onPick={pickFromPicker} />}
+            {isReactionOpen && isPickerOpen && <EmojiPicker onPick={sendReaction} />}
           </div>
           <button
             className={`icon-btn ${isRightPanelOpen ? 'active' : ''}`}
