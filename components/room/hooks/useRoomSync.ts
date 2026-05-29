@@ -5,6 +5,7 @@ import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, ChatMessage } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { setTime as setStoreTime } from '../playbackTimeStore';
+import { addReaction } from '../reactionsStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
@@ -112,6 +113,11 @@ export function useRoomSync({
     // Broadcast: volume change
     channel.on('broadcast', { event: 'volume_change' }, ({ payload }) => {
       setRoom((prev) => ({ ...prev, volume: payload.volume }));
+    });
+
+    // Broadcast: emoji reaction
+    channel.on('broadcast', { event: 'reaction' }, ({ payload }) => {
+      if (payload && typeof payload.emoji === 'string') addReaction(payload.emoji);
     });
 
     // Broadcast: repeat toggle
