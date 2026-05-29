@@ -3870,15 +3870,14 @@
 }
 .floating-reaction {
   position: absolute;
-  bottom: 90px;
   font-size: 28px;
   will-change: transform, opacity;
   animation: float-up 3.5s ease-out forwards;
 }
 @keyframes float-up {
-  0% { transform: translateY(0) scale(0.8); opacity: 0; }
-  15% { opacity: 1; transform: translateY(-20px) scale(1.1); }
-  100% { transform: translateY(-260px) scale(1); opacity: 0; }
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; transform: translateY(-12px) scale(1.1); }
+  100% { transform: translateY(-110px) scale(1); opacity: 0; }
 }
 
 .reaction-popover {

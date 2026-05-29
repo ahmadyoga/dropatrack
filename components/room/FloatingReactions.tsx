@@ -8,7 +8,7 @@ export default function FloatingReactions() {
   return (
     <div className="floating-reactions-layer" aria-hidden="true">
       {reactions.map((r) => (
-        <span key={r.id} className="floating-reaction" style={{ left: `${r.x}%` }}>
+        <span key={r.id} className="floating-reaction" style={{ left: `${r.x}%`, top: `${r.y}%` }}>
           {r.emoji}
         </span>
       ))}

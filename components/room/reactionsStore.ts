@@ -5,7 +5,8 @@
 export interface FloatingReaction {
   id: string;
   emoji: string;
-  x: number; // horizontal position 10..90 (%)
+  x: number; // horizontal position 5..95 (%)
+  y: number; // vertical position 10..85 (%)
 }
 
 export const REACTION_TTL_MS = 3500;
@@ -47,8 +48,9 @@ export function getServerSnapshot(): FloatingReaction[] {
 
 export function addReaction(emoji: string): void {
   const id = newId();
-  const x = Math.round(Math.random() * 80) + 10; // 10..90
-  reactions = [...reactions, { id, emoji, x }];
+  const x = Math.round(Math.random() * 90) + 5; // 5..95
+  const y = Math.round(Math.random() * 75) + 10; // 10..85
+  reactions = [...reactions, { id, emoji, x, y }];
   if (reactions.length > MAX_REACTIONS) {
     reactions = reactions.slice(reactions.length - MAX_REACTIONS);
   }

@@ -12,13 +12,15 @@ describe('reactionsStore', () => {
     expect(getServerSnapshot()).toEqual([]);
   });
 
-  it('addReaction appends an emoji with an x in [10,90]', () => {
+  it('addReaction appends an emoji scattered across the screen', () => {
     addReaction('🔥');
     const list = getSnapshot();
     expect(list).toHaveLength(1);
     expect(list[0].emoji).toBe('🔥');
-    expect(list[0].x).toBeGreaterThanOrEqual(10);
-    expect(list[0].x).toBeLessThanOrEqual(90);
+    expect(list[0].x).toBeGreaterThanOrEqual(5);
+    expect(list[0].x).toBeLessThanOrEqual(95);
+    expect(list[0].y).toBeGreaterThanOrEqual(10);
+    expect(list[0].y).toBeLessThanOrEqual(85);
     expect(typeof list[0].id).toBe('string');
   });
 
