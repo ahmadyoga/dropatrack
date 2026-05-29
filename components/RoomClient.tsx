@@ -276,8 +276,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           canPlayPause={canPlayPause}
           canRearrange={canRearrange}
           showPlayerOverlay={showPlayerOverlay}
-          progressPercent={progressPercent}
-          currentTime={currentTime}
           playerRef={playerRef}
           playerContainerRef={playerContainerRef}
           overlayTimerRef={overlayTimerRef}
@@ -347,9 +345,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             currentSong={currentSong}
             isSpeaker={isSpeaker}
             canPlayPause={canPlayPause}
-            currentTime={currentTime}
             duration={duration}
-            progressPercent={progressPercent}
             isRightPanelOpen={isRightPanelOpen}
             setIsRightPanelOpen={setIsRightPanelOpen}
             playerRef={playerRef}

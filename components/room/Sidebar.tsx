@@ -7,6 +7,8 @@ import QueueList from './QueueList';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 import { formatDuration } from '@/lib/youtube';
+import TimeLabel from './TimeLabel';
+import ProgressFill from './ProgressFill';
 import "@/app/room/_sidebar.css";
 
 interface SidebarProps {
@@ -20,8 +22,6 @@ interface SidebarProps {
   canPlayPause: boolean;
   canRearrange: boolean;
   showPlayerOverlay: boolean;
-  progressPercent: number;
-  currentTime: number;
   playerRef: React.RefObject<YTPlayer | null>;
   playerContainerRef: React.RefObject<HTMLDivElement>;
   overlayTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>;
@@ -50,7 +50,7 @@ interface SidebarProps {
 
 export default function Sidebar({
   room, queue, currentSong, myRole, isSpeaker, playerReady, sidebarWidth,
-  canPlayPause, canRearrange, showPlayerOverlay, progressPercent, currentTime,
+  canPlayPause, canRearrange, showPlayerOverlay,
   playerRef, playerContainerRef, overlayTimerRef,
   queueSearchQuery, setQueueSearchQuery, searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
   shuffling, dragOverIndex,
@@ -237,9 +237,9 @@ export default function Sidebar({
 
               {/* Progress */}
               <div className="npc-progress">
-                <span className="npc-time">{formatDuration(Math.floor(currentTime))}</span>
+                <TimeLabel className="npc-time" />
                 <div className="npc-bar">
-                  <div className="npc-bar-fill" style={{ width: `${progressPercent}%` }} />
+                  <ProgressFill duration={effectiveDuration} className="npc-bar-fill" />
                 </div>
                 <span className="npc-time" style={{ textAlign: 'right' }}>
                   {formatDuration(effectiveDuration)}

@@ -6,6 +6,8 @@ import type { Room, QueueItem } from '@/lib/types';
 import { formatDuration } from '@/lib/youtube';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import TimeLabel from './TimeLabel';
+import ProgressFill from './ProgressFill';
 
 interface PlayerBarProps {
   room: Room;
@@ -13,9 +15,7 @@ interface PlayerBarProps {
   currentSong: QueueItem | null;
   isSpeaker: boolean;
   canPlayPause: boolean;
-  currentTime: number;
   duration: number;
-  progressPercent: number;
   isRightPanelOpen: boolean;
   setIsRightPanelOpen: (v: boolean) => void;
   playerRef: React.RefObject<YTPlayer | null>;
@@ -31,7 +31,7 @@ interface PlayerBarProps {
 
 export default function PlayerBar({
   room, queue, currentSong, isSpeaker, canPlayPause,
-  currentTime, duration, progressPercent,
+  duration,
   isRightPanelOpen, setIsRightPanelOpen,
   playerRef, playerReady, channelRef, setRoom, setCurrentTime,
   onPlayPause, onNext, onPrev, onToggleSpeaker,
@@ -178,9 +178,9 @@ export default function PlayerBar({
         </div>
         {/* Progress bar */}
         <div className="pb-progress">
-          <span className="pb-time">{formatDuration(Math.floor(currentTime))}</span>
+          <TimeLabel className="pb-time" />
           <div className="pb-bar" style={{ cursor: 'pointer' }} onMouseDown={handleSeek} onTouchStart={handleSeek}>
-            <div className="pb-fill" style={{ width: `${progressPercent}%` }} />
+            <ProgressFill duration={effectiveDuration} className="pb-fill" />
           </div>
           <span className="pb-time" style={{ textAlign: 'right' }}>
             {formatDuration(Math.floor(effectiveDuration))}
