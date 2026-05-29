@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAntiDebug } from '@/lib/antiDebug';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { YTPlayer } from './room/hooks/useYouTubePlayer';
+import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
+import { usePlaybackSync } from './room/hooks/usePlaybackSync';
 import '@/app/room.css';
 import '@/app/room/_mobile.css';
 
@@ -24,6 +26,7 @@ import Discovery from './room/Discovery';
 import RightPanel from './room/RightPanel';
 import PlayerBar from './room/PlayerBar';
 import MobileNav from './room/MobileNav';
+import FloatingReactions from './room/FloatingReactions';
 import SettingsModal from './room/modals/SettingsModal';
 import ExtensionPopup from './room/modals/ExtensionPopup';
 import ImagePreviewModal from './room/modals/ImagePreviewModal';
@@ -65,6 +68,15 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const roomRef = useRef(initialRoom);
   const queueRef = useRef(initialQueue);
   const isSpeakerRef = useRef(false);
+  // receivedAt:0 + isPlaying:false is a safe placeholder (computeExpected ignores
+  // receivedAt when paused). usePlaybackSync's mount effect sets the real anchor
+  // with performance.now() — avoids calling an impure function during render.
+  const anchorRef = useRef<PlaybackAnchor>({
+    base: initialRoom.current_playback_time || 0,
+    receivedAt: 0,
+    isPlaying: false,
+  });
+  const isSourceRef = useRef(false);
   const isTransitioningRef = useRef(false);
   const isLoadingVideoRef = useRef(false);
   const handleNextRef = useRef<() => void>(() => { });
@@ -117,7 +129,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── YouTube Player hook ───────────────────────────────────────────
   const {
     isSpeaker, toggleSpeaker, playerReady, playerReadyRef,
-    currentTime, setCurrentTime, duration, showPlayerOverlay, setShowPlayerOverlay, overlayTimerRef,
+    duration, showPlayerOverlay, setShowPlayerOverlay, overlayTimerRef,
   } = useYouTubePlayer({
     room,
     roomRef,
@@ -127,6 +139,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     isTransitioningRef,
     isLoadingVideoRef,
     playerRef,
+    anchorRef,
   });
 
   // Keep isSpeakerRef in sync
@@ -137,7 +150,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     room,
     roomRef,
     queueRef,
-    currentSong: queue[room.current_song_index] || null,
     isSpeaker,
     isSpeakerRef,
     playerRef,
@@ -148,8 +160,18 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     isLoadingVideoRef,
     handleNextRef,
     setRoom,
-    setCurrentTime,
     queue,
+  });
+
+  // ── Time-level playback sync ──────────────────────────────────────
+  usePlaybackSync({
+    room,
+    roomRef,
+    isSpeaker,
+    playerRef,
+    playerReadyRef,
+    isSourceRef,
+    anchorRef,
   });
 
   // ── Queue hook ────────────────────────────────────────────────────
@@ -206,7 +228,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     handleNextRef,
     setRoom,
     setQueue,
-    setCurrentTime,
     setCurrentUser,
     setChatMessages,
     currentUserRef,
@@ -217,13 +238,20 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     room,
   });
 
+  // Elect the host-less playback time source from presence.
+  useEffect(() => {
+    const sourceId = electTimeSource(users);
+    isSourceRef.current = !!currentUser && currentUser.user_id === sourceId;
+  }, [users, currentUser?.user_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Derived values ────────────────────────────────────────────────
   const currentSong = queue[room.current_song_index] || null;
   const canPlayPause = myRole === 'admin' || myRole === 'moderator';
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
-  const queuedVideoIds = new Set(queue.map((q) => q.youtube_id));
-  const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
-  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
+  const queuedVideoIds = useMemo(() => new Set(queue.map((q) => q.youtube_id)), [queue]);
+
+  // ── Stable callback for Discovery trending refresh ────────────────
+  const handleRefreshTrending = useCallback(() => fetchTrending(userTimezone), [fetchTrending, userTimezone]);
 
   // ── Sidebar resizer ───────────────────────────────────────────────
   useEffect(() => {
@@ -263,6 +291,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         className="room-bg"
         style={currentSong?.thumbnail_url ? { backgroundImage: `url(${currentSong.thumbnail_url})` } : undefined}
       />
+      <FloatingReactions />
       <div className={`app-card ${!isRightPanelOpen ? 'rp-closed' : ''} mobile-tab-${mobileTab}`}>
 
         <Sidebar
@@ -276,8 +305,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           canPlayPause={canPlayPause}
           canRearrange={canRearrange}
           showPlayerOverlay={showPlayerOverlay}
-          progressPercent={progressPercent}
-          currentTime={currentTime}
           playerRef={playerRef}
           playerContainerRef={playerContainerRef}
           overlayTimerRef={overlayTimerRef}
@@ -335,7 +362,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             onLoadMore={handleLoadMore}
             onAddSong={addSongToQueue}
             onOpenPlaylist={openPlaylist}
-            onRefreshTrending={() => fetchTrending(userTimezone)}
+            onRefreshTrending={handleRefreshTrending}
             onRefreshLatest={fetchLatest}
             onRefreshFresh={fetchFresh}
           />
@@ -347,16 +374,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             currentSong={currentSong}
             isSpeaker={isSpeaker}
             canPlayPause={canPlayPause}
-            currentTime={currentTime}
             duration={duration}
-            progressPercent={progressPercent}
             isRightPanelOpen={isRightPanelOpen}
             setIsRightPanelOpen={setIsRightPanelOpen}
             playerRef={playerRef}
             playerReady={playerReady}
             channelRef={channelRef}
             setRoom={setRoom}
-            setCurrentTime={setCurrentTime}
             onPlayPause={handlePlayPause}
             onNext={handleNext}
             onPrev={handlePrev}

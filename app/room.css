@@ -3860,3 +3860,76 @@
   overflow: hidden;
   flex: 1;
 }
+/* ── Floating emoji reactions ─────────────────────────────────────── */
+.floating-reactions-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 50;
+}
+.floating-reaction {
+  position: absolute;
+  font-size: 28px;
+  will-change: transform, opacity;
+  animation: float-up 3.5s ease-out forwards;
+}
+@keyframes float-up {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; transform: translateY(-12px) scale(1.1); }
+  100% { transform: translateY(-110px) scale(1); opacity: 0; }
+}
+
+.reaction-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 999px;
+  background-color: var(--theme-glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translateZ(0);
+  border: 1px solid var(--theme-glass-border-subtle);
+  box-shadow: var(--theme-glass-shadow);
+  z-index: 60;
+}
+.reaction-emoji-btn {
+  font-size: 22px;
+  line-height: 1;
+  padding: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: transform 0.12s ease;
+}
+.reaction-emoji-btn:hover { transform: scale(1.25); }
+.reaction-emoji-btn:active { transform: scale(0.9); }
+
+.reaction-more-btn {
+  font-weight: 700;
+  color: var(--theme-text-muted, #8a8a9a);
+}
+.reaction-picker {
+  position: absolute;
+  bottom: calc(100% + 56px);
+  right: 0;
+  width: 286px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 16px;
+  background-color: var(--theme-glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translateZ(0);
+  border: 1px solid var(--theme-glass-border-subtle);
+  box-shadow: var(--theme-glass-shadow);
+  z-index: 61;
+}

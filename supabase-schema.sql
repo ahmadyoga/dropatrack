@@ -150,6 +150,9 @@ $$ language 'plpgsql';
 -- 8. Repeat mode (synced across all clients in a room)
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS repeat BOOLEAN DEFAULT false;
 
+-- 9. Playback anchor timestamp (time-level sync)
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS playback_updated_at TIMESTAMPTZ DEFAULT NOW();
+
 -- 9. Chat image support
 ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS image_url TEXT;
 

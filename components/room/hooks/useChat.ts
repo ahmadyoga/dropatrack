@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { capMessages } from '@/lib/chatLimit';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import type { ChatMessage } from '@/lib/types';
@@ -51,7 +52,7 @@ export function useChat({
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
         (payload) => {
           const msg = payload.new as ChatMessage;
-          setChatMessages((prev) => [...prev, msg]);
+          setChatMessages((prev) => capMessages([...prev, msg]));
 
           if (msg.user_id === currentUserRef.current?.user_id) return;
 

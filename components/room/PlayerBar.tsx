@@ -6,6 +6,17 @@ import type { Room, QueueItem } from '@/lib/types';
 import { formatDuration } from '@/lib/youtube';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import TimeLabel from './TimeLabel';
+import ProgressFill from './ProgressFill';
+import { setTime as setStoreTime } from './playbackTimeStore';
+import { addReaction } from './reactionsStore';
+import EmojiPicker from './EmojiPicker';
+
+const REACTION_EMOJIS = ['❤️', '🔥', '😂', '👍', '🎉', '🙌'];
+
+// Flood guard: at most 100 reactions sent per rolling window.
+const MAX_SENDS_PER_BATCH = 100;
+const SEND_WINDOW_MS = 10_000;
 
 interface PlayerBarProps {
   room: Room;
@@ -13,16 +24,13 @@ interface PlayerBarProps {
   currentSong: QueueItem | null;
   isSpeaker: boolean;
   canPlayPause: boolean;
-  currentTime: number;
   duration: number;
-  progressPercent: number;
   isRightPanelOpen: boolean;
   setIsRightPanelOpen: (v: boolean) => void;
   playerRef: React.RefObject<YTPlayer | null>;
   playerReady: boolean;
   channelRef: React.RefObject<RealtimeChannel | null>;
   setRoom: React.Dispatch<React.SetStateAction<Room>>;
-  setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   onPlayPause: () => void;
   onNext: () => void;
   onPrev: () => void;
@@ -31,14 +39,18 @@ interface PlayerBarProps {
 
 export default function PlayerBar({
   room, queue, currentSong, isSpeaker, canPlayPause,
-  currentTime, duration, progressPercent,
+  duration,
   isRightPanelOpen, setIsRightPanelOpen,
-  playerRef, playerReady, channelRef, setRoom, setCurrentTime,
+  playerRef, playerReady, channelRef, setRoom,
   onPlayPause, onNext, onPrev, onToggleSpeaker,
 }: PlayerBarProps) {
   const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
   const [isVolumeModalOpen, setIsVolumeModalOpen] = useState(false);
   const volumeModalRef = useRef<HTMLDivElement | null>(null);
+  const [isReactionOpen, setIsReactionOpen] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const reactionWrapRef = useRef<HTMLDivElement | null>(null);
+  const sendTimesRef = useRef<number[]>([]);
 
   useEffect(() => {
     if (!isVolumeModalOpen) return;
@@ -51,6 +63,27 @@ export default function PlayerBar({
     window.addEventListener('pointerdown', onPointerDown);
     return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [isVolumeModalOpen]);
+
+  useEffect(() => {
+    if (!isReactionOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (reactionWrapRef.current && !reactionWrapRef.current.contains(event.target as Node)) {
+        setIsReactionOpen(false);
+        setIsPickerOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [isReactionOpen]);
+
+  const sendReaction = (emoji: string) => {
+    const now = Date.now();
+    sendTimesRef.current = sendTimesRef.current.filter((t) => now - t < SEND_WINDOW_MS);
+    if (sendTimesRef.current.length >= MAX_SENDS_PER_BATCH) return; // flood guard
+    sendTimesRef.current.push(now);
+    channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { emoji } });
+    addReaction(emoji); // sender sees it immediately (channel does not echo to self)
+  };
 
   const getClientX = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if ('touches' in e) {
@@ -70,10 +103,10 @@ export default function PlayerBar({
     if (isSpeaker) {
       if (!playerRef.current || !playerReady) return;
       playerRef.current.seekTo(seekTime, true);
-      setCurrentTime(seekTime);
+      setStoreTime(seekTime);
       channelRef.current?.send({ type: 'broadcast', event: 'time_sync', payload: { time: seekTime } });
     } else {
-      setCurrentTime(seekTime);
+      setStoreTime(seekTime);
       channelRef.current?.send({ type: 'broadcast', event: 'seek_request', payload: { time: seekTime } });
     }
   };
@@ -178,9 +211,9 @@ export default function PlayerBar({
         </div>
         {/* Progress bar */}
         <div className="pb-progress">
-          <span className="pb-time">{formatDuration(Math.floor(currentTime))}</span>
+          <TimeLabel className="pb-time" />
           <div className="pb-bar" style={{ cursor: 'pointer' }} onMouseDown={handleSeek} onTouchStart={handleSeek}>
-            <div className="pb-fill" style={{ width: `${progressPercent}%` }} />
+            <ProgressFill duration={effectiveDuration} className="pb-fill" />
           </div>
           <span className="pb-time" style={{ textAlign: 'right' }}>
             {formatDuration(Math.floor(effectiveDuration))}
@@ -222,6 +255,39 @@ export default function PlayerBar({
           )}
         </div>
         <div className="pb-extra">
+          <div className="reaction-wrap" ref={reactionWrapRef} style={{ position: 'relative' }}>
+            <button
+              className={`icon-btn ${isReactionOpen ? 'active' : ''}`}
+              title="Send a reaction"
+              aria-label="Send a reaction"
+              onClick={() => setIsReactionOpen((v) => !v)}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-3.5 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm7 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zM12 17.5c-2.33 0-4.31-1.46-5.11-3.5h10.22c-.8 2.04-2.78 3.5-5.11 3.5z" /></svg>
+            </button>
+            {isReactionOpen && (
+              <div className="reaction-popover" role="menu" aria-label="Reactions">
+                {REACTION_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    className="reaction-emoji-btn"
+                    onClick={() => sendReaction(emoji)}
+                    aria-label={`React ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+                <button
+                  className={`reaction-emoji-btn reaction-more-btn ${isPickerOpen ? 'active' : ''}`}
+                  onClick={() => setIsPickerOpen((v) => !v)}
+                  aria-label="More emoji"
+                  title="More emoji"
+                >
+                  +
+                </button>
+              </div>
+            )}
+            {isReactionOpen && isPickerOpen && <EmojiPicker onPick={sendReaction} />}
+          </div>
           <button
             className={`icon-btn ${isRightPanelOpen ? 'active' : ''}`}
             title="Toggle Users/Chat"

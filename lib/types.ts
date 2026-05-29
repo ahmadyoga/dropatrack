@@ -7,6 +7,7 @@ export interface Room {
   created_by: string | null;
   current_song_index: number;
   current_playback_time: number;
+  playback_updated_at: string | null;
   volume: number;
   is_playing: boolean;
   is_public: boolean;

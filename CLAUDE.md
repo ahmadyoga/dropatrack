@@ -40,7 +40,7 @@ npm run dev
 
 ### Key Design Decisions
 
-1. **Sync is playlist-level, NOT time-level**: When someone skips a track, all users skip. But each user's playback position within a track is independent. This is by design.
+1. **Sync is time-level (server-authoritative)**: Playback position is kept in sync across all clients. The room row holds `current_playback_time` + `playback_updated_at` + `is_playing` as the authoritative anchor; clients compute the expected position from a clock-skew-safe local elapsed time. A host-less elected time source (lowest `user_id` among speakers) periodically refreshes the anchor, and non-source speakers seek-correct when drift exceeds 1.5s. See `lib/playbackSync.ts` and `components/room/hooks/usePlaybackSync.ts`.
 
 2. **Speaker Mode**: Each client decides if their device plays audio/video (`localStorage`). Speaker OFF = remote control only (controls playback for everyone, but no local audio/video).
 
@@ -144,7 +144,6 @@ Roles: `admin` | `moderator` | `dj` | `listener`
 ## Deferred Features (not yet implemented)
 - Real-time chat (broadcast-based)
 - Playlist save/load
-- Time-level sync between devices
 - Drag-to-reorder queue
 - Room password protection
 
@@ -165,3 +164,13 @@ Roles: `admin` | `moderator` | `dj` | `listener`
 - Tailwind CSS v4 with CSS-first config (no `tailwind.config.ts`)
 - Glassmorphic theme: white background, `backdrop-blur`, green (#22c55e) accents
 - Custom CSS classes defined in `app/globals.css`
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
+- IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

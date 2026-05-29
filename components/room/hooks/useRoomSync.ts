@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
+import { capMessages } from '@/lib/chatLimit';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, ChatMessage } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { setTime as setStoreTime } from '../playbackTimeStore';
+import { addReaction } from '../reactionsStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
@@ -17,7 +20,6 @@ interface UseRoomSyncProps {
   // State setters passed down
   setRoom: React.Dispatch<React.SetStateAction<Room>>;
   setQueue: React.Dispatch<React.SetStateAction<QueueItem[]>>;
-  setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   setCurrentUser: React.Dispatch<React.SetStateAction<CurrentUser | null>>;
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   currentUserRef: React.RefObject<CurrentUser | null>;
@@ -38,7 +40,6 @@ export function useRoomSync({
   handleNextRef,
   setRoom,
   setQueue,
-  setCurrentTime,
   setCurrentUser,
   setChatMessages,
   currentUserRef,
@@ -72,7 +73,7 @@ export function useRoomSync({
           event.type === 'jump',
       }));
       if (event.current_time !== undefined) {
-        setCurrentTime(event.current_time);
+        setStoreTime(event.current_time);
       }
     });
 
@@ -100,18 +101,23 @@ export function useRoomSync({
       if (!isSpeakerRef.current || !player || !playerReadyRef.current) return;
       const time = payload.time as number;
       player.seekTo(time, true);
-      setCurrentTime(time);
+      setStoreTime(time);
       channel.send({ type: 'broadcast', event: 'time_sync', payload: { time } });
     });
 
     // Broadcast: time sync
     channel.on('broadcast', { event: 'time_sync' }, ({ payload }) => {
-      setCurrentTime(payload.time as number);
+      setStoreTime(payload.time as number);
     });
 
     // Broadcast: volume change
     channel.on('broadcast', { event: 'volume_change' }, ({ payload }) => {
       setRoom((prev) => ({ ...prev, volume: payload.volume }));
+    });
+
+    // Broadcast: emoji reaction
+    channel.on('broadcast', { event: 'reaction' }, ({ payload }) => {
+      if (payload && typeof payload.emoji === 'string') addReaction(payload.emoji);
     });
 
     // Broadcast: repeat toggle
@@ -156,7 +162,7 @@ export function useRoomSync({
         const updated = prev.map((msg) =>
           msg.user_id === user_id ? { ...msg, username: new_username } : msg
         );
-        return [...updated, systemMessage];
+        return capMessages([...updated, systemMessage]);
       });
     });
 
@@ -249,15 +255,14 @@ export function useRoomSync({
   // deleting rooms while users are still connected.
   useEffect(() => {
     const ping = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const player = playerRef.current as any;
-      let playbackTime = 0;
-      if (player && playerReadyRef.current && isSpeaker) {
-        try { playbackTime = player.getCurrentTime(); } catch { /* */ }
-      }
-      const update: Record<string, unknown> = { last_active_at: new Date().toISOString() };
-      if (isSpeaker && playbackTime > 0) update.current_playback_time = playbackTime;
-      supabase.from('rooms').update(update).eq('id', initialRoom.id).then();
+      // Heartbeat keeps the room alive. Playback position is written
+      // separately by the elected time source (usePlaybackSync) — writing
+      // it here from every speaker would stomp the authoritative anchor.
+      supabase
+        .from('rooms')
+        .update({ last_active_at: new Date().toISOString() })
+        .eq('id', initialRoom.id)
+        .then();
     };
 
     // Immediate heartbeat on mount

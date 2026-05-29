@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { TrendingVideo, RoomUser } from '@/lib/types';
 import type { CuratedSection } from '@/lib/curatedPlaylists';
 import { formatDuration } from '@/lib/youtube';
@@ -58,7 +59,7 @@ interface DiscoveryProps {
   onRefreshFresh: () => void;
 }
 
-export default function Discovery({
+function Discovery({
   users, queuedVideoIds, searching, addingUrl, canAddSongs,
   searchQuery, setSearchQuery, searchResults, setSearchResults,
   nextPageToken, loadingMore,
@@ -387,3 +388,5 @@ export default function Discovery({
     </main>
   );
 }
+
+export default memo(Discovery);
