@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Room, QueueItem } from '@/lib/types';
+import { setTime as setStoreTime } from '../playbackTimeStore';
 
 // ── YT IFrame API types ──────────────────────────────────────────────
 declare global {
@@ -74,6 +75,12 @@ export function useYouTubePlayer({
   const [currentTime, setCurrentTime] = useState(room.current_playback_time || 0);
   const [duration, setDuration] = useState(0);
   const [showPlayerOverlay, setShowPlayerOverlay] = useState(true);
+
+  // Seed the external time store with the room's last known position.
+  useEffect(() => {
+    setStoreTime(room.current_playback_time || 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const playerReadyRef = useRef(playerReady);
   const timeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -187,7 +194,9 @@ export function useYouTubePlayer({
       timeIntervalRef.current = setInterval(() => {
         if (playerRef.current) {
           try {
-            setCurrentTime(playerRef.current.getCurrentTime());
+            const t = playerRef.current.getCurrentTime();
+            setCurrentTime(t);
+            setStoreTime(t);
             setDuration(playerRef.current.getDuration());
           } catch { /* */ }
         }
