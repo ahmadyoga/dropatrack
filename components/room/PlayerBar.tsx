@@ -14,6 +14,10 @@ import EmojiPicker from './EmojiPicker';
 
 const REACTION_EMOJIS = ['❤️', '🔥', '😂', '👍', '🎉', '🙌'];
 
+// Flood guard: at most 100 reactions sent per rolling window.
+const MAX_SENDS_PER_BATCH = 100;
+const SEND_WINDOW_MS = 10_000;
+
 interface PlayerBarProps {
   room: Room;
   queue: QueueItem[];
@@ -46,6 +50,7 @@ export default function PlayerBar({
   const [isReactionOpen, setIsReactionOpen] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
+  const sendTimesRef = useRef<number[]>([]);
 
   useEffect(() => {
     if (!isVolumeModalOpen) return;
@@ -72,6 +77,10 @@ export default function PlayerBar({
   }, [isReactionOpen]);
 
   const sendReaction = (emoji: string) => {
+    const now = Date.now();
+    sendTimesRef.current = sendTimesRef.current.filter((t) => now - t < SEND_WINDOW_MS);
+    if (sendTimesRef.current.length >= MAX_SENDS_PER_BATCH) return; // flood guard
+    sendTimesRef.current.push(now);
     channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { emoji } });
     addReaction(emoji); // sender sees it immediately (channel does not echo to self)
   };
