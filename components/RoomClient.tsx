@@ -6,6 +6,8 @@ import { useAntiDebug } from '@/lib/antiDebug';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { YTPlayer } from './room/hooks/useYouTubePlayer';
+import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
+import { usePlaybackSync } from './room/hooks/usePlaybackSync';
 import '@/app/room.css';
 import '@/app/room/_mobile.css';
 
@@ -65,6 +67,15 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const roomRef = useRef(initialRoom);
   const queueRef = useRef(initialQueue);
   const isSpeakerRef = useRef(false);
+  // receivedAt:0 + isPlaying:false is a safe placeholder (computeExpected ignores
+  // receivedAt when paused). usePlaybackSync's mount effect sets the real anchor
+  // with performance.now() — avoids calling an impure function during render.
+  const anchorRef = useRef<PlaybackAnchor>({
+    base: initialRoom.current_playback_time || 0,
+    receivedAt: 0,
+    isPlaying: false,
+  });
+  const isSourceRef = useRef(false);
   const isTransitioningRef = useRef(false);
   const isLoadingVideoRef = useRef(false);
   const handleNextRef = useRef<() => void>(() => { });
@@ -127,6 +138,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     isTransitioningRef,
     isLoadingVideoRef,
     playerRef,
+    anchorRef,
   });
 
   // Keep isSpeakerRef in sync
@@ -137,7 +149,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     room,
     roomRef,
     queueRef,
-    currentSong: queue[room.current_song_index] || null,
     isSpeaker,
     isSpeakerRef,
     playerRef,
@@ -149,6 +160,17 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     handleNextRef,
     setRoom,
     queue,
+  });
+
+  // ── Time-level playback sync ──────────────────────────────────────
+  usePlaybackSync({
+    room,
+    roomRef,
+    isSpeaker,
+    playerRef,
+    playerReadyRef,
+    isSourceRef,
+    anchorRef,
   });
 
   // ── Queue hook ────────────────────────────────────────────────────
@@ -214,6 +236,12 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     myRole,
     room,
   });
+
+  // Elect the host-less playback time source from presence.
+  useEffect(() => {
+    const sourceId = electTimeSource(users);
+    isSourceRef.current = !!currentUser && currentUser.user_id === sourceId;
+  }, [users, currentUser?.user_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived values ────────────────────────────────────────────────
   const currentSong = queue[room.current_song_index] || null;

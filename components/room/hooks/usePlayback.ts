@@ -4,7 +4,7 @@ import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, PlaybackSyncEvent } from '@/lib/types';
 import type { YTPlayer } from './useYouTubePlayer';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { setTime as setStoreTime, getCurrentTime as getStoreTime } from '../playbackTimeStore';
+import { setTime as setStoreTime } from '../playbackTimeStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
@@ -12,7 +12,6 @@ interface UsePlaybackProps {
   room: Room;
   roomRef: React.RefObject<Room>;
   queueRef: React.RefObject<QueueItem[]>;
-  currentSong: QueueItem | null;
   isSpeaker: boolean;
   isSpeakerRef: React.RefObject<boolean>;
   playerRef: React.RefObject<YTPlayer | null>;
@@ -30,7 +29,6 @@ export function usePlayback({
   room,
   roomRef,
   queueRef,
-  currentSong,
   isSpeaker,
   isSpeakerRef,
   playerRef,
@@ -45,25 +43,6 @@ export function usePlayback({
 }: UsePlaybackProps) {
   const repeatRef = useRef(room.repeat);
   useEffect(() => { repeatRef.current = room.repeat; }, [room.repeat]);
-
-  // Remote interpolation: smoothly increment currentTime for non-speakers
-  useEffect(() => {
-    if (isSpeaker) return;
-    if (!room.is_playing) return;
-    const interval = setInterval(() => {
-      const prev = getStoreTime();
-      const songDuration = currentSong?.duration_seconds ?? 0;
-      if (songDuration > 0 && prev >= songDuration) return;
-      setStoreTime(prev + 0.5);
-    }, 500);
-    return () => clearInterval(interval);
-  }, [isSpeaker, room.is_playing, currentSong?.duration_seconds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Remote: reset time when song changes
-  useEffect(() => {
-    if (isSpeaker) return;
-    setStoreTime(0);
-  }, [room.current_song_index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const broadcastPlayback = useCallback(
     (type: PlaybackSyncEvent['type'], songIndex: number) => {
@@ -83,6 +62,7 @@ export function usePlayback({
         current_song_index: songIndex,
         is_playing: type !== 'pause',
         current_playback_time: event.current_time,
+        playback_updated_at: new Date().toISOString(),
       }).eq('id', roomRef.current.id).then();
     },
     [currentUser, playerRef, playerReadyRef, channelRef, roomRef]

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Room, QueueItem } from '@/lib/types';
-import { setTime as setStoreTime, getCurrentTime } from '../playbackTimeStore';
+import { setTime as setStoreTime } from '../playbackTimeStore';
+import { computeExpected, type PlaybackAnchor } from '@/lib/playbackSync';
 
 // ── YT IFrame API types ──────────────────────────────────────────────
 declare global {
@@ -58,6 +59,7 @@ interface UseYouTubePlayerProps {
   isTransitioningRef: React.RefObject<boolean>;
   isLoadingVideoRef: React.RefObject<boolean>;
   playerRef: React.RefObject<YTPlayer | null>;
+  anchorRef: React.RefObject<PlaybackAnchor>;
 }
 
 export function useYouTubePlayer({
@@ -69,15 +71,16 @@ export function useYouTubePlayer({
   isTransitioningRef,
   isLoadingVideoRef,
   playerRef,
+  anchorRef,
 }: UseYouTubePlayerProps) {
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [duration, setDuration] = useState(0);
   const [showPlayerOverlay, setShowPlayerOverlay] = useState(true);
 
-  // Seed the external time store with the room's last known position.
+  // Seed the external time store with the expected synced position.
   useEffect(() => {
-    setStoreTime(room.current_playback_time || 0);
+    setStoreTime(computeExpected(anchorRef.current));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -186,7 +189,7 @@ export function useYouTubePlayer({
     if (playerRef.current && playerReady) {
       try {
         playerRef.current.unMute();
-        const seedTime = getCurrentTime();
+        const seedTime = computeExpected(anchorRef.current);
         if (seedTime > 0) playerRef.current.seekTo(seedTime, true);
         if (room.is_playing) playerRef.current.playVideo();
       } catch { /* */ }
@@ -235,6 +238,10 @@ export function useYouTubePlayer({
           },
           onReady: () => {
             setPlayerReady(true);
+            const exp = computeExpected(anchorRef.current);
+            if (exp > 1 && playerRef.current) {
+              try { playerRef.current.seekTo(exp, true); } catch { /* */ }
+            }
             if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
             timeIntervalRef.current = setInterval(() => {
               if (playerRef.current) {
