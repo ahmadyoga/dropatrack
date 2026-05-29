@@ -4,6 +4,7 @@ import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, PlaybackSyncEvent } from '@/lib/types';
 import type { YTPlayer } from './useYouTubePlayer';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { setTime as setStoreTime, getCurrentTime as getStoreTime } from '../playbackTimeStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
@@ -22,7 +23,6 @@ interface UsePlaybackProps {
   isLoadingVideoRef: React.RefObject<boolean>;
   handleNextRef: React.RefObject<() => void>;
   setRoom: React.Dispatch<React.SetStateAction<Room>>;
-  setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   queue: QueueItem[];
 }
 
@@ -41,7 +41,6 @@ export function usePlayback({
   isLoadingVideoRef,
   handleNextRef,
   setRoom,
-  setCurrentTime,
   queue,
 }: UsePlaybackProps) {
   const repeatRef = useRef(room.repeat);
@@ -52,11 +51,10 @@ export function usePlayback({
     if (isSpeaker) return;
     if (!room.is_playing) return;
     const interval = setInterval(() => {
-      setCurrentTime((prev) => {
-        const songDuration = currentSong?.duration_seconds ?? 0;
-        if (songDuration > 0 && prev >= songDuration) return prev;
-        return prev + 0.5;
-      });
+      const prev = getStoreTime();
+      const songDuration = currentSong?.duration_seconds ?? 0;
+      if (songDuration > 0 && prev >= songDuration) return;
+      setStoreTime(prev + 0.5);
     }, 500);
     return () => clearInterval(interval);
   }, [isSpeaker, room.is_playing, currentSong?.duration_seconds]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -64,7 +62,7 @@ export function usePlayback({
   // Remote: reset time when song changes
   useEffect(() => {
     if (isSpeaker) return;
-    setCurrentTime(0);
+    setStoreTime(0);
   }, [room.current_song_index]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const broadcastPlayback = useCallback(
@@ -164,7 +162,7 @@ export function usePlayback({
       if (details.seekTime !== undefined && playerRef.current && playerReadyRef.current) {
         try {
           playerRef.current.seekTo(details.seekTime, true);
-          setCurrentTime(details.seekTime);
+          setStoreTime(details.seekTime);
           channelRef.current?.send({
             type: 'broadcast',
             event: 'time_sync',

@@ -8,6 +8,7 @@ import type { YTPlayer } from './hooks/useYouTubePlayer';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import TimeLabel from './TimeLabel';
 import ProgressFill from './ProgressFill';
+import { setTime as setStoreTime } from './playbackTimeStore';
 
 interface PlayerBarProps {
   room: Room;
@@ -22,7 +23,6 @@ interface PlayerBarProps {
   playerReady: boolean;
   channelRef: React.RefObject<RealtimeChannel | null>;
   setRoom: React.Dispatch<React.SetStateAction<Room>>;
-  setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   onPlayPause: () => void;
   onNext: () => void;
   onPrev: () => void;
@@ -33,7 +33,7 @@ export default function PlayerBar({
   room, queue, currentSong, isSpeaker, canPlayPause,
   duration,
   isRightPanelOpen, setIsRightPanelOpen,
-  playerRef, playerReady, channelRef, setRoom, setCurrentTime,
+  playerRef, playerReady, channelRef, setRoom,
   onPlayPause, onNext, onPrev, onToggleSpeaker,
 }: PlayerBarProps) {
   const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
@@ -70,10 +70,10 @@ export default function PlayerBar({
     if (isSpeaker) {
       if (!playerRef.current || !playerReady) return;
       playerRef.current.seekTo(seekTime, true);
-      setCurrentTime(seekTime);
+      setStoreTime(seekTime);
       channelRef.current?.send({ type: 'broadcast', event: 'time_sync', payload: { time: seekTime } });
     } else {
-      setCurrentTime(seekTime);
+      setStoreTime(seekTime);
       channelRef.current?.send({ type: 'broadcast', event: 'seek_request', payload: { time: seekTime } });
     }
   };

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, ChatMessage } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { setTime as setStoreTime } from '../playbackTimeStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
@@ -17,7 +18,6 @@ interface UseRoomSyncProps {
   // State setters passed down
   setRoom: React.Dispatch<React.SetStateAction<Room>>;
   setQueue: React.Dispatch<React.SetStateAction<QueueItem[]>>;
-  setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   setCurrentUser: React.Dispatch<React.SetStateAction<CurrentUser | null>>;
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   currentUserRef: React.RefObject<CurrentUser | null>;
@@ -38,7 +38,6 @@ export function useRoomSync({
   handleNextRef,
   setRoom,
   setQueue,
-  setCurrentTime,
   setCurrentUser,
   setChatMessages,
   currentUserRef,
@@ -72,7 +71,7 @@ export function useRoomSync({
           event.type === 'jump',
       }));
       if (event.current_time !== undefined) {
-        setCurrentTime(event.current_time);
+        setStoreTime(event.current_time);
       }
     });
 
@@ -100,13 +99,13 @@ export function useRoomSync({
       if (!isSpeakerRef.current || !player || !playerReadyRef.current) return;
       const time = payload.time as number;
       player.seekTo(time, true);
-      setCurrentTime(time);
+      setStoreTime(time);
       channel.send({ type: 'broadcast', event: 'time_sync', payload: { time } });
     });
 
     // Broadcast: time sync
     channel.on('broadcast', { event: 'time_sync' }, ({ payload }) => {
-      setCurrentTime(payload.time as number);
+      setStoreTime(payload.time as number);
     });
 
     // Broadcast: volume change

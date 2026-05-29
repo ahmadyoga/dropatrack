@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Room, QueueItem } from '@/lib/types';
-import { setTime as setStoreTime } from '../playbackTimeStore';
+import { setTime as setStoreTime, getCurrentTime } from '../playbackTimeStore';
 
 // ── YT IFrame API types ──────────────────────────────────────────────
 declare global {
@@ -72,7 +72,6 @@ export function useYouTubePlayer({
 }: UseYouTubePlayerProps) {
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
-  const [currentTime, setCurrentTime] = useState(room.current_playback_time || 0);
   const [duration, setDuration] = useState(0);
   const [showPlayerOverlay, setShowPlayerOverlay] = useState(true);
 
@@ -187,7 +186,8 @@ export function useYouTubePlayer({
     if (playerRef.current && playerReady) {
       try {
         playerRef.current.unMute();
-        if (currentTime > 0) playerRef.current.seekTo(currentTime, true);
+        const seedTime = getCurrentTime();
+        if (seedTime > 0) playerRef.current.seekTo(seedTime, true);
         if (room.is_playing) playerRef.current.playVideo();
       } catch { /* */ }
       if (timeIntervalRef.current) clearInterval(timeIntervalRef.current);
@@ -195,7 +195,6 @@ export function useYouTubePlayer({
         if (playerRef.current) {
           try {
             const t = playerRef.current.getCurrentTime();
-            setCurrentTime(t);
             setStoreTime(t);
             setDuration(playerRef.current.getDuration());
           } catch { /* */ }
@@ -240,7 +239,8 @@ export function useYouTubePlayer({
             timeIntervalRef.current = setInterval(() => {
               if (playerRef.current) {
                 try {
-                  setCurrentTime(playerRef.current.getCurrentTime());
+                  const t = playerRef.current.getCurrentTime();
+                  setStoreTime(t);
                   setDuration(playerRef.current.getDuration());
                 } catch { /* */ }
               }
@@ -262,7 +262,7 @@ export function useYouTubePlayer({
     if (!playerRef.current || !playerReady || !currentSong || !isSpeaker) return;
     if (loadedVideoIdRef.current === currentSong.youtube_id) return;
     loadedVideoIdRef.current = currentSong.youtube_id;
-    setCurrentTime(0);
+    setStoreTime(0);
     setDuration(0);
     isLoadingVideoRef.current = true;
     playerRef.current.loadVideoById(currentSong.youtube_id);
@@ -323,8 +323,6 @@ export function useYouTubePlayer({
     toggleSpeaker,
     playerReady,
     playerReadyRef,
-    currentTime,
-    setCurrentTime,
     duration,
     showPlayerOverlay,
     setShowPlayerOverlay,

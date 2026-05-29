@@ -117,7 +117,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── YouTube Player hook ───────────────────────────────────────────
   const {
     isSpeaker, toggleSpeaker, playerReady, playerReadyRef,
-    currentTime, setCurrentTime, duration, showPlayerOverlay, setShowPlayerOverlay, overlayTimerRef,
+    duration, showPlayerOverlay, setShowPlayerOverlay, overlayTimerRef,
   } = useYouTubePlayer({
     room,
     roomRef,
@@ -148,7 +148,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     isLoadingVideoRef,
     handleNextRef,
     setRoom,
-    setCurrentTime,
     queue,
   });
 
@@ -206,7 +205,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     handleNextRef,
     setRoom,
     setQueue,
-    setCurrentTime,
     setCurrentUser,
     setChatMessages,
     currentUserRef,
@@ -222,8 +220,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const canPlayPause = myRole === 'admin' || myRole === 'moderator';
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
   const queuedVideoIds = new Set(queue.map((q) => q.youtube_id));
-  const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
-  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
 
   // ── Sidebar resizer ───────────────────────────────────────────────
   useEffect(() => {
@@ -352,7 +348,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             playerReady={playerReady}
             channelRef={channelRef}
             setRoom={setRoom}
-            setCurrentTime={setCurrentTime}
             onPlayPause={handlePlayPause}
             onNext={handleNext}
             onPrev={handlePrev}
