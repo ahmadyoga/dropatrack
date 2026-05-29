@@ -249,15 +249,14 @@ export function useRoomSync({
   // deleting rooms while users are still connected.
   useEffect(() => {
     const ping = () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const player = playerRef.current as any;
-      let playbackTime = 0;
-      if (player && playerReadyRef.current && isSpeaker) {
-        try { playbackTime = player.getCurrentTime(); } catch { /* */ }
-      }
-      const update: Record<string, unknown> = { last_active_at: new Date().toISOString() };
-      if (isSpeaker && playbackTime > 0) update.current_playback_time = playbackTime;
-      supabase.from('rooms').update(update).eq('id', initialRoom.id).then();
+      // Heartbeat keeps the room alive. Playback position is written
+      // separately by the elected time source (usePlaybackSync) — writing
+      // it here from every speaker would stomp the authoritative anchor.
+      supabase
+        .from('rooms')
+        .update({ last_active_at: new Date().toISOString() })
+        .eq('id', initialRoom.id)
+        .then();
     };
 
     // Immediate heartbeat on mount
