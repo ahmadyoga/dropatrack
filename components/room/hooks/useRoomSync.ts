@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { capMessages } from '@/lib/chatLimit';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, ChatMessage } from '@/lib/types';
@@ -155,7 +156,7 @@ export function useRoomSync({
         const updated = prev.map((msg) =>
           msg.user_id === user_id ? { ...msg, username: new_username } : msg
         );
-        return [...updated, systemMessage];
+        return capMessages([...updated, systemMessage]);
       });
     });
 
