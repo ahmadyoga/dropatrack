@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAntiDebug } from '@/lib/antiDebug';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
@@ -219,7 +219,10 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const currentSong = queue[room.current_song_index] || null;
   const canPlayPause = myRole === 'admin' || myRole === 'moderator';
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
-  const queuedVideoIds = new Set(queue.map((q) => q.youtube_id));
+  const queuedVideoIds = useMemo(() => new Set(queue.map((q) => q.youtube_id)), [queue]);
+
+  // ── Stable callback for Discovery trending refresh ────────────────
+  const handleRefreshTrending = useCallback(() => fetchTrending(userTimezone), [fetchTrending, userTimezone]);
 
   // ── Sidebar resizer ───────────────────────────────────────────────
   useEffect(() => {
@@ -329,7 +332,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             onLoadMore={handleLoadMore}
             onAddSong={addSongToQueue}
             onOpenPlaylist={openPlaylist}
-            onRefreshTrending={() => fetchTrending(userTimezone)}
+            onRefreshTrending={handleRefreshTrending}
             onRefreshLatest={fetchLatest}
             onRefreshFresh={fetchFresh}
           />
