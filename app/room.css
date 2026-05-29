@@ -3888,8 +3888,12 @@
   gap: 4px;
   padding: 6px 8px;
   border-radius: 999px;
-  background: var(--theme-surface, #fff);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  background-color: var(--theme-glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translateZ(0);
+  border: 1px solid var(--theme-glass-border-subtle);
+  box-shadow: var(--theme-glass-shadow);
   z-index: 60;
 }
 .reaction-emoji-btn {
