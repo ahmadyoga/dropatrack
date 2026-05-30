@@ -10,7 +10,7 @@ export interface FloatingReaction {
 }
 
 export const REACTION_TTL_MS = 3500;
-export const MAX_REACTIONS = 60;
+export const MAX_REACTIONS = 150;
 
 let reactions: FloatingReaction[] = [];
 const listeners = new Set<() => void>();
@@ -57,6 +57,14 @@ export function addReaction(emoji: string): void {
   emit();
   if (typeof window !== 'undefined') {
     window.setTimeout(() => removeReaction(id), REACTION_TTL_MS);
+  }
+}
+
+export const BURST_SPREAD_MS = 1000;
+
+export function addReactionBurst(emoji: string, count: number): void {
+  for (let i = 0; i < count; i++) {
+    setTimeout(() => addReaction(emoji), Math.random() * BURST_SPREAD_MS);
   }
 }
 

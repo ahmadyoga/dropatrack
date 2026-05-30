@@ -9,14 +9,12 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import TimeLabel from './TimeLabel';
 import ProgressFill from './ProgressFill';
 import { setTime as setStoreTime } from './playbackTimeStore';
-import { addReaction } from './reactionsStore';
+import { addReactionBurst } from './reactionsStore';
 import EmojiPicker from './EmojiPicker';
 
 const REACTION_EMOJIS = ['❤️', '🔥', '😂', '👍', '🎉', '🙌'];
 
-// Flood guard: at most 100 reactions sent per rolling window.
-const MAX_SENDS_PER_BATCH = 100;
-const SEND_WINDOW_MS = 10_000;
+const REACTION_DEBOUNCE_MS = 2000;
 
 interface PlayerBarProps {
   room: Room;
@@ -49,8 +47,9 @@ export default function PlayerBar({
   const volumeModalRef = useRef<HTMLDivElement | null>(null);
   const [isReactionOpen, setIsReactionOpen] = useState(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [isReactionCooldown, setIsReactionCooldown] = useState(false);
   const reactionWrapRef = useRef<HTMLDivElement | null>(null);
-  const sendTimesRef = useRef<number[]>([]);
+  const lastReactionSentRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isVolumeModalOpen) return;
@@ -78,11 +77,13 @@ export default function PlayerBar({
 
   const sendReaction = (emoji: string) => {
     const now = Date.now();
-    sendTimesRef.current = sendTimesRef.current.filter((t) => now - t < SEND_WINDOW_MS);
-    if (sendTimesRef.current.length >= MAX_SENDS_PER_BATCH) return; // flood guard
-    sendTimesRef.current.push(now);
+    if (now - lastReactionSentRef.current < REACTION_DEBOUNCE_MS) return;
+    lastReactionSentRef.current = now;
+    setIsReactionCooldown(true);
+    window.setTimeout(() => setIsReactionCooldown(false), REACTION_DEBOUNCE_MS);
     channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { emoji } });
-    addReaction(emoji); // sender sees it immediately (channel does not echo to self)
+    const count = Math.floor(Math.random() * 51) + 50; // 50–100
+    addReactionBurst(emoji, count); // sender sees burst immediately (no self-echo)
   };
 
   const getClientX = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
@@ -269,9 +270,10 @@ export default function PlayerBar({
                 {REACTION_EMOJIS.map((emoji) => (
                   <button
                     key={emoji}
-                    className="reaction-emoji-btn"
+                    className={`reaction-emoji-btn${isReactionCooldown ? ' disabled' : ''}`}
                     onClick={() => sendReaction(emoji)}
                     aria-label={`React ${emoji}`}
+                    disabled={isReactionCooldown}
                   >
                     {emoji}
                   </button>

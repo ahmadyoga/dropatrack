@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   subscribe, getSnapshot, getServerSnapshot,
-  addReaction, removeReaction, _reset, MAX_REACTIONS,
+  addReaction, addReactionBurst, removeReaction, _reset, MAX_REACTIONS, BURST_SPREAD_MS,
 } from './reactionsStore';
 
 describe('reactionsStore', () => {
@@ -47,5 +47,27 @@ describe('reactionsStore', () => {
     subscribe(cb);
     addReaction('🙌');
     expect(cb).toHaveBeenCalled();
+  });
+
+  describe('addReactionBurst', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('spawns nothing immediately, all appear after spread window', () => {
+      addReactionBurst('🔥', 50);
+      expect(getSnapshot()).toHaveLength(0);
+      vi.advanceTimersByTime(BURST_SPREAD_MS);
+      expect(getSnapshot()).toHaveLength(50);
+      const all = getSnapshot();
+      expect(all.every((r) => r.emoji === '🔥')).toBe(true);
+      expect(all.every((r) => r.x >= 5 && r.x <= 95)).toBe(true);
+      expect(all.every((r) => r.y >= 10 && r.y <= 85)).toBe(true);
+    });
+
+    it('caps at MAX_REACTIONS after burst completes', () => {
+      addReactionBurst('❤️', MAX_REACTIONS + 20);
+      vi.advanceTimersByTime(BURST_SPREAD_MS);
+      expect(getSnapshot()).toHaveLength(MAX_REACTIONS);
+    });
   });
 });
