@@ -1,0 +1,378 @@
+{
+  "/home/gotim/Documents/projects/private/dropatrack/supabase-schema.sql": {
+    "mtime": 1780107543.9215713,
+    "hash": "1737c38bc069d8fadb3ef0591fb26d71"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/add-playback-updated-at.sql": {
+    "mtime": 1780107543.9125712,
+    "hash": "67d3cedeb18d090f11cb943a0ff7ca11"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/next-env.d.ts": {
+    "mtime": 1780108628.659891,
+    "hash": "2a74d3909800ca5467fa83b0ab4a4890"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/next.config.ts": {
+    "mtime": 1777434319.5135386,
+    "hash": "f986d2d2c663077863882c616b47b4b0"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/vitest.config.ts": {
+    "mtime": 1780107543.9225712,
+    "hash": "024490664ffd383ffa107dc0e395e53e"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/postcss.config.mjs": {
+    "mtime": 1777434319.5139654,
+    "hash": "239f3ebf717465dc636818a1a619398d"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/supabase-reactions=example.js": {
+    "mtime": 1780038703.3232813,
+    "hash": "01b59dad1b7f2e0756fe0d153a7eaa41"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/eslint.config.mjs": {
+    "mtime": 1777434319.5128403,
+    "hash": "dfa1f5f6a7037bf39dc510f30b180002"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/og_tokens_migration.sql": {
+    "mtime": 1777434319.5135386,
+    "hash": "e620652a229500a59a5387ec8f7c6424"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/robots.ts": {
+    "mtime": 1777434319.5089653,
+    "hash": "17b7ed59c663bc4eae1af5c739fd04e9"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/layout.tsx": {
+    "mtime": 1777434319.5079653,
+    "hash": "889a8ec3f7dd3680844a0c13683c5a9a"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/page.tsx": {
+    "mtime": 1777434319.5089653,
+    "hash": "078457b65f14197379b6e8471f271efc"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/fresh/route.ts": {
+    "mtime": 1778126280.0071275,
+    "hash": "e07fe682b6d69b804bd3620511575a83"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/search/route.ts": {
+    "mtime": 1778126279.453742,
+    "hash": "1606eb43328a6aae5d62621a29373a34"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/trending/route.ts": {
+    "mtime": 1778126279.716118,
+    "hash": "30db502a609a94ae52fc5dcf6a8dd1c8"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/playlists/route.ts": {
+    "mtime": 1778126280.1021273,
+    "hash": "64e3ec9c255490917ff52f69d97ca391"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/playlists/[id]/route.ts": {
+    "mtime": 1778126280.2001271,
+    "hash": "116cfb1dea8138f95d5290159152e1f9"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/keys/stats/route.ts": {
+    "mtime": 1778126279.4761283,
+    "hash": "bb7de957d5b67b512497abdfcfe7abe8"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/curated/route.ts": {
+    "mtime": 1778126279.9141276,
+    "hash": "426edafaf958aae9d41e6cada5cfbb72"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/youtube/latest/route.ts": {
+    "mtime": 1778126279.809826,
+    "hash": "cd03637fc460de1f6a0df285a511722d"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/spotify/resolve/route.ts": {
+    "mtime": 1778126279.621742,
+    "hash": "cb36c67f1c34873fb329c74f3c2f93ba"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/chat/route.ts": {
+    "mtime": 1777434319.5056548,
+    "hash": "ebd95096ec9baf5cde1ec2103c1de7e3"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/chat/upload/route.ts": {
+    "mtime": 1777434319.5057156,
+    "hash": "74bdb53fa7e28e2fb809e1b8a10697d1"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/og/route.tsx": {
+    "mtime": 1777434933.9969563,
+    "hash": "cda9538fca3cbf2061987f0d80032f55"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/queue/shuffle/route.ts": {
+    "mtime": 1777434319.5060382,
+    "hash": "11d1e9b6ee1beaa29259f639ab583407"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/queue/add-external/route.ts": {
+    "mtime": 1778126279.5400472,
+    "hash": "6e4b37ceb1ef49e8672bb5d2f4d8f50c"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/cron/cleanup/route.ts": {
+    "mtime": 1777434319.5057883,
+    "hash": "6772aa45a699262263e36ed8ea888674"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/cron/keepalive/route.ts": {
+    "mtime": 1778122282.5642502,
+    "hash": "47adc2006b5bc1811d6746e33b635fcd"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/api/rooms/cleanup/route.ts": {
+    "mtime": 1777434319.5061948,
+    "hash": "150bbcd42fce9ec91262f6b831bfb1f7"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/[slug]/page.tsx": {
+    "mtime": 1777434319.505557,
+    "hash": "7ff67bb3dafe31638c9c62212a094297"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/ytmusic-content.js": {
+    "mtime": 1778122282.5762503,
+    "hash": "debe37eb9952733a91d2f7074972cc8a"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/spotify-content.js": {
+    "mtime": 1778125548.289426,
+    "hash": "9aebf0b7f167a0d796fa055bcef45db9"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/content.js": {
+    "mtime": 1778122282.5762503,
+    "hash": "663a52e2c082b0731b05795440bd1188"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/popup.js": {
+    "mtime": 1778122282.5762503,
+    "hash": "cc9829fbea1faafc4d6c078098521bef"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/background.js": {
+    "mtime": 1778122282.5762503,
+    "hash": "61c02769b4b4a7c2cfc76ddd082ad465"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/youtubeKeyRotation.ts": {
+    "mtime": 1778126279.453742,
+    "hash": "3d3c551821d4f113bf113e07a9771c20"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/types.ts": {
+    "mtime": 1780107543.9195712,
+    "hash": "ffbbe2b7ed811a716246c2908307c834"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/curatedPlaylists.ts": {
+    "mtime": 1777434319.5135386,
+    "hash": "26c5ac85611f02afcf846acd22c766d6"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/region.ts": {
+    "mtime": 1777434319.5135386,
+    "hash": "5b316cf76f232571917c33eab08bede9"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/chatLimit.ts": {
+    "mtime": 1780107543.9195712,
+    "hash": "8e19fd4bc689ec969f974560a5f4ca38"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/antiDebug.ts": {
+    "mtime": 1777434319.5132623,
+    "hash": "5d42273704344b923d4ae21225bba754"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/names.ts": {
+    "mtime": 1777434319.5135386,
+    "hash": "475bc705de97a0976bc55dce2a59cb28"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/playbackSync.test.ts": {
+    "mtime": 1780107543.9195712,
+    "hash": "bc2cd39e5bd0ccb7276cfb2dacc1eab4"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/youtube.ts": {
+    "mtime": 1777434319.5135386,
+    "hash": "f3e5353ffe3f407150ad4649aa848186"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/chatLimit.test.ts": {
+    "mtime": 1780107543.9195712,
+    "hash": "f68ffbf360973db2534137a2c7f2a5cd"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/playbackSync.ts": {
+    "mtime": 1780107543.9195712,
+    "hash": "a154784dec8736a73ca83c68e8f79660"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/lib/supabase.ts": {
+    "mtime": 1777434319.5135386,
+    "hash": "af2e09a7fc68e5322888f60c3f28903c"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/RoomClient.tsx": {
+    "mtime": 1780107543.9135711,
+    "hash": "92a9cd91014fb82f41dfd6061ea3a9ce"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/CreateRoom.tsx": {
+    "mtime": 1777434319.5103183,
+    "hash": "9ede89fedeb4001c192ffd50159caef9"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/PublicRooms.tsx": {
+    "mtime": 1777434319.510632,
+    "hash": "5c05a9414bd316e8cdf4e84b71d6baa7"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/ThemeToggle.tsx": {
+    "mtime": 1777434319.510632,
+    "hash": "52de02a46a50ab7c2cdc03f3b7a39fdc"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/ThemeProvider.tsx": {
+    "mtime": 1777434319.510632,
+    "hash": "d90c05ae8342106718862e9737d95a13"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/ProgressFill.tsx": {
+    "mtime": 1780107543.9155712,
+    "hash": "c7422299160349973fda1198835af0d7"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/playbackTimeStore.ts": {
+    "mtime": 1780107543.9185712,
+    "hash": "03aa6996d1eac67d1fa9b37176458b7b"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/RightPanel.tsx": {
+    "mtime": 1777434319.5109653,
+    "hash": "8ededb4846a1c0f26840454ed23561a6"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/ChatBox.tsx": {
+    "mtime": 1777434319.5109653,
+    "hash": "e1f8640741b63455c2f54c675615232c"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/Discovery.tsx": {
+    "mtime": 1780107543.9145713,
+    "hash": "dcb00509b0462819a2fad8ec0fa2b43a"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/Sidebar.tsx": {
+    "mtime": 1780107543.9155712,
+    "hash": "00f236c90fd20fa74ecd818216ed4cb5"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/PlayerBar.tsx": {
+    "mtime": 1780108597.2699614,
+    "hash": "ffc366e7bea26ba2a378131a6ae9c732"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/reactionsStore.ts": {
+    "mtime": 1780108110.856076,
+    "hash": "fd4a1133d3d63dee945363a0ba53c70f"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/FloatingReactions.tsx": {
+    "mtime": 1780107543.9145713,
+    "hash": "7bd6d62453062483f14c30d894cea67e"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/EmojiPicker.tsx": {
+    "mtime": 1780107543.9145713,
+    "hash": "5bc2700536c66883ef59a8c10b12b5d9"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/TimeLabel.tsx": {
+    "mtime": 1780107543.9165711,
+    "hash": "89c2beafcc58f69bbdce4ff5e541f560"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/MobileNav.tsx": {
+    "mtime": 1777434319.5109653,
+    "hash": "1e4c486f182e1aa38111555bac64369f"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/UserList.tsx": {
+    "mtime": 1777434319.5109653,
+    "hash": "67f14e0febbe5f1239742ad3edaa6d1a"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/reactionsStore.test.ts": {
+    "mtime": 1780108063.4191847,
+    "hash": "c7f09bc1c9fcbf47aa7a819b45e892db"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/playbackTimeStore.test.ts": {
+    "mtime": 1780107543.9185712,
+    "hash": "6c03a9ee5b56aba05cfa961d6e0cd933"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/QueueList.tsx": {
+    "mtime": 1777434319.5109653,
+    "hash": "ba3b12f953f5f8da88d647404a23a780"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/useRoomSync.ts": {
+    "mtime": 1780107868.633676,
+    "hash": "774ba13e047d7a32974c6932eac63da0"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/useQueue.ts": {
+    "mtime": 1777434319.5120761,
+    "hash": "ee79ee6edf80ec7849a00bc01f230c15"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/useChat.ts": {
+    "mtime": 1780107543.9165711,
+    "hash": "cae3a98c0073fcf0a09ae388d5d96c02"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/usePlayback.ts": {
+    "mtime": 1780107543.9165711,
+    "hash": "186a581696f74c3121244678ff6a20ef"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/useDiscovery.ts": {
+    "mtime": 1777434319.5120761,
+    "hash": "e3f06fc5533b908f7cdbb61be88308c1"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/usePlaybackSync.ts": {
+    "mtime": 1780107543.9175713,
+    "hash": "47e46bcc82d40eb75c4da7d7e782eaa1"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/useIdentity.ts": {
+    "mtime": 1777434319.5120761,
+    "hash": "97b25d987320c02689a995a64042a2df"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/hooks/useYouTubePlayer.ts": {
+    "mtime": 1780107543.9175713,
+    "hash": "056b80aec55f74125e0ebddda89e7555"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/modals/ExtensionPopup.tsx": {
+    "mtime": 1778122282.576088,
+    "hash": "44c223c165fb6129fcbf61745d05f9aa"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/modals/ImagePreviewModal.tsx": {
+    "mtime": 1777434319.5128403,
+    "hash": "e8567781fd21d06d3ca63b3589a7907b"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/components/room/modals/SettingsModal.tsx": {
+    "mtime": 1777434319.5128403,
+    "hash": "01a630cf4465951324f073d5e2332a39"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/README.md": {
+    "mtime": 1777434319.5051584,
+    "hash": "b4e7bf8356fd2566b9b3bd4656443054"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/YOUTUBE_API_ROTATION.md": {
+    "mtime": 1778126279.3921285,
+    "hash": "426de274dad10c9a4db1669c364ffef6"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/CLAUDE.md": {
+    "mtime": 1780107543.9125712,
+    "hash": "6578c47d38e73adcecaed96818799502"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/GEMINI.md": {
+    "mtime": 1780020898.3515124,
+    "hash": "da79aa9343cd2b362206f03762160abc"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/popup.html": {
+    "mtime": 1778122282.5762503,
+    "hash": "5386ad3943fbf6f1a044bfe047d22a35"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/public/window.svg": {
+    "mtime": 1777434319.5149753,
+    "hash": "a2760511c65806022ad20adf74370ff3"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/public/vercel.svg": {
+    "mtime": 1777434319.5149753,
+    "hash": "c0af2f507b369b085b35ef4bbe3bcf1e"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/public/file.svg": {
+    "mtime": 1777434319.5149753,
+    "hash": "d09f95206c3fa0bb9bd9fefabfd0ea71"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/public/globe.svg": {
+    "mtime": 1777434319.5149753,
+    "hash": "2aaafa6a49b6563925fe440891e32717"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/public/next.svg": {
+    "mtime": 1777434319.5149753,
+    "hash": "8e061864f388b47f33a1c3780831193e"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/opengraph-image.png": {
+    "mtime": 1777434319.5089653,
+    "hash": "2f891e219d9bc610f9ca977ecbd5e0c6"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/app/icon.png": {
+    "mtime": 1777434319.5079653,
+    "hash": "2f891e219d9bc610f9ca977ecbd5e0c6"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/icons/icon16.png": {
+    "mtime": 1777434319.5132623,
+    "hash": "bface7a619f00213f9d25a0c948a1177"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/icons/icon48.png": {
+    "mtime": 1777434319.5132623,
+    "hash": "e3a86c47e83c83fa6daa4d7f8db655b9"
+  },
+  "/home/gotim/Documents/projects/private/dropatrack/extension/icons/icon128.png": {
+    "mtime": 1777434319.512979,
+    "hash": "ededa0fa812f56b23bfdec8aeeef3c0f"
+  }
+}
