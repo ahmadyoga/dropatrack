@@ -45,10 +45,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-type="scifi" data-accent="aurora">
       <body className="antialiased">
         <ThemeProvider>
-          <div className="bg-pattern" />
+          <div
+            id="react-layer"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 200,
+              pointerEvents: 'none',
+              overflow: 'hidden',
+            }}
+          />
           {children}
           <Analytics />
         </ThemeProvider>
