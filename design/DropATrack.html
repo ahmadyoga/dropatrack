@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-type="scifi" data-accent="nebula">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DropATrack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Bungee+Shade&family=Space+Grotesk:wght@400;500;600;700&family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&family=Anton&family=Barlow+Semi+Condensed:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   DROPATRACK — bold cartoon cosmic design system
+   ============================================================ */
+:root{
+  /* accent pops (shared across themes) */
+  --pop-yellow:#ffd23f;
+  --pop-magenta:#ff5da2;
+  --pop-cyan:#46e0d4;
+  --pop-violet:#9d7bff;
+  --pop-coral:#ff7a4d;
+  --pop-lime:#b6f24d;
+
+  /* type personalities (switched by [data-type]) */
+  --font-display:'Bungee', system-ui, sans-serif;
+  --font-body:'Space Grotesk', system-ui, sans-serif;
+  --font-mono:'Space Mono', monospace;
+  --display-spacing:.01em;
+  --display-transform:none;
+  --display-lh:1.04;
+
+  --r-wobble:18px 22px 20px 24px / 24px 18px 22px 20px;
+  --r-wobble-2:22px 16px 24px 18px / 16px 24px 18px 22px;
+  --r-pill:40px;
+}
+
+/* ---- type personalities ---- */
+[data-type="scifi"]{
+  --font-display:'Bungee', system-ui, sans-serif;
+  --font-body:'Space Grotesk', system-ui, sans-serif;
+  --display-spacing:.005em; --display-transform:none; --display-lh:1.05;
+}
+[data-type="cartoon"]{
+  --font-display:'Baloo 2', system-ui, sans-serif;
+  --font-body:'Nunito', system-ui, sans-serif;
+  --display-spacing:-.01em; --display-transform:none; --display-lh:1.0;
+}
+[data-type="zine"]{
+  --font-display:'Anton', system-ui, sans-serif;
+  --font-body:'Barlow Semi Condensed', system-ui, sans-serif;
+  --display-spacing:.0em; --display-transform:uppercase; --display-lh:.95;
+}
+
+/* ---- THEMES ---- */
+[data-theme="dark"]{
+  --bg:#14101f;
+  --bg-2:#1b1430;
+  --bg-grad-1:#241640;
+  --bg-grad-2:#10101f;
+  --panel:#241c3a;
+  --panel-2:#2d2348;
+  --panel-3:#352a55;
+  --ink:#f7eeda;
+  --ink-soft:#bcae d6;
+  --ink-soft:#b9acd6;
+  --ink-dim:#8a7db0;
+  --outline:#0b0814;
+  --outline-soft:#070510;
+  --line:rgba(247,238,218,.14);
+  --shadow:#070510;
+  --star:#fff4d0;
+  --placeholder-a:#2a2046;
+  --placeholder-b:#33285a;
+  --field:#1a1430;
+  --field-ink:#f7eeda;
+}
+[data-theme="light"]{
+  --bg:#f7ead0;
+  --bg-2:#f1e0bf;
+  --bg-grad-1:#ffe9b8;
+  --bg-grad-2:#f3dcc0;
+  --panel:#fffdf6;
+  --panel-2:#fdf3dc;
+  --panel-3:#f8ead0;
+  --ink:#1c1326;
+  --ink-soft:#5a4a6e;
+  --ink-dim:#897a98;
+  --outline:#1c1326;
+  --outline-soft:#1c1326;
+  --line:rgba(28,19,38,.16);
+  --shadow:#1c1326;
+  --star:#7a5cff;
+  --placeholder-a:#efe1c4;
+  --placeholder-b:#e6d2ae;
+  --field:#fffdf6;
+  --field-ink:#1c1326;
+}
+
+/* ---- accent palettes (the rotating "pop") ---- */
+[data-accent="nebula"]{ --accent:var(--pop-magenta); --accent-2:var(--pop-cyan); --accent-3:var(--pop-yellow); }
+[data-accent="solar"]{ --accent:var(--pop-coral); --accent-2:var(--pop-yellow); --accent-3:var(--pop-violet); }
+[data-accent="aurora"]{ --accent:var(--pop-cyan); --accent-2:var(--pop-lime); --accent-3:var(--pop-violet); }
+[data-accent="berry"]{ --accent:var(--pop-violet); --accent-2:var(--pop-magenta); --accent-3:var(--pop-cyan); }
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:var(--font-body);
+  background:var(--bg);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+#root{height:100vh;}
+::selection{background:var(--accent);color:#0b0814;}
+
+/* cosmic backdrop */
+.cosmos-bg{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(120% 80% at 80% -10%, var(--bg-grad-1) 0%, transparent 55%),
+    radial-gradient(100% 70% at 0% 110%, var(--bg-grad-2) 0%, transparent 50%),
+    var(--bg);
+}
+
+/* ---- the signature "pop" card ---- */
+.pop{
+  border:3px solid var(--outline);
+  box-shadow:6px 6px 0 var(--shadow);
+  background:var(--panel);
+}
+.pop-sm{ box-shadow:4px 4px 0 var(--shadow); border-width:2.5px; }
+.pop-lg{ box-shadow:9px 9px 0 var(--shadow); }
+.pop-accent{ box-shadow:6px 6px 0 var(--accent); }
+.pop-cyan{ box-shadow:6px 6px 0 var(--accent-2); }
+.pop-yellow{ box-shadow:6px 6px 0 var(--accent-3); }
+.wobble{ border-radius:var(--r-wobble); }
+.wobble-2{ border-radius:var(--r-wobble-2); }
+
+/* display type helper */
+.display{
+  font-family:var(--font-display);
+  letter-spacing:var(--display-spacing);
+  text-transform:var(--display-transform);
+  line-height:var(--display-lh);
+  font-weight:800;
+}
+[data-type="scifi"] .display{ font-weight:400; }
+[data-type="zine"] .display{ font-weight:400; }
+
+/* buttons */
+.btn{
+  font-family:var(--font-display);
+  font-size:14px;
+  letter-spacing:var(--display-spacing);
+  text-transform:var(--display-transform);
+  border:3px solid var(--outline);
+  background:var(--panel);
+  color:var(--ink);
+  box-shadow:4px 4px 0 var(--shadow);
+  border-radius:14px;
+  padding:12px 18px;
+  cursor:pointer;
+  transition:transform .08s ease, box-shadow .08s ease, background .15s ease;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  user-select:none;
+}
+[data-type="scifi"] .btn,[data-type="zine"] .btn{ font-weight:400; }
+.btn:hover{ transform:translate(-1px,-1px); box-shadow:6px 6px 0 var(--shadow); }
+.btn:active{ transform:translate(3px,3px); box-shadow:1px 1px 0 var(--shadow); }
+.btn-accent{ background:var(--accent); color:#140f1f; }
+.btn-cyan{ background:var(--accent-2); color:#140f1f; }
+.btn-yellow{ background:var(--accent-3); color:#140f1f; }
+.btn-ghost{ background:transparent; box-shadow:none; border-color:var(--line); }
+.btn-ghost:hover{ box-shadow:none; background:var(--panel-2); }
+.btn-icon{ padding:10px; border-radius:12px; }
+
+/* fields */
+.field{
+  font-family:var(--font-body);
+  font-size:15px;font-weight:600;
+  background:var(--field);
+  color:var(--field-ink);
+  border:3px solid var(--outline);
+  border-radius:14px;
+  padding:13px 16px;
+  width:100%;
+  outline:none;
+  box-shadow:inset 2px 2px 0 rgba(0,0,0,.06);
+}
+.field::placeholder{ color:var(--ink-dim); font-weight:600; }
+.field:focus{ box-shadow:0 0 0 3px var(--accent); }
+
+/* chips / badges */
+.chip{
+  font-family:var(--font-mono);
+  font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;
+  border:2.5px solid var(--outline);
+  border-radius:var(--r-pill);
+  padding:4px 11px;
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--panel);
+  white-space:nowrap;
+}
+
+/* role badges */
+.role-admin{ background:var(--pop-magenta); color:#140f1f; }
+.role-mod{ background:var(--pop-violet); color:#140f1f; }
+.role-dj{ background:var(--pop-yellow); color:#140f1f; }
+.role-listener{ background:var(--panel-3); color:var(--ink); }
+
+/* scrollbars */
+.scroll{ overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--accent) transparent; }
+.scroll::-webkit-scrollbar{ width:10px; }
+.scroll::-webkit-scrollbar-thumb{ background:var(--accent); border:2px solid var(--outline); border-radius:20px; }
+.scroll::-webkit-scrollbar-track{ background:transparent; }
+
+/* placeholder art (striped, on-theme) */
+.ph{
+  background-image:repeating-linear-gradient(45deg,var(--placeholder-a),var(--placeholder-a) 12px,var(--placeholder-b) 12px,var(--placeholder-b) 24px);
+  position:relative;overflow:hidden;
+}
+.ph-label{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink);opacity:.8;
+  background:var(--panel);border:2px solid var(--outline);padding:4px 9px;border-radius:8px;
+  white-space:nowrap;
+}
+
+/* tiny twinkle stars */
+@keyframes twinkle{0%,100%{opacity:.25;transform:scale(.8);}50%{opacity:1;transform:scale(1.1);}}
+.twinkle{ animation:twinkle 3s ease-in-out infinite; }
+
+/* floating emoji reactions */
+.react-layer{ position:fixed;inset:0;z-index:200;pointer-events:none;overflow:hidden; }
+.float-emoji{
+  position:absolute;bottom:-40px;
+  font-size:34px;
+  will-change:transform,opacity;
+  animation:floatUp var(--dur,4s) cubic-bezier(.3,.1,.5,1) forwards;
+}
+@keyframes floatUp{
+  0%{ transform:translateY(0) scale(.4) rotate(0deg); opacity:0; }
+  12%{ opacity:1; transform:translateY(-8vh) scale(1.1) rotate(var(--rot,8deg)); }
+  100%{ transform:translateY(-104vh) translateX(var(--drift,0px)) scale(.9) rotate(var(--rot2,-12deg)); opacity:0; }
+}
+
+/* modal */
+.scrim{ position:fixed;inset:0;z-index:300;background:rgba(8,5,16,.62);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px; }
+
+/* pulse for live dot */
+@keyframes livepulse{0%,100%{box-shadow:0 0 0 0 var(--pop-magenta);}50%{box-shadow:0 0 0 5px transparent;}}
+.live-dot{ width:9px;height:9px;border-radius:50%;background:var(--pop-magenta);border:2px solid var(--outline);animation:livepulse 1.6s infinite; }
+
+/* utility */
+.row{ display:flex;align-items:center; }
+.col{ display:flex;flex-direction:column; }
+.mono{ font-family:var(--font-mono); }
+.nowrap{ white-space:nowrap; }
+.spin{ animation:spin 8s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+@keyframes spin-rev{ to{ transform:rotate(-360deg); } }
+
+/* drag state */
+.dragging{ opacity:.4; }
+.drag-over{ box-shadow:0 -4px 0 -1px var(--accent); }
+
+/* scale-in for modals/cards */
+@keyframes popin{0%{transform:scale(.9) translateY(8px);opacity:0;}100%{transform:scale(1) translateY(0);opacity:1;}}
+.popin{ animation:popin .22s cubic-bezier(.2,1.2,.4,1); }
+
+/* hide scrollbar but scroll */
+.noscb::-webkit-scrollbar{ display:none; }
+.noscb{ scrollbar-width:none; }
+</style>
+</head>
+<body>
+<div class="cosmos-bg"></div>
+<div id="root"></div>
+<div class="react-layer" id="react-layer"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="ui.jsx"></script>
+<script type="text/babel" src="home.jsx"></script>
+<script type="text/babel" src="room-player.jsx"></script>
+<script type="text/babel" src="room-queue.jsx"></script>
+<script type="text/babel" src="room-people.jsx"></script>
+<script type="text/babel" src="room-chat.jsx"></script>
+<script type="text/babel" src="room.jsx"></script>
+<script type="text/babel" src="boot.jsx"></script>
+</body>
+</html>

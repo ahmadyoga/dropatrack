@@ -1,6 +1,5 @@
 import CreateRoom from '@/components/CreateRoom';
 import ThemeToggle from '@/components/ThemeToggle';
-import './home.css';
 
 export default function HomePage() {
   return (
