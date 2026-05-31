@@ -2,7 +2,6 @@
 
 import Scrubber from './ui/Scrubber';
 import { useRoom } from './RoomContext';
-import YouTubePlayer from '@/components/YouTubePlayer';
 import { usePlaybackTime } from './playbackTimeStore';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 
@@ -80,14 +79,8 @@ export default function Player({
       {/* video stage */}
       <div style={{ position: 'relative', aspectRatio: '16/9', minHeight: 0 }}>
         <div ref={playerContainerRef} style={{ position: 'absolute', inset: 0 }}>
-          {currentSong ? (
-            <YouTubePlayer
-              videoId={currentSong.youtube_id}
-              playerRef={playerRef}
-              isPlaying={room.is_playing}
-              isSpeaker={isSpeaker}
-            />
-          ) : (
+          <div id="yt-player" style={{ width: '100%', height: '100%' }} />
+          {!currentSong && (
             <div className="ph" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', letterSpacing: '.1em' }}>
                 QUEUE IS EMPTY

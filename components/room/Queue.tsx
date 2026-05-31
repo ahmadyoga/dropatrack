@@ -19,7 +19,7 @@ interface QueueProps {
   dragOverIndex: number | null;
   onJumpTo: (index: number) => void;
   onRemoveSong: (item: QueueItem) => Promise<void>;
-  onMoveSongToNext: (id: string) => Promise<void>;
+  onMoveSongToNext: (e: React.MouseEvent, sourceIndex: number) => void;
   onShuffle: () => void;
   onDragStart: (index: number) => void;
   onDragOver: (e: React.DragEvent, index: number) => void;
@@ -155,7 +155,7 @@ export default function Queue({
               </div>
               {(isHovered || isCurrent) && canRearrange && (
                 <div className="flex gap-1" style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                  <button className="btn pop-sm btn-icon" onClick={() => onMoveSongToNext(item.id)} title="Play next" style={{ padding: 6 }}>⏭</button>
+                  <button className="btn pop-sm btn-icon" onClick={(e) => onMoveSongToNext(e, index)} title="Play next" style={{ padding: 6 }}>⏭</button>
                   <button className="btn pop-sm btn-icon" onClick={() => onRemoveSong(item)} title="Remove" style={{ padding: 6, background: 'var(--pop-coral)', color: '#140f1f' }}>✕</button>
                 </div>
               )}

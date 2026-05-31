@@ -4,12 +4,10 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAntiDebug } from '@/lib/antiDebug';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { YTPlayer } from './room/hooks/useYouTubePlayer';
 import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
 import { usePlaybackSync } from './room/hooks/usePlaybackSync';
-import '@/app/room.css';
-import '@/app/room/_mobile.css';
+import { useTheme } from './ThemeProvider';
 
 // Hooks
 import { useIdentity } from './room/hooks/useIdentity';
@@ -20,25 +18,25 @@ import { useQueue } from './room/hooks/useQueue';
 import { useDiscovery } from './room/hooks/useDiscovery';
 import { useChat } from './room/hooks/useChat';
 
-// Components
-import Sidebar from './room/Sidebar';
-import Discovery from './room/Discovery';
-import RightPanel from './room/RightPanel';
-import PlayerBar from './room/PlayerBar';
+// Context
+import { RoomProvider } from './room/RoomContext';
+
+// New components
+import Header from './room/Header';
+import Player from './room/Player';
+import ReactionBar from './room/ReactionBar';
+import CrewStrip from './room/CrewStrip';
+import Queue from './room/Queue';
+import Discover from './room/Discover';
+import Chat from './room/Chat';
 import MobileNav from './room/MobileNav';
-import FloatingReactions from './room/FloatingReactions';
+import StarField from './room/ui/StarField';
 import SettingsModal from './room/modals/SettingsModal';
-import ExtensionPopup from './room/modals/ExtensionPopup';
 import ImagePreviewModal from './room/modals/ImagePreviewModal';
 
 function detectTimezone(): string {
-  if (typeof Intl !== 'undefined') {
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      if (tz) return tz;
-    } catch { /* fallback */ }
-  }
-  return 'Asia/Jakarta';
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta'; }
+  catch { return 'Asia/Jakarta'; }
 }
 
 interface RoomClientProps {
@@ -46,31 +44,26 @@ interface RoomClientProps {
   initialQueue: QueueItem[];
 }
 
+type MobileTab = 'player' | 'queue' | 'discover' | 'chat';
+
 export default function RoomClient({ initialRoom, initialQueue }: RoomClientProps) {
   useAntiDebug();
 
-  // ── Shared state ───────────────────────────────────────────────────
+  const { theme, toggleTheme } = useTheme();
+
   const [room, setRoom] = useState<Room>(initialRoom);
   const [queue, setQueue] = useState<QueueItem[]>(initialQueue);
-  const [activeTab, setActiveTab] = useState<'users' | 'chat'>('users');
-  const [mobileTab, setMobileTab] = useState<'main' | 'queue' | 'chat'>('main');
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showExtensionPopup, setShowExtensionPopup] = useState(false);
-  const [roleMenuUserId, setRoleMenuUserId] = useState<string | null>(null);
-  const [sidebarWidth, setSidebarWidth] = useState(350);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('player');
   const [isMobile, setIsMobile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [userTimezone] = useState(() => detectTimezone());
 
-  // ── Shared refs (created here, passed into hooks) ──────────────────
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  // Shared refs
   const playerRef = useRef<YTPlayer | null>(null);
   const roomRef = useRef(initialRoom);
   const queueRef = useRef(initialQueue);
   const isSpeakerRef = useRef(false);
-  // receivedAt:0 + isPlaying:false is a safe placeholder (computeExpected ignores
-  // receivedAt when paused). usePlaybackSync's mount effect sets the real anchor
-  // with performance.now() — avoids calling an impure function during render.
   const anchorRef = useRef<PlaybackAnchor>({
     base: initialRoom.current_playback_time || 0,
     receivedAt: 0,
@@ -79,102 +72,86 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const isSourceRef = useRef(false);
   const isTransitioningRef = useRef(false);
   const isLoadingVideoRef = useRef(false);
-  const handleNextRef = useRef<() => void>(() => { });
+  const handleNextRef = useRef<() => void>(() => {});
   const isChatVisibleRef = useRef(false);
   const playerContainerRef = useRef<HTMLDivElement>(null!);
-  const isResizingRef = useRef(false);
 
-  // Keep core refs in sync
+  // Stable broadcast ref — populated after useRoomSync runs
+  const broadcastRef = useRef<(event: string, payload: Record<string, unknown>) => void>(() => {});
+  // Stable addSongToQueue ref — populated after useQueue runs
+  const addSongRef = useRef<(id: string, title: string, thumb: string, dur: number) => Promise<void>>(async () => {});
+
   useEffect(() => { roomRef.current = room; }, [room]);
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => {
-    const mq = window.matchMedia('(max-width: 768px)');
+    const mq = window.matchMedia('(max-width: 1024px)');
     setIsMobile(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+    const h = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', h);
+    return () => mq.removeEventListener('change', h);
   }, []);
-  useEffect(() => {
-    isChatVisibleRef.current = activeTab === 'chat' || mobileTab === 'chat';
-  }, [activeTab, mobileTab]);
+  useEffect(() => { isChatVisibleRef.current = mobileTab === 'chat'; }, [mobileTab]);
 
-  // ── Admin: update default role ────────────────────────────────────
-  const updateDefaultRole = useCallback(async (newRole: UserRole) => {
-    setRoom(prev => ({ ...prev, default_role: newRole }));
-    await supabase.from('rooms').update({ default_role: newRole }).eq('id', room.id);
-    channelRef.current?.send({ type: 'broadcast', event: 'role_update', payload: { default_role: newRole, user_roles: room.user_roles } });
-  }, [room.id, room.user_roles]);
-
-  // ── Admin: update a specific user's role ─────────────────────────
-  const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
-    const updatedRoles = { ...(room.user_roles || {}), [userId]: newRole };
-    setRoom(prev => ({ ...prev, user_roles: updatedRoles }));
-    await supabase.from('rooms').update({ user_roles: updatedRoles }).eq('id', room.id);
-    channelRef.current?.send({ type: 'broadcast', event: 'role_update', payload: { default_role: room.default_role, user_roles: updatedRoles } });
-    setRoleMenuUserId(null);
-  }, [room.id, room.user_roles, room.default_role]);
-
-  // ── Identity hook ─────────────────────────────────────────────────
+  // ── Identity (uses broadcastRef so it can run before useRoomSync) ─────────
   const {
     currentUser, setCurrentUser, currentUserRef, myRole, myRoleRef,
-    editingUsername, setEditingUsername, newUsername, setNewUsername, handleUsernameChange,
+    handleUsernameChange,
   } = useIdentity({
-    initialRoom,
-    room,
-    channelRef,
-    onShowExtensionPopup: () => setShowExtensionPopup(true),
-    onUpdateUserRole: updateUserRole,
+    initialRoom, room,
+    broadcast: (e, p) => broadcastRef.current(e, p),
+    onShowExtensionPopup: () => {},
+    onUpdateUserRole: async (userId, newRole) => updateUserRole(userId, newRole),
   });
 
-  // ── YouTube Player hook ───────────────────────────────────────────
+  // ── YouTube player ────────────────────────────────────────────────────────
   const {
     isSpeaker, toggleSpeaker, playerReady, playerReadyRef,
     duration, showPlayerOverlay, setShowPlayerOverlay, overlayTimerRef,
   } = useYouTubePlayer({
-    room,
-    roomRef,
+    room, roomRef,
     currentSong: queue[room.current_song_index] || null,
-    isSpeakerRef,
-    handleNextRef,
-    isTransitioningRef,
-    isLoadingVideoRef,
-    playerRef,
-    anchorRef,
+    isSpeakerRef, handleNextRef, isTransitioningRef, isLoadingVideoRef,
+    playerRef, anchorRef,
   });
-
-  // Keep isSpeakerRef in sync
   useEffect(() => { isSpeakerRef.current = isSpeaker; }, [isSpeaker]);
 
-  // ── Playback hook ─────────────────────────────────────────────────
+  // ── Chat (before useRoomSync to provide setChatMessages) ──────────────────
+  const {
+    chatMessages, setChatMessages, chatInput, setChatInput,
+    sendingChat, uploadingImage, unreadChatCount, setUnreadChatCount,
+    chatToast, setChatToast, previewImage: chatPreviewImage, setPreviewImage: setChatPreviewImage,
+    chatEndRef, handleSendChat, handleImageUpload, handleChatPaste,
+  } = useChat({
+    roomId: initialRoom.id, currentUser, currentUserRef,
+    addSongToQueue: (id, title, thumb, dur) => addSongRef.current(id, title, thumb, dur),
+    isChatVisibleRef,
+  });
+
+  // ── Realtime sync ─────────────────────────────────────────────────────────
+  const { users, broadcast } = useRoomSync({
+    initialRoom, currentUser, myRoleRef, isSpeakerRef,
+    playerRef: playerRef as React.RefObject<unknown>,
+    playerReadyRef, handleNextRef,
+    setRoom, setQueue, setCurrentUser, setChatMessages,
+    currentUserRef, isChatVisibleRef,
+    isSpeaker, myRole, room,
+  });
+
+  // Sync broadcast to ref immediately (safe — refs don't trigger re-renders)
+  broadcastRef.current = broadcast;
+
+  // ── Playback ──────────────────────────────────────────────────────────────
   const { broadcastPlayback, handlePlayPause, handleNext, handlePrev, handleJumpTo } = usePlayback({
-    room,
-    roomRef,
-    queueRef,
-    isSpeaker,
-    isSpeakerRef,
-    playerRef,
-    playerReadyRef,
-    channelRef,
-    currentUser,
-    isTransitioningRef,
-    isLoadingVideoRef,
-    handleNextRef,
-    setRoom,
-    queue,
+    room, roomRef, queueRef, isSpeaker, isSpeakerRef,
+    playerRef, playerReadyRef, broadcast, currentUser,
+    isTransitioningRef, isLoadingVideoRef, handleNextRef, setRoom, queue,
   });
+  useEffect(() => { handleNextRef.current = handleNext; }, [handleNext]);
 
-  // ── Time-level playback sync ──────────────────────────────────────
-  usePlaybackSync({
-    room,
-    roomRef,
-    isSpeaker,
-    playerRef,
-    playerReadyRef,
-    isSourceRef,
-    anchorRef,
-  });
+  // ── Time-level playback sync ──────────────────────────────────────────────
+  usePlaybackSync({ room, roomRef, isSpeaker, playerRef, playerReadyRef, isSourceRef, anchorRef });
 
-  // ── Queue hook ────────────────────────────────────────────────────
+  // ── Queue ─────────────────────────────────────────────────────────────────
   const {
     searching, searchQuery, setSearchQuery, searchResults, setSearchResults,
     nextPageToken, loadingMore, addingUrl, shuffling, dragOverIndex,
@@ -182,280 +159,253 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     handleSearch, handleLoadMore, addSongToQueue, removeSong, handleShuffle,
     handleDragStart, handleDragOver, handleDragLeave, handleDrop, moveSongToNext,
   } = useQueue({
-    room,
-    roomRef,
-    queue,
-    queueRef,
-    setQueue,
-    setRoom,
-    currentUser,
+    room, roomRef, queue, queueRef, setQueue, setRoom, currentUser,
     canAddSongs: true,
     canPlayPause: myRole === 'admin' || myRole === 'moderator',
-    channelRef,
-    broadcastPlayback,
+    broadcast, broadcastPlayback,
   });
+  addSongRef.current = addSongToQueue;
 
-  // ── Discovery hook ────────────────────────────────────────────────
+  // ── Discovery ─────────────────────────────────────────────────────────────
   const {
-    trendingVideos, latestVideos, freshVideos, trendingLoading, latestLoading, freshLoading,
-    curatedSections, curatedLoading, selectedPlaylist, setSelectedPlaylist,
-    playlistVideos, playlistVideosLoading, showAllPlaylists, setShowAllPlaylists,
-    fetchTrending, fetchLatest, fetchFresh, openPlaylist,
+    trendingVideos, latestVideos, freshVideos,
+    trendingLoading, latestLoading, freshLoading,
+    fetchTrending,
   } = useDiscovery({ userTimezone });
 
-  // ── Chat hook ─────────────────────────────────────────────────────
-  const {
-    chatMessages, setChatMessages, chatInput, setChatInput, sendingChat, uploadingImage,
-    unreadChatCount, setUnreadChatCount, chatToast, setChatToast,
-    previewImage, setPreviewImage, chatEndRef,
-    handleSendChat, handleImageUpload, handleChatPaste,
-  } = useChat({
-    roomId: initialRoom.id,
-    currentUser,
-    currentUserRef,
-    addSongToQueue,
-    isChatVisibleRef,
-  });
+  // ── Role + privacy callbacks ──────────────────────────────────────────────
+  const updateUserRole = useCallback(async (userId: string, newRole: UserRole) => {
+    const updatedRoles = { ...(room.user_roles || {}), [userId]: newRole };
+    setRoom((prev) => ({ ...prev, user_roles: updatedRoles }));
+    await supabase.from('rooms').update({ user_roles: updatedRoles }).eq('id', room.id);
+    broadcast('role_update', { default_role: room.default_role, user_roles: updatedRoles });
+  }, [room.id, room.user_roles, room.default_role, broadcast]);
 
-  // ── Realtime sync hook ────────────────────────────────────────────
-  const { users } = useRoomSync({
-    initialRoom,
-    currentUser,
-    myRoleRef,
-    isSpeakerRef,
-    playerRef: playerRef as React.RefObject<unknown>,
-    playerReadyRef,
-    handleNextRef,
-    setRoom,
-    setQueue,
-    setCurrentUser,
-    setChatMessages,
-    currentUserRef,
-    isChatVisibleRef,
-    channelRef,
-    isSpeaker,
-    myRole,
-    room,
-  });
+  const updateDefaultRole = useCallback(async (newRole: UserRole) => {
+    setRoom((prev) => ({ ...prev, default_role: newRole }));
+    await supabase.from('rooms').update({ default_role: newRole }).eq('id', room.id);
+    broadcast('role_update', { default_role: newRole, user_roles: room.user_roles });
+  }, [room.id, room.user_roles, broadcast]);
 
-  // Elect the host-less playback time source from presence.
+  const updatePrivacy = useCallback(async (isPrivate: boolean) => {
+    setRoom((prev) => ({ ...prev, is_public: !isPrivate }));
+    await supabase.from('rooms').update({ is_public: !isPrivate }).eq('id', room.id);
+    broadcast('role_update', { default_role: room.default_role, user_roles: room.user_roles });
+  }, [room.id, room.default_role, room.user_roles, broadcast]);
+
+  // ── Time source election ──────────────────────────────────────────────────
   useEffect(() => {
     const sourceId = electTimeSource(users);
     isSourceRef.current = !!currentUser && currentUser.user_id === sourceId;
   }, [users, currentUser?.user_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Derived values ────────────────────────────────────────────────
+  // ── Volume + seek ─────────────────────────────────────────────────────────
+  const handleVolumeChange = useCallback((v: number) => {
+    setRoom((prev) => ({ ...prev, volume: v }));
+    broadcast('volume_change', { volume: v });
+  }, [broadcast]);
+
+  const handleSeek = useCallback((t: number) => {
+    broadcast('seek_request', { time: t });
+  }, [broadcast]);
+
+  // ── Derived ───────────────────────────────────────────────────────────────
   const currentSong = queue[room.current_song_index] || null;
   const canPlayPause = myRole === 'admin' || myRole === 'moderator';
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
   const queuedVideoIds = useMemo(() => new Set(queue.map((q) => q.youtube_id)), [queue]);
 
-  // ── Stable callback for Discovery trending refresh ────────────────
-  const handleRefreshTrending = useCallback(() => fetchTrending(userTimezone), [fetchTrending, userTimezone]);
+  const leave = useCallback(() => { window.history.back(); }, []);
 
-  // ── Sidebar resizer ───────────────────────────────────────────────
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingRef.current) return;
-      let w = e.clientX;
-      if (w < 250) w = 250;
-      if (w > 450) w = 450;
-      setSidebarWidth(w);
-    };
-    const handleMouseUp = () => {
-      if (isResizingRef.current) {
-        isResizingRef.current = false;
-        document.body.style.cursor = 'default';
-        document.body.style.userSelect = 'auto';
-      }
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  const startResizing = (e: React.MouseEvent) => {
-    e.preventDefault();
-    isResizingRef.current = true;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
+  const handleChatTabSwitch = (tab: MobileTab) => {
+    setMobileTab(tab);
+    if (tab === 'chat') setUnreadChatCount(0);
   };
 
-  // ── Render ────────────────────────────────────────────────────────
+  // ── Context value ─────────────────────────────────────────────────────────
+  const contextValue = {
+    room, queue, users, currentUser, myRole, currentSong,
+    canPlayPause, canRearrange, isSpeaker, duration,
+    broadcast, theme, toggleTheme,
+  };
+
+  // Shared Queue props (used in both desktop and mobile)
+  const queueProps = {
+    queueSearchQuery, setQueueSearchQuery,
+    searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
+    shuffling, dragOverIndex,
+    onJumpTo: handleJumpTo,
+    onRemoveSong: removeSong,
+    onMoveSongToNext: (e: React.MouseEvent, sourceIndex: number) => moveSongToNext(e, sourceIndex),
+    onShuffle: handleShuffle,
+    onDragStart: handleDragStart,
+    onDragOver: handleDragOver,
+    onDragLeave: handleDragLeave,
+    onDrop: handleDrop,
+  };
+
+  const playerProps = {
+    playerRef, playerContainerRef, playerReady,
+    showPlayerOverlay, setShowPlayerOverlay, overlayTimerRef,
+    isSpeaker,
+    onPlayPause: handlePlayPause,
+    onNext: handleNext,
+    onPrev: handlePrev,
+    onShuffle: handleShuffle,
+    onToggleSpeaker: toggleSpeaker,
+    onSeek: handleSeek,
+    onVolumeChange: handleVolumeChange,
+  };
+
+  const discoverProps = {
+    searching, searchQuery, setSearchQuery,
+    searchResults, nextPageToken, loadingMore, addingUrl,
+    trendingVideos, latestVideos, freshVideos,
+    trendingLoading, latestLoading, freshLoading,
+    onSearch: handleSearch,
+    onLoadMore: handleLoadMore,
+    onAddSong: addSongToQueue,
+    queuedVideoIds,
+  };
+
+  const chatProps = {
+    chatMessages, chatInput, setChatInput,
+    sendingChat, uploadingImage, unreadChatCount,
+    chatEndRef,
+    onSendChat: handleSendChat,
+    onImageUpload: handleImageUpload,
+    onChatPaste: handleChatPaste,
+    onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) =>
+      addSongToQueue(youtubeId, title, '', 0),
+    onPreviewImage: setPreviewImage,
+    onSeen: () => setUnreadChatCount(0),
+  };
+
   return (
-    <div className="room-layout-wrapper">
-      <div
-        className="room-bg"
-        style={currentSong?.thumbnail_url ? { backgroundImage: `url(${currentSong.thumbnail_url})` } : undefined}
-      />
-      <FloatingReactions />
-      <div className={`app-card ${!isRightPanelOpen ? 'rp-closed' : ''} mobile-tab-${mobileTab}`}>
+    <RoomProvider value={contextValue}>
+      <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', zIndex: 1 }}>
+        <div className="cosmos-bg" />
+        <StarField n={24} seed={initialRoom.slug.length + 3} />
 
-        <Sidebar
-          room={room}
-          queue={queue}
-          currentSong={currentSong}
-          myRole={myRole}
-          isSpeaker={isSpeaker}
-          playerReady={playerReady}
-          sidebarWidth={isMobile ? undefined : sidebarWidth}
-          canPlayPause={canPlayPause}
-          canRearrange={canRearrange}
-          showPlayerOverlay={showPlayerOverlay}
-          playerRef={playerRef}
-          playerContainerRef={playerContainerRef}
-          overlayTimerRef={overlayTimerRef}
-          queueSearchQuery={queueSearchQuery}
-          setQueueSearchQuery={setQueueSearchQuery}
-          searchMatchIndices={searchMatchIndices}
-          searchMatchCurrentIdx={searchMatchCurrentIdx}
-          setSearchMatchCurrentIdx={setSearchMatchCurrentIdx}
-          shuffling={shuffling}
-          dragOverIndex={dragOverIndex}
-          onPlayPause={handlePlayPause}
-          onNext={handleNext}
-          onPrev={handlePrev}
-          onJumpTo={handleJumpTo}
-          onRemoveSong={removeSong}
-          onMoveToNext={moveSongToNext}
-          onShuffle={handleShuffle}
-          onDragStart={handleDragStart}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          setShowSettings={setShowSettings}
-          setShowPlayerOverlay={setShowPlayerOverlay}
-          startResizing={startResizing}
-        />
-
-        <div className="main-col">
-          <Discovery
-            users={users}
-            queuedVideoIds={queuedVideoIds}
-            searching={searching}
-            addingUrl={addingUrl}
-            canAddSongs={true}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            searchResults={searchResults}
-            setSearchResults={setSearchResults}
-            nextPageToken={nextPageToken}
-            loadingMore={loadingMore}
-            latestVideos={latestVideos}
-            latestLoading={latestLoading}
-            freshVideos={freshVideos}
-            freshLoading={freshLoading}
-            trendingVideos={trendingVideos}
-            trendingLoading={trendingLoading}
-            curatedSections={curatedSections}
-            curatedLoading={curatedLoading}
-            selectedPlaylist={selectedPlaylist}
-            setSelectedPlaylist={setSelectedPlaylist}
-            playlistVideos={playlistVideos}
-            playlistVideosLoading={playlistVideosLoading}
-            showAllPlaylists={showAllPlaylists}
-            setShowAllPlaylists={setShowAllPlaylists}
-            onSearch={handleSearch}
-            onLoadMore={handleLoadMore}
-            onAddSong={addSongToQueue}
-            onOpenPlaylist={openPlaylist}
-            onRefreshTrending={handleRefreshTrending}
-            onRefreshLatest={fetchLatest}
-            onRefreshFresh={fetchFresh}
-          />
-
-
-          <PlayerBar
-            room={room}
-            queue={queue}
-            currentSong={currentSong}
-            isSpeaker={isSpeaker}
-            canPlayPause={canPlayPause}
-            duration={duration}
-            isRightPanelOpen={isRightPanelOpen}
-            setIsRightPanelOpen={setIsRightPanelOpen}
-            playerRef={playerRef}
-            playerReady={playerReady}
-            channelRef={channelRef}
-            setRoom={setRoom}
-            onPlayPause={handlePlayPause}
-            onNext={handleNext}
-            onPrev={handlePrev}
-            onToggleSpeaker={toggleSpeaker}
-          />
-        </div>
-
-        <RightPanel
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          unreadChatCount={unreadChatCount}
-          setUnreadChatCount={setUnreadChatCount}
-          users={users}
-          currentUser={currentUser}
-          room={room}
-          myRole={myRole}
-          editingUsername={editingUsername}
-          newUsername={newUsername}
-          setNewUsername={setNewUsername}
-          setEditingUsername={setEditingUsername}
-          roleMenuUserId={roleMenuUserId}
-          setRoleMenuUserId={setRoleMenuUserId}
-          onUsernameChange={handleUsernameChange}
-          onUpdateUserRole={updateUserRole}
-          chatMessages={chatMessages}
-          chatInput={chatInput}
-          setChatInput={setChatInput}
-          sendingChat={sendingChat}
-          uploadingImage={uploadingImage}
-          chatEndRef={chatEndRef}
-          onSendChat={handleSendChat}
-          onChatPaste={handleChatPaste}
-          onAddSongFromChat={(youtubeId, title, _artist, _duration) => addSongToQueue(youtubeId, title, '', 0)}
-          onPreviewImage={setPreviewImage}
-        />
-        <MobileNav
-          mobileTab={mobileTab}
-          setMobileTab={setMobileTab}
-          unreadChatCount={unreadChatCount}
-          setUnreadChatCount={setUnreadChatCount}
-        />
-      </div>
-
-      {/* Modals */}
-      {showSettings && (
-        <SettingsModal
-          room={room}
-          onClose={() => setShowSettings(false)}
-          onUpdateDefaultRole={updateDefaultRole}
-        />
-      )}
-      {showExtensionPopup && <ExtensionPopup onClose={() => setShowExtensionPopup(false)} />}
-      {previewImage && <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />}
-
-      {/* In-App Chat Toast */}
-      {chatToast && (
         <div
-          className="chat-toast"
-          onClick={() => {
-            setChatToast(null);
-            setUnreadChatCount(0);
-            setActiveTab('chat');
-            setMobileTab('chat');
+          style={{
+            flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+            padding: isMobile ? '16px 14px 92px' : '20px 22px 22px',
+            overflow: isMobile ? 'auto' : 'hidden',
+            position: 'relative',
           }}
         >
-          <div className="chat-toast-avatar" style={{ background: chatToast.color }}>
-            {chatToast.username.charAt(0).toUpperCase()}
-          </div>
-          <div className="chat-toast-body">
-            <div className="chat-toast-name">{chatToast.username}</div>
-            <div className="chat-toast-msg">{chatToast.message}</div>
-          </div>
-          <button className="chat-toast-close" onClick={(e) => { e.stopPropagation(); setChatToast(null); }}>✕</button>
+          <Header onLeave={leave} onOpenSettings={() => setShowSettings(true)} />
+
+          {!isMobile ? (
+            <div
+              style={{
+                flex: 1, minHeight: 0,
+                display: 'grid',
+                gridTemplateColumns: 'minmax(440px, 1.55fr) minmax(300px, 1fr) minmax(330px, 1.12fr)',
+                gap: 18,
+              }}
+            >
+              {/* Left col: Player + ReactionBar + CrewStrip */}
+              <div className="col noscb" style={{ gap: 14, minHeight: 0, overflowY: 'auto' }}>
+                <Player {...playerProps} />
+                <ReactionBar />
+                <CrewStrip onUpdateUserRole={updateUserRole} />
+              </div>
+
+              {/* Mid col: Queue */}
+              <div className="col" style={{ minHeight: 0 }}>
+                <Queue {...queueProps} />
+              </div>
+
+              {/* Right col: Discover + Chat */}
+              <div className="col" style={{ minHeight: 0, gap: 14 }}>
+                <Discover {...discoverProps} />
+                <Chat {...chatProps} />
+              </div>
+            </div>
+          ) : (
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+              {mobileTab === 'player' && (
+                <div className="col" style={{ gap: 14 }}>
+                  <Player {...playerProps} />
+                  <ReactionBar />
+                </div>
+              )}
+              {mobileTab === 'queue' && (
+                <div style={{ display: 'flex', minHeight: 460, flex: 1 }}>
+                  <Queue {...queueProps} />
+                </div>
+              )}
+              {mobileTab === 'discover' && (
+                <div style={{ display: 'flex', minHeight: 460, flex: 1 }}>
+                  <Discover {...discoverProps} />
+                </div>
+              )}
+              {mobileTab === 'chat' && (
+                <div style={{ display: 'flex', minHeight: 520, flex: 1 }}>
+                  <Chat {...chatProps} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+
+        {isMobile && (
+          <MobileNav
+            activeTab={mobileTab}
+            setActiveTab={handleChatTabSwitch}
+            unreadChatCount={unreadChatCount}
+          />
+        )}
+
+        {showSettings && (
+          <SettingsModal
+            onClose={() => setShowSettings(false)}
+            onUpdateDefaultRole={updateDefaultRole}
+            onUpdatePrivacy={updatePrivacy}
+          />
+        )}
+        {previewImage && (
+          <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+        )}
+
+        {/* Chat toast */}
+        {chatToast && (
+          <div
+            className="pop wobble popin"
+            style={{
+              position: 'fixed', bottom: isMobile ? 80 : 20, right: 20, zIndex: 250,
+              display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 14px', cursor: 'pointer', maxWidth: 300,
+            }}
+            onClick={() => {
+              setChatToast(null);
+              setUnreadChatCount(0);
+              handleChatTabSwitch('chat');
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+              background: chatToast.color, border: '2px solid var(--outline)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, color: '#140f1f', fontSize: 14,
+            }}>
+              {chatToast.username.charAt(0).toUpperCase()}
+            </div>
+            <div style={{ overflow: 'hidden', flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 12 }}>{chatToast.username}</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {chatToast.message}
+              </div>
+            </div>
+            <button
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-dim)', flexShrink: 0 }}
+              onClick={(e) => { e.stopPropagation(); setChatToast(null); }}
+            >✕</button>
+          </div>
+        )}
+      </div>
+    </RoomProvider>
   );
 }
