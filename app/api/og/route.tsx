@@ -79,44 +79,39 @@ export async function GET(req: NextRequest) {
     const dbLog: Record<string, unknown> = {};
 
     if (t) {
-      const [roomRes] = await Promise.all([
-        supabase
-          .from('rooms')
-          .select('id, name, current_song_index, is_public, is_playing')
-          .eq('slug', t)
-          .single(),
+      const [rpcRes] = await Promise.all([
+        supabase.rpc('get_room_og', { p_slug: t }),
         loadFont('Bungee', 400), // warm cache in parallel with DB
       ]);
-      dbLog.roomRes = { data: roomRes.data, error: roomRes.error };
+      dbLog.rpcRes = { data: rpcRes.data, error: rpcRes.error };
 
-      const roomRow = roomRes.data;
+      const payload = rpcRes.data as {
+        room: {
+          id: string;
+          name: string;
+          current_song_index: number | null;
+          is_public: boolean | null;
+          is_playing: boolean | null;
+          listener_snapshot: string[] | null;
+        } | null;
+        queue: { title: string; added_by: string }[];
+        queue_count: number;
+      } | null;
+
+      const roomRow = payload?.room ?? null;
       if (roomRow) {
         room = roomRow.name || t;
         isPublic = roomRow.is_public ?? true;
 
-        const [queueRes, chatRes] = await Promise.all([
-          supabase
-            .from('queue_items')
-            .select('title, added_by', { count: 'exact' })
-            .eq('room_id', roomRow.id)
-            .order('position', { ascending: true }),
-          supabase
-            .from('chat_messages')
-            .select('username')
-            .eq('room_id', roomRow.id)
-            .order('created_at', { ascending: false })
-            .limit(30),
-        ]);
-        dbLog.queueRes = { data: queueRes.data, count: queueRes.count, error: queueRes.error };
-        dbLog.chatRes = { data: chatRes.data, error: chatRes.error };
+        const queue = payload?.queue ?? [];
+        const idx = roomRow.current_song_index ?? 0;
+        track = queue[idx]?.title ?? '';
+        artist = queue[idx]?.added_by ?? '';
+        queueLen = payload?.queue_count ?? queue.length;
 
-        track = queueRes.data?.[roomRow.current_song_index ?? 0]?.title ?? '';
-        artist = queueRes.data?.[roomRow.current_song_index ?? 0]?.added_by ?? '';
-        queueLen = queueRes.count ?? queueRes.data?.length ?? 0;
-
-        const uniqueNames = [...new Set((chatRes.data ?? []).map(c => c.username))];
-        listenersRaw = uniqueNames.slice(0, 4).join(',');
-        extraCount = uniqueNames.length > 4 ? String(uniqueNames.length - 4) : '0';
+        const snap = Array.isArray(roomRow.listener_snapshot) ? roomRow.listener_snapshot : [];
+        listenersRaw = snap.slice(0, 4).join(',');
+        extraCount = snap.length > 4 ? String(snap.length - 4) : '0';
       } else {
         room = t.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
       }
