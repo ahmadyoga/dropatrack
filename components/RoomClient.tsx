@@ -7,6 +7,7 @@ import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { YTPlayer } from './room/hooks/useYouTubePlayer';
 import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
 import { usePlaybackSync } from './room/hooks/usePlaybackSync';
+import { setTime as setStoreTime } from './room/playbackTimeStore';
 import { useTheme } from './ThemeProvider';
 
 // Hooks
@@ -95,7 +96,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── Identity (uses broadcastRef so it can run before useRoomSync) ─────────
   const {
     currentUser, setCurrentUser, currentUserRef, myRole, myRoleRef,
-    handleUsernameChange,
+    handleUsernameChange, renameSelf,
   } = useIdentity({
     initialRoom, room,
     broadcast: (e, p) => broadcastRef.current(e, p),
@@ -119,8 +120,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const {
     chatMessages, setChatMessages, chatInput, setChatInput,
     sendingChat, uploadingImage, unreadChatCount, setUnreadChatCount,
-    chatToast, setChatToast, previewImage: chatPreviewImage, setPreviewImage: setChatPreviewImage,
-    chatEndRef, handleSendChat, handleImageUpload, handleChatPaste,
+    chatToast, setChatToast,
+    chatEndRef, handleSendChat, uploadImage,
   } = useChat({
     roomId: initialRoom.id, currentUser, currentUserRef,
     addSongToQueue: (id, title, thumb, dur) => addSongRef.current(id, title, thumb, dur),
@@ -201,13 +202,27 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   // ── Volume + seek ─────────────────────────────────────────────────────────
   const handleVolumeChange = useCallback((v: number) => {
-    setRoom((prev) => ({ ...prev, volume: v }));
-    broadcast('volume_change', { volume: v });
-  }, [broadcast]);
+    const db = Math.round(v * 100);
+    setRoom((prev) => ({ ...prev, volume: db }));
+    broadcast('volume_change', { volume: db });
+    supabase.from('rooms').update({ volume: db }).eq('id', initialRoom.id).then(() => {});
+  }, [broadcast, initialRoom.id]);
+
+  const handleToggleRepeat = useCallback(() => {
+    const next = !room.repeat;
+    setRoom((prev) => ({ ...prev, repeat: next }));
+    broadcast('repeat_toggle', { repeat: next });
+    supabase.from('rooms').update({ repeat: next }).eq('id', initialRoom.id).then(() => {});
+  }, [room.repeat, broadcast, initialRoom.id]);
 
   const handleSeek = useCallback((t: number) => {
+    setStoreTime(t);
     broadcast('seek_request', { time: t });
-  }, [broadcast]);
+    supabase.from('rooms').update({
+      current_playback_time: t,
+      playback_updated_at: new Date().toISOString(),
+    }).eq('id', initialRoom.id).then(() => {});
+  }, [broadcast, initialRoom.id]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const currentSong = queue[room.current_song_index] || null;
@@ -242,6 +257,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onDragOver: handleDragOver,
     onDragLeave: handleDragLeave,
     onDrop: handleDrop,
+    onAdd: addSongToQueue,
+    onToggleRepeat: handleToggleRepeat,
   };
 
   const playerProps = {
@@ -254,6 +271,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onShuffle: handleShuffle,
     onToggleSpeaker: toggleSpeaker,
     onSeek: handleSeek,
+    volume: (room.volume ?? 80) / 100,
     onVolumeChange: handleVolumeChange,
   };
 
@@ -273,8 +291,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     sendingChat, uploadingImage, unreadChatCount,
     chatEndRef,
     onSendChat: handleSendChat,
-    onImageUpload: handleImageUpload,
-    onChatPaste: handleChatPaste,
+    onUploadImage: uploadImage,
     onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) =>
       addSongToQueue(youtubeId, title, '', 0),
     onPreviewImage: setPreviewImage,
@@ -295,22 +312,22 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             position: 'relative',
           }}
         >
-          <Header onLeave={leave} onOpenSettings={() => setShowSettings(true)} />
+          <Header onLeave={leave} onOpenSettings={() => setShowSettings(true)} canOpenSettings={myRole === 'admin'} />
 
           {!isMobile ? (
             <div
               style={{
                 flex: 1, minHeight: 0,
                 display: 'grid',
-                gridTemplateColumns: 'minmax(440px, 1.55fr) minmax(300px, 1fr) minmax(330px, 1.12fr)',
+                gridTemplateColumns: 'minmax(320px, 1.1fr) minmax(300px, 1fr) minmax(330px, 1.12fr)',
                 gap: 18,
               }}
             >
-              {/* Left col: Player + ReactionBar + CrewStrip */}
-              <div className="col noscb" style={{ gap: 14, minHeight: 0, overflowY: 'auto' }}>
+              {/* Left col: Player + ReactionBar + Discover */}
+              <div className="col noscb" style={{ gap: 14, minHeight: 0, overflowY: 'auto', padding: '2px 10px 10px 2px' }}>
                 <Player {...playerProps} />
                 <ReactionBar />
-                <CrewStrip onUpdateUserRole={updateUserRole} />
+                <Discover {...discoverProps} />
               </div>
 
               {/* Mid col: Queue */}
@@ -318,9 +335,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 <Queue {...queueProps} />
               </div>
 
-              {/* Right col: Discover + Chat */}
+              {/* Right col: CrewStrip + Chat */}
               <div className="col" style={{ minHeight: 0, gap: 14 }}>
-                <Discover {...discoverProps} />
+                <CrewStrip onUpdateUserRole={updateUserRole} onRenameMe={renameSelf} />
                 <Chat {...chatProps} />
               </div>
             </div>

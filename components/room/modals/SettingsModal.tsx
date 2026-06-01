@@ -56,6 +56,15 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
         </div>
 
         <div style={{ padding: '8px 18px 18px' }}>
+
+          {/* Private room */}
+          <Toggle
+            on={isPrivate}
+            onToggle={() => onUpdatePrivacy(!isPrivate)}
+            label="Private room"
+            sub="hide from public rooms listing"
+          />
+
           {/* Default role */}
           <div style={{ padding: '14px 0', borderBottom: '2px solid var(--line)' }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>Default role for new users</div>
@@ -79,14 +88,6 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
               ))}
             </div>
           </div>
-
-          {/* Private room */}
-          <Toggle
-            on={isPrivate}
-            onToggle={() => onUpdatePrivacy(!isPrivate)}
-            label="Private room"
-            sub="hide from public rooms listing"
-          />
 
           {/* Permissions matrix */}
           <div style={{ padding: '12px 0', borderBottom: '2px solid var(--line)' }}>

@@ -1,6 +1,7 @@
 'use client';
 
-import type { TrendingVideo, YouTubeSearchResult } from '@/lib/types';
+import Icon from './ui/Icon';
+import type { TrendingVideo } from '@/lib/types';
 
 function fmt(s: number): string {
   s = Math.max(0, Math.floor(s || 0));
@@ -8,111 +9,44 @@ function fmt(s: number): string {
 }
 
 interface DiscoverProps {
-  searching: boolean;
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  searchResults: YouTubeSearchResult[];
-  nextPageToken: string | null;
-  loadingMore: boolean;
-  addingUrl: boolean;
   trendingVideos: TrendingVideo[];
   latestVideos: TrendingVideo[];
   freshVideos: TrendingVideo[];
   trendingLoading: boolean;
   latestLoading: boolean;
   freshLoading: boolean;
-  onSearch: (e: React.FormEvent) => void;
-  onLoadMore: () => void;
   onAddSong: (youtubeId: string, title: string, thumbnail: string, durationSeconds: number) => Promise<void>;
   queuedVideoIds: Set<string>;
 }
 
 export default function Discover({
-  searching,
-  searchQuery,
-  setSearchQuery,
-  searchResults,
-  nextPageToken,
-  loadingMore,
-  addingUrl,
   trendingVideos,
   latestVideos,
   freshVideos,
   trendingLoading,
   latestLoading,
   freshLoading,
-  onSearch,
-  onLoadMore,
   onAddSong,
   queuedVideoIds,
 }: DiscoverProps) {
-  const showResults = searchQuery.trim().length > 0 && searchResults.length > 0;
-  const showTrending = !showResults && trendingVideos.length > 0;
+  const empty = !trendingLoading && !latestLoading && !freshLoading &&
+    trendingVideos.length === 0 && latestVideos.length === 0 && freshVideos.length === 0;
 
   return (
     <div className="pop wobble col overflow-hidden" style={{ flex: 1, minHeight: 0, boxShadow: '7px 7px 0 var(--shadow)' }}>
       {/* header */}
       <div className="flex items-center justify-between" style={{ padding: '13px 15px', borderBottom: '3px solid var(--outline)' }}>
         <div className="flex items-center gap-2">
-          <span style={{ fontSize: 19 }}>⚡</span>
+          <Icon name="bolt" size={19} />
           <div className="display" style={{ fontSize: 18 }}>Discover</div>
         </div>
         <span className="chip" style={{ background: 'var(--accent-2)', color: '#140f1f' }}>fresh drops</span>
       </div>
 
-      {/* search */}
-      <form onSubmit={onSearch} style={{ padding: '10px 12px', borderBottom: '2px solid var(--line)' }}>
-        <div className="flex gap-2">
-          <input
-            className="field"
-            style={{ fontSize: 13, padding: '9px 13px', flex: 1 }}
-            placeholder="Search YouTube or paste URL..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            disabled={addingUrl}
-          />
-          <button
-            type="submit"
-            className="btn btn-accent"
-            disabled={searching || addingUrl || !searchQuery.trim()}
-            style={{ padding: '9px 14px', flexShrink: 0 }}
-          >
-            {searching || addingUrl ? '...' : '🔍'}
-          </button>
-        </div>
-      </form>
-
-      {/* content */}
+      {/* sections */}
       <div className="scroll col" style={{ flex: 1, overflowY: 'auto', padding: 8, gap: 4 }}>
 
-        {showResults && (
-          <>
-            {searchResults.map((v) => (
-              <TrackRow
-                key={v.id}
-                id={v.id}
-                title={v.title}
-                sub={v.channelTitle}
-                duration={fmt(v.durationSeconds)}
-                thumbnail={v.thumbnail}
-                queued={queuedVideoIds.has(v.id)}
-                onAdd={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)}
-              />
-            ))}
-            {nextPageToken && (
-              <button
-                className="btn pop-sm"
-                onClick={onLoadMore}
-                disabled={loadingMore}
-                style={{ margin: '4px auto', fontSize: 12 }}
-              >
-                {loadingMore ? '...' : 'LOAD MORE'}
-              </button>
-            )}
-          </>
-        )}
-
-        {showTrending && (
+        {trendingVideos.length > 0 && (
           <>
             <SectionLabel label="🔥 Trending" loading={trendingLoading} />
             {trendingVideos.map((v) => (
@@ -121,7 +55,7 @@ export default function Discover({
                 id={v.id}
                 title={v.title}
                 sub={v.channelTitle}
-                duration={v.duration}
+                duration={v.duration || fmt(v.durationSeconds)}
                 thumbnail={v.thumbnail}
                 queued={queuedVideoIds.has(v.id)}
                 onAdd={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)}
@@ -130,7 +64,7 @@ export default function Discover({
           </>
         )}
 
-        {!showResults && latestVideos.length > 0 && (
+        {latestVideos.length > 0 && (
           <>
             <SectionLabel label="🆕 Latest" loading={latestLoading} />
             {latestVideos.map((v) => (
@@ -139,7 +73,7 @@ export default function Discover({
                 id={v.id}
                 title={v.title}
                 sub={v.channelTitle}
-                duration={v.duration}
+                duration={v.duration || fmt(v.durationSeconds)}
                 thumbnail={v.thumbnail}
                 queued={queuedVideoIds.has(v.id)}
                 onAdd={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)}
@@ -148,7 +82,7 @@ export default function Discover({
           </>
         )}
 
-        {!showResults && freshVideos.length > 0 && (
+        {freshVideos.length > 0 && (
           <>
             <SectionLabel label="✨ Fresh" loading={freshLoading} />
             {freshVideos.map((v) => (
@@ -157,7 +91,7 @@ export default function Discover({
                 id={v.id}
                 title={v.title}
                 sub={v.channelTitle}
-                duration={v.duration}
+                duration={v.duration || fmt(v.durationSeconds)}
                 thumbnail={v.thumbnail}
                 queued={queuedVideoIds.has(v.id)}
                 onAdd={() => onAddSong(v.id, v.title, v.thumbnail, v.durationSeconds)}
@@ -166,9 +100,15 @@ export default function Discover({
           </>
         )}
 
-        {!searching && !showResults && !showTrending && !trendingLoading && (
+        {(trendingLoading || latestLoading || freshLoading) && trendingVideos.length === 0 && (
+          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', textAlign: 'center', margin: 'auto', padding: '20px 12px' }}>
+            loading fresh drops…
+          </div>
+        )}
+
+        {empty && (
           <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', textAlign: 'center', margin: 'auto', padding: '20px 12px', lineHeight: 1.7 }}>
-            search youtube or paste a link<br />to add tracks to the queue ✨
+            nothing to discover right now —<br />check back soon ✨
           </div>
         )}
       </div>
@@ -210,7 +150,7 @@ function TrackRow({ id, title, sub, duration, thumbnail, queued, onAdd }: {
         style={{ flexShrink: 0, padding: 8, opacity: queued ? .6 : 1 }}
         title={queued ? 'Already in queue' : 'Add to queue'}
       >
-        {queued ? '✓' : '+'}
+        {queued ? <Icon name="check" size={16} /> : <Icon name="plus" size={16} />}
       </button>
     </div>
   );

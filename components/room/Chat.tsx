@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import Avatar from './ui/Avatar';
+import Icon from './ui/Icon';
 import { useRoom } from './RoomContext';
 import type { ChatMessage } from '@/lib/types';
 
@@ -20,9 +21,8 @@ interface ChatProps {
   uploadingImage: boolean;
   unreadChatCount: number;
   chatEndRef: React.RefObject<HTMLDivElement | null>;
-  onSendChat: () => Promise<void>;
-  onImageUpload: (file: File) => Promise<void>;
-  onChatPaste: (e: React.ClipboardEvent) => void;
+  onSendChat: (imageUrl?: string) => Promise<void>;
+  onUploadImage: (file: File) => Promise<string | null>;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
   onSeen: () => void;
@@ -37,18 +37,57 @@ export default function Chat({
   unreadChatCount,
   chatEndRef,
   onSendChat,
-  onImageUpload,
-  onChatPaste,
+  onUploadImage,
   onAddSongFromChat,
   onPreviewImage,
   onSeen,
 }: ChatProps) {
   const { currentUser } = useRoom();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
 
-  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSendChat(); }
+  const stageFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingFile(file);
+      setPendingPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const clearPending = () => { setPendingFile(null); setPendingPreviewUrl(null); };
+
+  const handleSend = async () => {
+    if (!chatInput.trim() && !pendingFile) return;
+    if (pendingFile) {
+      const url = await onUploadImage(pendingFile);
+      clearPending();
+      if (url) await onSendChat(url);
+      else if (chatInput.trim()) await onSendChat();
+    } else {
+      await onSendChat();
+    }
   };
+
+  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) stageFile(file);
+        return;
+      }
+    }
+  };
+
+  const busy = sendingChat || uploadingImage;
 
   return (
     <div
@@ -57,9 +96,9 @@ export default function Chat({
       onClick={onSeen}
     >
       {/* header */}
-      <div className="flex items-center justify-between" style={{ padding: '13px 15px', borderBottom: '3px solid var(--outline)', background: 'var(--panel)' }}>
+      <div className="flex items-center justify-between" style={{ padding: '13px 15px', borderBottom: '3px solid var(--outline)', background: 'var(--panel)', flexShrink: 0 }}>
         <div className="flex items-center gap-2">
-          <span style={{ fontSize: 20 }}>💬</span>
+          <Icon name="chat" size={20} />
           <div className="display" style={{ fontSize: 18 }}>Chat</div>
         </div>
         {unreadChatCount > 0 && (
@@ -71,7 +110,7 @@ export default function Chat({
       <div className="scroll col" style={{ flex: 1, overflowY: 'auto', padding: 14, gap: 13 }}>
         {chatMessages.length === 0 && (
           <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', textAlign: 'center', margin: 'auto', lineHeight: 1.7 }}>
-            no messages yet —<br />say something ✨
+            no messages yet —<br />say something stellar ✨
           </div>
         )}
         {chatMessages.map((msg) => (
@@ -86,45 +125,56 @@ export default function Chat({
         <div ref={chatEndRef} />
       </div>
 
-      {/* input */}
-      <div style={{ padding: '10px 12px', borderTop: '3px solid var(--outline)', background: 'var(--panel)' }}>
-        <div className="flex items-end gap-2">
-          <textarea
-            className="field"
-            style={{ fontSize: 14, padding: '10px 12px', resize: 'none', minHeight: 44, maxHeight: 120, flex: 1 }}
-            placeholder="Say something..."
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={handleKey}
-            onPaste={onChatPaste}
-            disabled={sendingChat}
-            rows={1}
+      {/* pending image preview bar */}
+      {pendingPreviewUrl && (
+        <div className="flex items-center gap-2" style={{ padding: '10px 13px', borderTop: '3px solid var(--outline)', background: 'var(--panel-2)', flexShrink: 0 }}>
+          <img
+            src={pendingPreviewUrl}
+            alt="pending"
+            style={{ width: 48, height: 48, borderRadius: 9, border: '2.5px solid var(--outline)', objectFit: 'cover', flexShrink: 0 }}
           />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={(e) => { if (e.target.files?.[0]) onImageUpload(e.target.files[0]); }}
-          />
+          <div className="mono" style={{ fontSize: 11, flex: 1, color: 'var(--ink-soft)' }}>image ready to send</div>
           <button
-            className="btn pop-sm btn-icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingImage}
-            title="Upload image"
-            style={{ flexShrink: 0, padding: 10 }}
+            className="btn btn-ghost btn-icon"
+            onClick={clearPending}
+            style={{ boxShadow: 'none', border: 'none', flexShrink: 0, padding: 6 }}
           >
-            {uploadingImage ? '...' : '🖼️'}
-          </button>
-          <button
-            className="btn btn-accent"
-            onClick={onSendChat}
-            disabled={sendingChat || !chatInput.trim()}
-            style={{ flexShrink: 0, padding: '10px 14px' }}
-          >
-            ➤
+            ✕
           </button>
         </div>
+      )}
+
+      {/* input row */}
+      <div className="flex items-center gap-2" style={{ padding: '11px 13px', borderTop: '3px solid var(--outline)', background: 'var(--panel)', flexShrink: 0 }}>
+        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) stageFile(e.target.files[0]); }} />
+        <button
+          className="btn pop-sm btn-icon"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={busy}
+          title="Attach image"
+          style={{ flexShrink: 0 }}
+        >
+          <Icon name="image" size={19} />
+        </button>
+        <input
+          className="field"
+          style={{ flex: 1, padding: '11px 14px' }}
+          placeholder="say something stellar…"
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+          onKeyDown={handleKey}
+          onPaste={handlePaste}
+          disabled={busy}
+        />
+        <button
+          className="btn btn-accent pop-sm btn-icon"
+          onClick={handleSend}
+          disabled={busy || (!chatInput.trim() && !pendingFile)}
+          title="Send"
+          style={{ flexShrink: 0 }}
+        >
+          {busy ? '…' : <Icon name="send" size={19} />}
+        </button>
       </div>
     </div>
   );

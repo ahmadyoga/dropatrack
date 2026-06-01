@@ -1,6 +1,8 @@
 'use client';
 
 import Scrubber from './ui/Scrubber';
+import Icon from './ui/Icon';
+import VinylRecord from './ui/VinylRecord';
 import { useRoom } from './RoomContext';
 import { usePlaybackTime } from './playbackTimeStore';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
@@ -24,6 +26,7 @@ interface PlayerProps {
   onShuffle: () => void;
   onToggleSpeaker: () => void;
   onSeek: (t: number) => void;
+  volume: number;
   onVolumeChange: (v: number) => void;
 }
 
@@ -41,12 +44,12 @@ export default function Player({
   onShuffle,
   onToggleSpeaker,
   onSeek,
+  volume,
   onVolumeChange,
 }: PlayerProps) {
   const { room, currentSong, canPlayPause, duration } = useRoom();
   const currentTime = usePlaybackTime();
   const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
-  const volume = room.volume ?? 0.8;
 
   const handleOverlayClick = () => {
     if (!canPlayPause) return;
@@ -65,6 +68,7 @@ export default function Player({
   };
 
   const handleProgressSeek = (t: number) => {
+    if (!canPlayPause) return;
     onSeek(t);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const player = playerRef.current as any;
@@ -77,9 +81,28 @@ export default function Player({
     <div className="pop wobble-2 col overflow-hidden" style={{ boxShadow: '7px 7px 0 var(--shadow)' }}>
 
       {/* video stage */}
-      <div style={{ position: 'relative', aspectRatio: '16/9', minHeight: 0 }}>
+      <div style={{ position: 'relative', height: 'clamp(180px, 28vw, 260px)', minHeight: 0 }}>
         <div ref={playerContainerRef} style={{ position: 'absolute', inset: 0 }}>
-          <div id="yt-player" style={{ width: '100%', height: '100%' }} />
+          {/* iframe always mounted for sync — hidden in remote mode */}
+          <div id="yt-player" style={{ width: '100%', height: '100%', visibility: isSpeaker ? 'visible' : 'hidden' }} />
+
+          {/* remote mode: half-visible vinyl — center sits at bottom edge */}
+          {!isSpeaker && (
+            <div style={{
+              position: 'absolute', inset: 0, overflow: 'hidden',
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+              background: 'var(--bg-2)',
+            }}>
+              <div style={{ width: '80%', aspectRatio: '1 / 1', flexShrink: 0, transform: 'translateY(50%)' }}>
+                <VinylRecord
+                  thumbnail={currentSong?.thumbnail_url}
+                  isPlaying={room.is_playing}
+                  size="100%"
+                />
+              </div>
+            </div>
+          )}
+
           {!currentSong && (
             <div className="ph" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', letterSpacing: '.1em' }}>
@@ -128,74 +151,69 @@ export default function Player({
               transition: 'transform .2s, opacity .2s',
             }}
           >
-            <span style={{ fontSize: 32, marginLeft: 4 }}>▶</span>
+            <Icon name="play" size={32} style={{ marginLeft: 4 }} />
           </div>
         </button>
       </div>
 
       {/* now-playing strip */}
-      <div style={{ padding: '14px 16px 16px', borderTop: '3px solid var(--outline)', background: 'var(--panel)' }}>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="pop-sm" style={{ width: 52, height: 52, borderRadius: 12, overflow: 'hidden', flexShrink: 0 }}>
+      <div style={{ padding: '9px 12px 11px', borderTop: '3px solid var(--outline)', background: 'var(--panel)' }}>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="pop-sm" style={{ width: 38, height: 38, borderRadius: 9, overflow: 'hidden', flexShrink: 0 }}>
             {currentSong?.thumbnail_url
               ? <img src={currentSong.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               : <div className="ph" style={{ width: '100%', height: '100%' }} />
             }
           </div>
           <div style={{ overflow: 'hidden', flex: 1 }}>
-            <div className="mono" style={{ fontSize: 9, color: 'var(--ink-dim)', letterSpacing: '.12em' }}>NOW PLAYING</div>
-            <div className="display" style={{ fontSize: 20, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div className="mono" style={{ fontSize: 8, color: 'var(--ink-dim)', letterSpacing: '.12em' }}>NOW PLAYING</div>
+            <div className="display" style={{ fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {currentSong?.title ?? '—'}
             </div>
-            <div style={{ fontSize: 13, color: 'var(--ink-soft)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={{ fontSize: 11, color: 'var(--ink-soft)', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {currentSong?.added_by ? `added by ${currentSong.added_by}` : 'queue is empty'}
             </div>
           </div>
         </div>
 
         {/* progress */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="mono" style={{ fontSize: 11, fontWeight: 700, width: 38, textAlign: 'right' }}>{fmt(currentTime)}</span>
-          <Scrubber value={currentTime} max={effectiveDuration || 1} onChange={handleProgressSeek} />
-          <span className="mono" style={{ fontSize: 11, fontWeight: 700, width: 38, color: 'var(--ink-dim)' }}>{fmt(effectiveDuration)}</span>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="mono" style={{ fontSize: 10, fontWeight: 700, width: 32, textAlign: 'right' }}>{fmt(currentTime)}</span>
+          <Scrubber value={currentTime} max={effectiveDuration || 1} onChange={handleProgressSeek} height={10} />
+          <span className="mono" style={{ fontSize: 10, fontWeight: 700, width: 32, color: 'var(--ink-dim)' }}>{fmt(effectiveDuration)}</span>
         </div>
 
         {/* transport */}
         <div className="flex flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <button className="btn pop-sm btn-icon" onClick={onShuffle} title="Shuffle">⇄</button>
-            <button className="btn pop-sm btn-icon" onClick={onPrev} title="Previous">⏮</button>
-            <button
-              className="btn btn-accent"
-              onClick={onPlayPause}
-              disabled={!canPlayPause}
-              style={{ width: 58, height: 52, padding: 0 }}
-            >
-              <span style={{ fontSize: 20 }}>{room.is_playing ? '⏸' : '▶'}</span>
+          <div className="flex items-center gap-1">
+            <button className="btn pop-sm btn-icon" onClick={onShuffle} disabled={!canPlayPause} title="Shuffle" style={{ padding: 8, opacity: canPlayPause ? 1 : 0.4 }}><Icon name="shuffle" size={16} /></button>
+            <button className="btn pop-sm btn-icon" onClick={onPrev} disabled={!canPlayPause} title="Previous" style={{ padding: 8, opacity: canPlayPause ? 1 : 0.4 }}><Icon name="prev" size={17} /></button>
+            <button className="btn btn-accent" onClick={onPlayPause} disabled={!canPlayPause} style={{ width: 46, height: 42, padding: 0, opacity: canPlayPause ? 1 : 0.4 }}>
+              <Icon name={room.is_playing ? 'pause' : 'play'} size={19} />
             </button>
-            <button className="btn pop-sm btn-icon" onClick={onNext} title="Next">⏭</button>
+            <button className="btn pop-sm btn-icon" onClick={onNext} disabled={!canPlayPause} title="Next" style={{ padding: 8, opacity: canPlayPause ? 1 : 0.4 }}><Icon name="next" size={17} /></button>
           </div>
 
           {/* volume */}
           <div
             className="flex items-center gap-2"
             style={{
-              flex: '1 1 150px', minWidth: 140,
-              padding: '0 13px 0 11px', borderRadius: 12,
+              flex: '1 1 120px', minWidth: 120,
+              padding: '0 10px 0 8px', borderRadius: 10,
               border: '2.5px solid var(--outline)',
               background: 'var(--panel)',
-              boxShadow: '4px 4px 0 var(--shadow)',
-              height: 48,
+              boxShadow: '3px 3px 0 var(--shadow)',
+              height: 40,
             }}
           >
             <button
               onClick={() => handleVolumeSeek(volume > 0 ? 0 : 0.8)}
-              style={{ background: 'none', border: 'none', color: 'var(--ink)', cursor: 'pointer', flexShrink: 0, fontSize: 16 }}
+              style={{ background: 'none', border: 'none', color: 'var(--ink)', cursor: 'pointer', flexShrink: 0 }}
             >
-              {volume === 0 ? '🔇' : '🔊'}
+              <Icon name={volume === 0 ? 'mute' : 'volume'} size={16} />
             </button>
-            <Scrubber value={volume} max={1} onChange={handleVolumeSeek} color="var(--accent-2)" height={12} />
-            <span className="mono" style={{ fontSize: 11, fontWeight: 700, width: 26, textAlign: 'right', color: 'var(--ink-dim)', flexShrink: 0 }}>
+            <Scrubber value={volume} max={1} onChange={handleVolumeSeek} color="var(--accent-2)" height={10} />
+            <span className="mono" style={{ fontSize: 10, fontWeight: 700, width: 22, textAlign: 'right', color: 'var(--ink-dim)', flexShrink: 0 }}>
               {Math.round(volume * 100)}
             </span>
           </div>
@@ -205,13 +223,13 @@ export default function Player({
             className="btn pop-sm"
             onClick={onToggleSpeaker}
             style={{
-              gap: 8,
+              gap: 6, padding: '8px 12px',
               background: isSpeaker ? 'var(--accent-2)' : 'var(--panel)',
               color: isSpeaker ? '#140f1f' : 'var(--ink)',
             }}
           >
-            <span>{isSpeaker ? '🔊' : '📡'}</span>
-            <span style={{ fontSize: 12 }}>{isSpeaker ? 'SPEAKER' : 'REMOTE'}</span>
+            <Icon name={isSpeaker ? 'speaker' : 'remote'} size={15} />
+            <span style={{ fontSize: 11 }}>{isSpeaker ? 'SPEAKER' : 'REMOTE'}</span>
           </button>
         </div>
       </div>

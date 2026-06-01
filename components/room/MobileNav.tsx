@@ -1,5 +1,7 @@
 'use client';
 
+import Icon from './ui/Icon';
+
 type MobileTab = 'player' | 'queue' | 'discover' | 'chat';
 
 interface MobileNavProps {
@@ -9,10 +11,10 @@ interface MobileNavProps {
 }
 
 const TABS: { id: MobileTab; icon: string; label: string }[] = [
-  { id: 'player',   icon: '▶',  label: 'Player'   },
-  { id: 'queue',    icon: '≡',  label: 'Queue'    },
-  { id: 'discover', icon: '⚡', label: 'Discover' },
-  { id: 'chat',     icon: '💬', label: 'Chat'     },
+  { id: 'player',   icon: 'play',   label: 'Player'   },
+  { id: 'queue',    icon: 'list',   label: 'Queue'    },
+  { id: 'discover', icon: 'bolt',   label: 'Discover' },
+  { id: 'chat',     icon: 'chat',   label: 'Chat'     },
 ];
 
 export default function MobileNav({ activeTab, setActiveTab, unreadChatCount }: MobileNavProps) {
@@ -38,7 +40,7 @@ export default function MobileNav({ activeTab, setActiveTab, unreadChatCount }: 
             color: activeTab === id ? '#140f1f' : 'var(--ink)',
           }}
         >
-          <span style={{ fontSize: 20 }}>{icon}</span>
+          <Icon name={icon} size={20} />
           <span className="mono" style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' }}>{label}</span>
           {id === 'chat' && unreadChatCount > 0 && (
             <span style={{

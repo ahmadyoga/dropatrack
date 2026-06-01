@@ -113,6 +113,22 @@ export function useIdentity({
     setEditingUsername(false);
   }, [currentUser, newUsername, broadcast]);
 
+  const renameSelf = useCallback((name: string) => {
+    if (!currentUser) return;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === currentUser.username) return;
+    const oldUsername = currentUser.username;
+    const updated = updateLocalUsername(trimmed);
+    if (updated) {
+      setCurrentUser(updated);
+      broadcast('username_changed', {
+        user_id: currentUser.user_id,
+        old_username: oldUsername,
+        new_username: trimmed,
+      });
+    }
+  }, [currentUser, broadcast]);
+
   return {
     currentUser,
     setCurrentUser,
@@ -124,5 +140,6 @@ export function useIdentity({
     newUsername,
     setNewUsername,
     handleUsernameChange,
+    renameSelf,
   };
 }

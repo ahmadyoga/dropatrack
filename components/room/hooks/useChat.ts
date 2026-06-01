@@ -100,10 +100,10 @@ export function useChat({
     }
   }, [chatMessages]);
 
-  const handleSendChat = useCallback(async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!chatInput.trim() || sendingChat || !currentUser) return;
+  const handleSendChat = useCallback(async (imageUrl?: string) => {
     const messageText = chatInput.trim();
+    if (!messageText && !imageUrl) return;
+    if (sendingChat || !currentUser) return;
     setChatInput('');
     setSendingChat(true);
     try {
@@ -116,51 +116,28 @@ export function useChat({
           username: currentUser.username,
           avatar_color: currentUser.avatar_color,
           message: messageText,
+          ...(imageUrl ? { image_url: imageUrl } : {}),
         }),
       });
     } catch (err) { console.error('Chat send failed:', err); }
     finally { setSendingChat(false); }
   }, [chatInput, sendingChat, currentUser, roomId]);
 
-  const handleImageUpload = useCallback(async (file: File) => {
-    if (!currentUser || uploadingImage) return;
-    if (file.size > 2 * 1024 * 1024) { alert('Image too large (max 2MB)'); return; }
+  const uploadImage = useCallback(async (file: File): Promise<string | null> => {
+    if (!currentUser || uploadingImage) return null;
+    if (file.size > 2 * 1024 * 1024) { alert('Image too large (max 2MB)'); return null; }
     setUploadingImage(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('room_id', roomId);
-      const uploadRes = await fetch('/api/chat/upload', { method: 'POST', body: formData });
-      const uploadData = await uploadRes.json();
-      if (!uploadData.url) throw new Error(uploadData.error || 'Upload failed');
-      await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          room_id: roomId,
-          user_id: currentUser.user_id,
-          username: currentUser.username,
-          avatar_color: currentUser.avatar_color,
-          message: '',
-          image_url: uploadData.url,
-        }),
-      });
-    } catch (err) { console.error('Image upload failed:', err); }
+      const res = await fetch('/api/chat/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!data.url) throw new Error(data.error || 'Upload failed');
+      return data.url as string;
+    } catch (err) { console.error('Image upload failed:', err); return null; }
     finally { setUploadingImage(false); }
   }, [currentUser, uploadingImage, roomId]);
-
-  const handleChatPaste = useCallback((e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith('image/')) {
-        e.preventDefault();
-        const file = items[i].getAsFile();
-        if (file) handleImageUpload(file);
-        return;
-      }
-    }
-  }, [handleImageUpload]);
 
   return {
     chatMessages, setChatMessages,
@@ -170,7 +147,7 @@ export function useChat({
     chatToast, setChatToast,
     previewImage, setPreviewImage,
     chatEndRef,
-    handleSendChat, handleImageUpload, handleChatPaste,
+    handleSendChat, uploadImage,
     addSongToQueue,
   };
 }

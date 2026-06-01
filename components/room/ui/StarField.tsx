@@ -6,6 +6,7 @@ interface Star {
   r: number;
   delay: number;
   dur: number;
+  cyan: boolean;
 }
 
 function makeStars(n: number, seed: number): Star[] {
@@ -14,24 +15,19 @@ function makeStars(n: number, seed: number): Star[] {
   return Array.from({ length: n }, () => ({
     x: rng() * 100,
     y: rng() * 100,
-    r: 1 + rng() * 2,
-    delay: rng() * 3,
-    dur: 2.5 + rng() * 1.5,
+    r: 0.8 + rng() * 2.2,
+    delay: rng() * 4,
+    dur: 2 + rng() * 2.5,
+    cyan: rng() > 0.72,
   }));
 }
 
-export default function StarField({ n = 24, seed = 7 }: { n?: number; seed?: number }) {
+export default function StarField({ n = 32, seed = 7 }: { n?: number; seed?: number }) {
   const stars = makeStars(n, seed);
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 0,
-        pointerEvents: 'none',
-        overflow: 'hidden',
-      }}
+      style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}
       aria-hidden
     >
       {stars.map((s, i) => (
@@ -45,8 +41,10 @@ export default function StarField({ n = 24, seed = 7 }: { n?: number; seed?: num
             width: s.r * 2,
             height: s.r * 2,
             borderRadius: '50%',
-            background: 'var(--ink)',
-            opacity: 0.25,
+            background: s.cyan ? 'var(--accent)' : '#fff',
+            boxShadow: s.cyan
+              ? `0 0 ${s.r * 3}px var(--accent), 0 0 ${s.r * 6}px rgba(70,224,212,.3)`
+              : `0 0 ${s.r * 2}px rgba(255,255,255,.8)`,
             animationDelay: `${s.delay}s`,
             animationDuration: `${s.dur}s`,
           }}

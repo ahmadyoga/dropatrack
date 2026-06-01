@@ -264,6 +264,10 @@ body {
 
 /* ---- twinkle (StarField) ---- */
 @keyframes twinkle {
-  0%, 100% { opacity: .2; transform: scale(.8); }
-  50%       { opacity: 1;  transform: scale(1.15); }
+  0%, 100% { opacity: .15; transform: scale(.8); }
+  50%       { opacity: .9;  transform: scale(1.2); }
 }
+.twinkle { animation: twinkle 3s ease-in-out infinite; }
+
+/* ---- role aliases ---- */
+.role-moderator { background: var(--pop-violet); color: #140f1f; }
