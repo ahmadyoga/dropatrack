@@ -14,7 +14,14 @@ export function snapshotNames(users: RoomUser[]): string[] {
   return out;
 }
 
+/** Cache-bust version derived from snapshot_at. 0 when never snapshotted. */
+export function ogImageVersion(snapshotAt: string | null | undefined): number {
+  if (!snapshotAt) return 0;
+  const ms = new Date(snapshotAt).getTime();
+  return Number.isNaN(ms) ? 0 : Math.floor(ms / 1000);
+}
+
 /** Relative path to the room OG image for a given cache version. */
-export function ogImagePath(slug: string): string {
-  return `/api/og?t=${encodeURIComponent(slug)}`;
+export function ogImagePath(slug: string, version: number): string {
+  return `/api/og?t=${encodeURIComponent(slug)}&v=${version}`;
 }

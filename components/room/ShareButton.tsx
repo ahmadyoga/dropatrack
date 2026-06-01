@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRoom } from './RoomContext';
-import { snapshotNames, ogImagePath } from '@/lib/share';
+import { snapshotNames, ogImageVersion, ogImagePath } from '@/lib/share';
 import Icon from './ui/Icon';
 
 export default function ShareButton() {
@@ -18,16 +18,20 @@ export default function ShareButton() {
       const names = snapshotNames(users);
       const snapshotAt = new Date().toISOString();
 
-      await supabase
+      const { data } = await supabase
         .from('rooms')
         .update({ listener_snapshot: names, snapshot_at: snapshotAt })
-        .eq('id', room.id);
+        .eq('id', room.id)
+        .select('snapshot_at')
+        .single();
 
-      fetch(ogImagePath(room.slug)).catch(() => { });
+      const version = ogImageVersion(data?.snapshot_at ?? snapshotAt);
+
+      fetch(ogImagePath(room.slug, version)).catch(() => {});
 
       const url = `${window.location.origin}/${room.slug}`;
       if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share({ title: room.name, url }).catch(() => { });
+        await navigator.share({ title: room.name, url }).catch(() => {});
       } else {
         await navigator.clipboard.writeText(url);
         setCopied(true);
