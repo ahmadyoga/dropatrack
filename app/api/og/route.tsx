@@ -49,6 +49,7 @@ async function loadFrame(): Promise<string> {
 
 export async function GET(req: NextRequest) {
   try {
+    const baseUrl = new URL(req.url).host;
     const { searchParams } = new URL(req.url);
     const debug = searchParams.get('debug') === '1';
     let room = searchParams.get('room') || 'DropATrack';
@@ -122,10 +123,10 @@ export async function GET(req: NextRequest) {
           <img src={frame} width={1200} height={630} style={{ position: 'absolute', top: 0, left: 0 }} alt="" />
 
           {/* now-playing: nowtag bottom=24, ~87px tall → top=519; pad 14+eq(19) = text at 552; left=24+18=42 */}
-          <div style={{ position: 'absolute', left: 42, top: 552, width: 386, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ fontSize: 21, fontWeight: 700, color: INK, lineHeight: 1.1, display: 'flex' }}>{track || 'Queue is empty'}</div>
+          <div style={{ position: 'absolute', left: 42, top: 540, width: 386, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ fontSize: 19, fontWeight: 700, color: INK, lineHeight: 1.1, display: 'flex' }}>{track || 'Queue is empty'}</div>
             {artist && (
-              <div style={{ fontSize: 13, color: INK_DIM, fontFamily: 'monospace', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex' }}>{artist}</div>
+              <div style={{ fontSize: 11, color: INK_DIM, fontFamily: 'monospace', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex' }}>{artist}</div>
             )}
           </div>
 
@@ -149,14 +150,14 @@ export async function GET(req: NextRequest) {
             )}
           </div>
 
-          {/* stat numbers: statgrid y=380 + 14px pad = 394; x = card_left + 18px pad */}
-          <div style={{ position: 'absolute', left: 540, top: 394, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{listeners.length > 0 ? String(listeners.length + extra) : '—'}</div>
-          <div style={{ position: 'absolute', left: 753, top: 394, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{queueDisplay}</div>
-          <div style={{ position: 'absolute', left: 966, top: 394, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{isPublic ? 'OPEN' : 'PRIV'}</div>
+          {/* stat numbers: statgrid y=380 + 14px pad = 420; x = card_left + 18px pad */}
+          <div style={{ position: 'absolute', left: 540, top: 425, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{listeners.length > 0 ? String(listeners.length + extra) : '—'}</div>
+          <div style={{ position: 'absolute', left: 753, top: 425, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{queueDisplay}</div>
+          <div style={{ position: 'absolute', left: 966, top: 425, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{isPublic ? 'PUBLIC' : 'PRIV'}</div>
 
           {/* URL slug: footer y=526, pill pad 12+circle_center 16 = 544; x=470+52+14+32+12=580 */}
           {t && (
-            <div style={{ position: 'absolute', left: 580, top: 544, display: 'flex', fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: INK }}>{`/${t}`}</div>
+            <div style={{ position: 'absolute', left: 580, top: 544, display: 'flex', fontFamily: 'monospace', fontSize: 14, fontWeight: 600, color: INK_DIM }}>{`${baseUrl}/room/`}<span style={{ color: INK }}>{t}</span></div>
           )}
         </div>
       ),
