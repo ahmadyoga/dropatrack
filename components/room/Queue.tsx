@@ -213,7 +213,7 @@ export default function Queue({
             onClick={onShuffle}
             disabled={shuffling || queue.length <= 2 || !canPlayPause}
             title="Shuffle queue"
-            style={{ opacity: shuffling ? .5 : 1 }}
+            style={{ opacity: canPlayPause ? (shuffling ? .5 : 1) : 0.4 }}
           >
             <Icon name="shuffle" size={18} />
           </button>

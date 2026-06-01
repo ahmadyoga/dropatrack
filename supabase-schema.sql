@@ -16,6 +16,8 @@ CREATE TABLE rooms (
   is_public BOOLEAN DEFAULT true,
   default_role TEXT DEFAULT 'dj',
   user_roles JSONB DEFAULT '{}'::jsonb,
+  listener_snapshot JSONB DEFAULT '[]'::jsonb,
+  snapshot_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -178,3 +180,45 @@ using (
 -- 10. Role system (per-room default role + per-user overrides)
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS default_role TEXT DEFAULT 'dj';
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS user_roles JSONB DEFAULT '{}'::jsonb;
+
+-- 11. OG share-time snapshot (listener snapshot + cache-bust version)
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS listener_snapshot JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS snapshot_at TIMESTAMPTZ;
+
+-- Single-round-trip fetch for the OG image: room + ordered queue + count
+CREATE OR REPLACE FUNCTION get_room_og(p_slug text)
+RETURNS json
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT json_build_object(
+    'room', (
+      SELECT json_build_object(
+        'id', r.id,
+        'name', r.name,
+        'current_song_index', r.current_song_index,
+        'is_public', r.is_public,
+        'is_playing', r.is_playing,
+        'listener_snapshot', r.listener_snapshot
+      )
+      FROM rooms r WHERE r.slug = p_slug
+    ),
+    'queue', COALESCE((
+      SELECT json_agg(
+        json_build_object('title', q.title, 'added_by', q.added_by)
+        ORDER BY q.position
+      )
+      FROM queue_items q
+      JOIN rooms r2 ON r2.id = q.room_id
+      WHERE r2.slug = p_slug
+    ), '[]'::json),
+    'queue_count', (
+      SELECT count(*)
+      FROM queue_items q
+      JOIN rooms r3 ON r3.id = q.room_id
+      WHERE r3.slug = p_slug
+    )
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION get_room_og(text) TO anon, authenticated;
