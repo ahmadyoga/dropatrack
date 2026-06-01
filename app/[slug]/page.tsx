@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import RoomClient from '@/components/RoomClient';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
+import { ogImageVersion, ogImagePath } from '@/lib/share';
 
 // ── Dynamic OG metadata per room ──────────────────────────────────────────
 export async function generateMetadata({
@@ -13,7 +14,7 @@ export async function generateMetadata({
 
   const { data: room } = await supabase
     .from('rooms')
-    .select('name, slug')
+    .select('name, slug, snapshot_at')
     .eq('slug', slug)
     .single();
 
@@ -23,8 +24,8 @@ export async function generateMetadata({
   const ogTitle = `${roomName} — listening now on DropATrack`;
   const description = `Drop tracks and listen together in real-time inside "${roomName}".`;
 
-  // /api/og?t=slug fetches room, current track, and recent chatters directly from DB
-  const ogImageUrl = `/api/og?t=${encodeURIComponent(slug)}`;
+  // Versioned so each share-time snapshot is a fresh CDN cache key
+  const ogImageUrl = ogImagePath(slug, ogImageVersion(room?.snapshot_at));
 
   return {
     title,
