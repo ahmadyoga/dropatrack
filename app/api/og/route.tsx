@@ -121,8 +121,8 @@ export async function GET(req: NextRequest) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={frame} width={1200} height={630} style={{ position: 'absolute', top: 0, left: 0 }} alt="" />
 
-          {/* now-playing track + artist (left card text area) */}
-          <div style={{ position: 'absolute', left: 42, top: 536, width: 386, display: 'flex', flexDirection: 'column' }}>
+          {/* now-playing track + artist — inside left card (card top=510, pad 14px top+18px left, clear eq bars ~19px) */}
+          <div style={{ position: 'absolute', left: 42, top: 547, width: 386, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ fontSize: 21, fontWeight: 700, color: INK, lineHeight: 1.1, display: 'flex' }}>{track || 'Queue is empty'}</div>
             {artist && (
               <div style={{ fontSize: 13, color: INK_DIM, fontFamily: 'monospace', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex' }}>{artist}</div>
@@ -149,14 +149,14 @@ export async function GET(req: NextRequest) {
             )}
           </div>
 
-          {/* stat numbers */}
-          <div style={{ position: 'absolute', left: 524, top: 374, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{listeners.length > 0 ? String(listeners.length + extra) : '—'}</div>
-          <div style={{ position: 'absolute', left: 736, top: 374, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{queueDisplay}</div>
-          <div style={{ position: 'absolute', left: 948, top: 374, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{isPublic ? 'OPEN' : 'PRIV'}</div>
+          {/* stat numbers — x = card_left + 18px inner padding; y = card_top + 14px inner padding */}
+          <div style={{ position: 'absolute', left: 540, top: 384, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{listeners.length > 0 ? String(listeners.length + extra) : '—'}</div>
+          <div style={{ position: 'absolute', left: 752, top: 384, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{queueDisplay}</div>
+          <div style={{ position: 'absolute', left: 964, top: 384, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{isPublic ? 'OPEN' : 'PRIV'}</div>
 
-          {/* URL slug — overlays the baked pill background */}
+          {/* URL slug — inside pill: x = pill_left + 14px pad + 32px circle + 12px gap; y = pill_top + 12px pad + centering */}
           {t && (
-            <div style={{ position: 'absolute', left: 576, top: 559, display: 'flex', fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: INK }}>{`/${t}`}</div>
+            <div style={{ position: 'absolute', left: 580, top: 541, display: 'flex', fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: INK }}>{`/${t}`}</div>
           )}
         </div>
       ),
