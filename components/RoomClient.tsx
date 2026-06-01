@@ -54,15 +54,16 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   const { theme, toggleTheme } = useTheme();
 
-  const [usernameReady, setUsernameReady] = useState(false);
+  const [usernameState, setUsernameState] = useState<'loading' | 'modal' | 'ready'>('loading');
   const [defaultUsername, setDefaultUsername] = useState('');
 
   useEffect(() => {
     const user = getOrCreateUser();
     if (user?.is_default_username) {
       setDefaultUsername(user.username);
+      setUsernameState('modal');
     } else {
-      setUsernameReady(true);
+      setUsernameState('ready');
     }
   }, []);
 
@@ -312,12 +313,26 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onSeen: () => setUnreadChatCount(0),
   };
 
-  if (!usernameReady) {
+  if (usernameState === 'loading') {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'var(--bg)',
+      }}>
+        <div className="live-dot" style={{ width: 14, height: 14 }} />
+      </div>
+    );
+  }
+
+  if (usernameState === 'modal') {
     return (
       <UsernameModal
         currentName={defaultUsername}
-        onConfirm={() => setUsernameReady(true)}
-        onSkip={() => setUsernameReady(true)}
+        onConfirm={(updatedUser) => {
+          setCurrentUser(updatedUser);
+          setUsernameState('ready');
+        }}
+        onSkip={() => setUsernameState('ready')}
       />
     );
   }
