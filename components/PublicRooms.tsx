@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getOrCreateUser } from '@/lib/names';
+import type { UserIdentity } from '@/lib/names';
+import UsernameModal from '@/components/UsernameModal';
 import type { Room } from '@/lib/types';
 
 const CARD_SHADOWS = [
@@ -16,6 +19,22 @@ export default function PublicRooms() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<'popular' | 'az'>('popular');
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [pendingSlug, setPendingSlug] = useState<string | null>(null);
+  const [pendingUser, setPendingUser] = useState<(UserIdentity & { isNew: boolean }) | null>(null);
+  const router = useRouter();
+
+  function handleRoomClick(slug: string) {
+    const user = getOrCreateUser();
+    if (!user) { router.push(`/${slug}`); return; }
+    if (user.is_default_username) {
+      setPendingUser(user);
+      setPendingSlug(slug);
+      setShowUsernameModal(true);
+      return;
+    }
+    router.push(`/${slug}`);
+  }
 
   useEffect(() => {
     async function fetchRooms() {
@@ -57,6 +76,14 @@ export default function PublicRooms() {
   }
 
   return (
+    <>
+      {showUsernameModal && pendingUser && (
+        <UsernameModal
+          currentName={pendingUser.username}
+          onConfirm={() => { setShowUsernameModal(false); if (pendingSlug) router.push(`/${pendingSlug}`); }}
+          onSkip={() => { setShowUsernameModal(false); if (pendingSlug) router.push(`/${pendingSlug}`); }}
+        />
+      )}
     <div>
       <div className="flex justify-between items-end flex-wrap gap-3 mb-5">
         <div className="flex items-center gap-3">
@@ -95,17 +122,18 @@ export default function PublicRooms() {
         gap: 20,
       }}>
         {sorted.map((room, i) => (
-          <RoomCard key={room.id} room={room} shadow={CARD_SHADOWS[i % CARD_SHADOWS.length]} />
+          <RoomCard key={room.id} room={room} shadow={CARD_SHADOWS[i % CARD_SHADOWS.length]} onClick={() => handleRoomClick(room.slug)} />
         ))}
       </div>
     </div>
+    </>
   );
 }
 
-function RoomCard({ room, shadow }: { room: Room; shadow: string }) {
+function RoomCard({ room, shadow, onClick }: { room: Room; shadow: string; onClick: () => void }) {
   return (
-    <Link href={`/${room.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
       <div
+        onClick={onClick}
         className="pop wobble"
         style={{
           overflow: 'hidden', cursor: 'pointer',
@@ -156,6 +184,5 @@ function RoomCard({ room, shadow }: { room: Room; shadow: string }) {
           </div>
         </div>
       </div>
-    </Link>
   );
 }
