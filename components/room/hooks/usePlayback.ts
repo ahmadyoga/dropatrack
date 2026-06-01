@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, PlaybackSyncEvent } from '@/lib/types';
 import type { YTPlayer } from './useYouTubePlayer';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 import { setTime as setStoreTime } from '../playbackTimeStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
@@ -16,7 +15,7 @@ interface UsePlaybackProps {
   isSpeakerRef: React.RefObject<boolean>;
   playerRef: React.RefObject<YTPlayer | null>;
   playerReadyRef: React.RefObject<boolean>;
-  channelRef: React.RefObject<RealtimeChannel | null>;
+  broadcast: (event: string, payload: Record<string, unknown>) => void;
   currentUser: CurrentUser | null;
   isTransitioningRef: React.RefObject<boolean>;
   isLoadingVideoRef: React.RefObject<boolean>;
@@ -33,7 +32,7 @@ export function usePlayback({
   isSpeakerRef,
   playerRef,
   playerReadyRef,
-  channelRef,
+  broadcast,
   currentUser,
   isTransitioningRef,
   isLoadingVideoRef,
@@ -46,7 +45,7 @@ export function usePlayback({
 
   const broadcastPlayback = useCallback(
     (type: PlaybackSyncEvent['type'], songIndex: number) => {
-      if (!channelRef.current || !currentUser) return;
+      if (!currentUser) return;
       let playbackTime = 0;
       if (playerRef.current && playerReadyRef.current) {
         try { playbackTime = playerRef.current.getCurrentTime(); } catch { /* */ }
@@ -57,7 +56,7 @@ export function usePlayback({
         triggered_by: currentUser.user_id,
         current_time: type === 'next' || type === 'prev' || type === 'jump' ? 0 : playbackTime,
       };
-      channelRef.current.send({ type: 'broadcast', event: 'playback_sync', payload: event });
+      broadcast('playback_sync', event as unknown as Record<string, unknown>);
       supabase.from('rooms').update({
         current_song_index: songIndex,
         is_playing: type !== 'pause',
@@ -65,7 +64,7 @@ export function usePlayback({
         playback_updated_at: new Date().toISOString(),
       }).eq('id', roomRef.current.id).then();
     },
-    [currentUser, playerRef, playerReadyRef, channelRef, roomRef]
+    [currentUser, playerRef, playerReadyRef, broadcast, roomRef]
   );
 
   const handlePlayPause = useCallback(() => {
@@ -143,11 +142,7 @@ export function usePlayback({
         try {
           playerRef.current.seekTo(details.seekTime, true);
           setStoreTime(details.seekTime);
-          channelRef.current?.send({
-            type: 'broadcast',
-            event: 'time_sync',
-            payload: { time: details.seekTime },
-          });
+          broadcast('time_sync', { time: details.seekTime });
         } catch { /* ignore */ }
       }
     });

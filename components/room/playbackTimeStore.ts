@@ -38,3 +38,9 @@ export function _reset(): void {
   currentTime = 0;
   listeners.clear();
 }
+
+import { useSyncExternalStore } from 'react';
+
+export function usePlaybackTime(): number {
+  return useSyncExternalStore(subscribe, getCurrentTime, getServerSnapshot);
+}

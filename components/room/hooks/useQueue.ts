@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { extractYouTubeId } from '@/lib/youtube';
 import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, PlaybackSyncEvent } from '@/lib/types';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
@@ -17,7 +16,7 @@ interface UseQueueProps {
   currentUser: CurrentUser | null;
   canAddSongs: boolean;
   canPlayPause: boolean;
-  channelRef: React.RefObject<RealtimeChannel | null>;
+  broadcast: (event: string, payload: Record<string, unknown>) => void;
   broadcastPlayback: (type: PlaybackSyncEvent['type'], songIndex: number) => void;
 }
 
@@ -31,7 +30,7 @@ export function useQueue({
   currentUser,
   canAddSongs,
   canPlayPause,
-  channelRef,
+  broadcast,
   broadcastPlayback,
 }: UseQueueProps) {
   const [searching, setSearching] = useState(false);
@@ -106,17 +105,13 @@ export function useQueue({
       .single();
     if (!error && data) {
       setQueue((prev) => [...prev, data]);
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'queue_update',
-        payload: { type: 'added', item: data },
-      });
+      broadcast('queue_update', { type: 'added', item: data as unknown as Record<string, unknown> });
       if (queue.length === 0 && canPlayPause) {
         setRoom((prev) => ({ ...prev, is_playing: true, current_song_index: 0 }));
         broadcastPlayback('play', 0);
       }
     }
-  }, [currentUser, canAddSongs, queue, room.id, channelRef, setQueue, setRoom, canPlayPause, broadcastPlayback]);
+  }, [currentUser, canAddSongs, queue, room.id, broadcast, setQueue, setRoom, canPlayPause, broadcastPlayback]);
 
   const addSongByVideoId = useCallback(async (videoId: string) => {
     if (!currentUser) return;
@@ -184,12 +179,8 @@ export function useQueue({
       setRoom((prev) => ({ ...prev, current_song_index: newIndex }));
       supabase.from('rooms').update({ current_song_index: newIndex }).eq('id', roomRef.current.id).then();
     }
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'queue_update',
-      payload: { type: 'removed', item_id: item.id, removed_index: removedIndex },
-    });
-  }, [queueRef, roomRef, setQueue, setRoom, channelRef]);
+    broadcast('queue_update', { type: 'removed', item_id: item.id, removed_index: removedIndex });
+  }, [queueRef, roomRef, setQueue, setRoom, broadcast]);
 
   const handleShuffle = useCallback(async () => {
     if (queue.length <= 2 || shuffling) return;
@@ -244,8 +235,8 @@ export function useQueue({
     if (newSongIndex !== room.current_song_index) {
       await supabase.from('rooms').update({ current_song_index: newSongIndex }).eq('id', room.id);
     }
-    channelRef.current?.send({ type: 'broadcast', event: 'queue_update', payload: { type: 'reordered' } });
-  }, [queue, room.current_song_index, room.id, setQueue, setRoom, channelRef]);
+    broadcast('queue_update', { type: 'reordered' });
+  }, [queue, room.current_song_index, room.id, setQueue, setRoom, broadcast]);
 
   const moveSongToNext = useCallback((e: React.MouseEvent, sourceIndex: number) => {
     e.stopPropagation();

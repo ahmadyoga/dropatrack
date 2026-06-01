@@ -6,9 +6,10 @@ import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtub
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get('q');
+  const videoId = searchParams.get('videoId');
   const pageToken = searchParams.get('pageToken');
 
-  if (!query) {
+  if (!query && !videoId) {
     return Response.json({ error: 'Missing search query' }, { status: 400 });
   }
 
@@ -26,7 +27,34 @@ export async function GET(request: NextRequest) {
   const referer = rawReferer ? new URL(rawReferer).origin : request.nextUrl.origin;
 
   try {
-    let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=15&q=${encodeURIComponent(query)}&key=${apiKey}`;
+    // Direct fetch by video ID — skip search step
+    if (videoId) {
+      const detailsRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,snippet&id=${encodeURIComponent(videoId)}&key=${apiKey}`,
+        { headers: { Referer: referer }, next: { revalidate: 300 } }
+      );
+      if (!detailsRes.ok) {
+        recordApiError(apiKey, detailsRes.status, await detailsRes.text());
+        return Response.json({ error: 'Video fetch failed' }, { status: detailsRes.status });
+      }
+      recordApiSuccess(apiKey);
+      const detailsData = await detailsRes.json();
+      if (!detailsData.items?.length) return Response.json({ results: [] });
+      const item = detailsData.items[0];
+      return Response.json({
+        results: [{
+          id: item.id,
+          title: item.snippet.title,
+          thumbnail: item.snippet.thumbnails.medium?.url ?? item.snippet.thumbnails.default?.url ?? '',
+          channelTitle: item.snippet.channelTitle,
+          duration: item.contentDetails.duration,
+          durationSeconds: parseISO8601Duration(item.contentDetails.duration),
+        }],
+        nextPageToken: null,
+      });
+    }
+
+    let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoCategoryId=10&maxResults=15&q=${encodeURIComponent(query!)}&key=${apiKey}`;
     if (pageToken) {
       searchUrl += `&pageToken=${encodeURIComponent(pageToken)}`;
     }

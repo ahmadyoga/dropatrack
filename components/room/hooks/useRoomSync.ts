@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { capMessages } from '@/lib/chatLimit';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
+import { spawnReactions } from '../ui/spawnReactions';
 import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, ChatMessage } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { setTime as setStoreTime } from '../playbackTimeStore';
-import { addReactionBurst } from '../reactionsStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
@@ -17,14 +17,12 @@ interface UseRoomSyncProps {
   playerRef: React.RefObject<unknown>;
   playerReadyRef: React.RefObject<boolean>;
   handleNextRef: React.RefObject<() => void>;
-  // State setters passed down
   setRoom: React.Dispatch<React.SetStateAction<Room>>;
   setQueue: React.Dispatch<React.SetStateAction<QueueItem[]>>;
   setCurrentUser: React.Dispatch<React.SetStateAction<CurrentUser | null>>;
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   currentUserRef: React.RefObject<CurrentUser | null>;
   isChatVisibleRef: React.RefObject<boolean>;
-  channelRef: React.RefObject<RealtimeChannel | null>;
   isSpeaker: boolean;
   myRole: UserRole;
   room: Room;
@@ -44,14 +42,17 @@ export function useRoomSync({
   setChatMessages,
   currentUserRef,
   isChatVisibleRef,
-  channelRef,
   isSpeaker,
   myRole,
   room,
 }: UseRoomSyncProps) {
   const [users, setUsers] = useState<RoomUser[]>([]);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Main realtime channel setup
+  const broadcast = useCallback((event: string, payload: Record<string, unknown>) => {
+    channelRef.current?.send({ type: 'broadcast', event, payload });
+  }, []);
+
   useEffect(() => {
     if (!currentUser) return;
 
@@ -59,7 +60,6 @@ export function useRoomSync({
       config: { presence: { key: currentUser.user_id } },
     });
 
-    // Broadcast: playback sync
     channel.on('broadcast', { event: 'playback_sync' }, ({ payload }) => {
       const event = payload as PlaybackSyncEvent;
       if (event.triggered_by === currentUser.user_id) return;
@@ -72,12 +72,9 @@ export function useRoomSync({
           event.type === 'prev' ||
           event.type === 'jump',
       }));
-      if (event.current_time !== undefined) {
-        setStoreTime(event.current_time);
-      }
+      if (event.current_time !== undefined) setStoreTime(event.current_time);
     });
 
-    // Broadcast: queue update
     channel.on('broadcast', { event: 'queue_update' }, ({ payload }) => {
       if (payload.type === 'added') {
         setQueue((prev) => [...prev, payload.item as QueueItem]);
@@ -85,7 +82,7 @@ export function useRoomSync({
         setQueue((prev) => prev.filter((item) => item.id !== payload.item_id));
         if (typeof payload.removed_index === 'number') {
           setRoom((prev) => {
-            if (payload.removed_index < prev.current_song_index) {
+            if ((payload.removed_index as number) < prev.current_song_index) {
               return { ...prev, current_song_index: prev.current_song_index - 1 };
             }
             return prev;
@@ -94,7 +91,6 @@ export function useRoomSync({
       }
     });
 
-    // Broadcast: seek request (speaker only)
     channel.on('broadcast', { event: 'seek_request' }, ({ payload }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const player = playerRef.current as any;
@@ -105,49 +101,43 @@ export function useRoomSync({
       channel.send({ type: 'broadcast', event: 'time_sync', payload: { time } });
     });
 
-    // Broadcast: time sync
     channel.on('broadcast', { event: 'time_sync' }, ({ payload }) => {
       setStoreTime(payload.time as number);
     });
 
-    // Broadcast: volume change
     channel.on('broadcast', { event: 'volume_change' }, ({ payload }) => {
-      setRoom((prev) => ({ ...prev, volume: payload.volume }));
+      setRoom((prev) => ({ ...prev, volume: payload.volume as number }));
     });
 
-    // Broadcast: emoji reaction
     channel.on('broadcast', { event: 'reaction' }, ({ payload }) => {
       if (payload && typeof payload.emoji === 'string') {
-        const count = Math.floor(Math.random() * 51) + 50; // 50–100
-        addReactionBurst(payload.emoji, count);
+        const count = Math.floor(Math.random() * 51) + 50;
+        spawnReactions(payload.emoji, count);
       }
     });
 
-    // Broadcast: repeat toggle
     channel.on('broadcast', { event: 'repeat_toggle' }, ({ payload }) => {
       setRoom((prev) => ({ ...prev, repeat: payload.repeat as boolean }));
     });
 
-    // Broadcast: role update
     channel.on('broadcast', { event: 'role_update' }, ({ payload }) => {
       setRoom((prev) => ({
         ...prev,
-        default_role: payload.default_role,
-        user_roles: payload.user_roles,
+        default_role: payload.default_role as UserRole,
+        user_roles: payload.user_roles as Record<string, UserRole>,
       }));
     });
 
-    // Broadcast: username changed
     channel.on('broadcast', { event: 'username_changed' }, ({ payload }) => {
-      const { user_id, old_username, new_username } = payload;
-
+      const { user_id, old_username, new_username } = payload as {
+        user_id: string; old_username: string; new_username: string;
+      };
       if (currentUserRef.current?.user_id === user_id) {
         const cur = currentUserRef.current;
         if (cur && cur.username !== new_username) {
           setCurrentUser((prev) => (prev ? { ...prev, username: new_username } : null));
         }
       }
-
       setChatMessages((prev) => {
         const sysMsgId = `sys_rename_${user_id}_${new_username}`;
         if (prev.some((m) => m.id === sysMsgId)) return prev;
@@ -169,16 +159,13 @@ export function useRoomSync({
       });
     });
 
-    // Presence: track users
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
         const roomUsers: RoomUser[] = [];
         for (const key in state) {
           const presences = state[key] as unknown as RoomUser[];
-          if (presences.length > 0) {
-            roomUsers.push(presences[presences.length - 1]);
-          }
+          if (presences.length > 0) roomUsers.push(presences[presences.length - 1]);
         }
         setUsers(roomUsers);
       })
@@ -197,21 +184,17 @@ export function useRoomSync({
 
     channelRef.current = channel;
 
-    // DB: room changes
     const roomSub = supabase
       .channel(`room-db:${initialRoom.id}`)
-      .on(
-        'postgres_changes',
+      .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${initialRoom.id}` },
         (payload) => { setRoom((prev) => ({ ...prev, ...payload.new })); }
       )
       .subscribe();
 
-    // DB: queue changes
     const queueSub = supabase
       .channel(`queue-db:${initialRoom.id}`)
-      .on(
-        'postgres_changes',
+      .on('postgres_changes',
         { event: '*', schema: 'public', table: 'queue_items', filter: `room_id=eq.${initialRoom.id}` },
         async () => {
           const { data } = await supabase
@@ -232,87 +215,34 @@ export function useRoomSync({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.user_id, initialRoom.slug, initialRoom.id]);
 
-  // Update presence when role/speaker/username changes
   useEffect(() => {
     if (!channelRef.current || !currentUser) return;
-    const updatePresence = async () => {
-      try {
-        await channelRef.current?.track({
-          user_id: currentUser.user_id,
-          username: currentUser.username,
-          avatar_color: currentUser.avatar_color,
-          role: myRole,
-          is_speaker: isSpeaker,
-          joined_at: new Date().toISOString(),
-        });
-      } catch (err) {
-        console.error('Failed to update presence:', err);
-      }
-    };
-    updatePresence();
+    channelRef.current.track({
+      user_id: currentUser.user_id,
+      username: currentUser.username,
+      avatar_color: currentUser.avatar_color,
+      role: myRole,
+      is_speaker: isSpeaker,
+      joined_at: new Date().toISOString(),
+    }).catch(console.error);
   }, [isSpeaker, myRole, currentUser?.username, currentUser?.avatar_color]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Room heartbeat — uses Web Worker to survive background tab throttling.
-  // Browser setInterval gets throttled/suspended in background tabs, but
-  // Web Worker timers keep running, preventing cleanup_stale_rooms from
-  // deleting rooms while users are still connected.
   useEffect(() => {
     const ping = () => {
-      // Heartbeat keeps the room alive. Playback position is written
-      // separately by the elected time source (usePlaybackSync) — writing
-      // it here from every speaker would stomp the authoritative anchor.
-      supabase
-        .from('rooms')
+      supabase.from('rooms')
         .update({ last_active_at: new Date().toISOString() })
         .eq('id', initialRoom.id)
         .then();
     };
-
-    // Immediate heartbeat on mount
     ping();
+    const worker = new Worker(
+      URL.createObjectURL(new Blob([
+        `setInterval(() => postMessage('ping'), 25000)`,
+      ], { type: 'application/javascript' }))
+    );
+    worker.onmessage = ping;
+    return () => worker.terminate();
+  }, [initialRoom.id]);
 
-    // Create inline Web Worker for background-safe timer
-    let worker: Worker | null = null;
-    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
-    try {
-      const workerCode = `
-        let interval = null;
-        self.onmessage = function(e) {
-          if (e.data === 'start') {
-            if (interval) clearInterval(interval);
-            interval = setInterval(() => self.postMessage('tick'), 30000);
-          } else if (e.data === 'stop') {
-            if (interval) clearInterval(interval);
-            interval = null;
-          }
-        };
-      `;
-      const blob = new Blob([workerCode], { type: 'application/javascript' });
-      worker = new Worker(URL.createObjectURL(blob));
-      worker.onmessage = () => ping();
-      worker.postMessage('start');
-    } catch {
-      // Web Worker not available (e.g. SSR, restrictive CSP) — fall back to setInterval
-      fallbackInterval = setInterval(ping, 30_000);
-    }
-
-    // Backup: immediate heartbeat when tab becomes visible again
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        ping();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      if (worker) {
-        worker.postMessage('stop');
-        worker.terminate();
-      }
-      if (fallbackInterval) clearInterval(fallbackInterval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [isSpeaker, initialRoom.id]);
-
-  return { users };
+  return { users, broadcast };
 }

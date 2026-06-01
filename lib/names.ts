@@ -57,6 +57,7 @@ export interface UserIdentity {
   user_id: string;
   username: string;
   avatar_color: string;
+  is_default_username: boolean;
 }
 
 const STORAGE_KEY = 'dropatrack_user';
@@ -77,7 +78,7 @@ export function getOrCreateUser(): (UserIdentity & { isNew: boolean }) | null {
       // cek apakah masih valid
       if (Date.now() < parsed.expiresAt) {
         const { expiresAt, ...user } = parsed;
-        return { ...user, isNew: false };
+        return { ...user, is_default_username: user.is_default_username ?? false, isNew: false };
       }
 
       // kalau expired, hapus data lama
@@ -92,6 +93,7 @@ export function getOrCreateUser(): (UserIdentity & { isNew: boolean }) | null {
     user_id: generateUserId(),
     username: generateRandomName(),
     avatar_color: generateAvatarColor(),
+    is_default_username: true,
     expiresAt: Date.now() + EXPIRY_MS,
   };
 
@@ -117,12 +119,25 @@ export function updateLocalUsername(newUsername: string): (UserIdentity & { isNe
   const updatedUser: StoredUser = {
     ...parsed,
     username: newUsername,
+    is_default_username: false,
     expiresAt: Date.now() + EXPIRY_MS,
   };
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser));
 
   const { expiresAt, ...plainUser } = updatedUser;
+  return { ...plainUser, isNew: false };
+}
+
+export function confirmUsername(): (UserIdentity & { isNew: boolean }) | null {
+  if (typeof window === 'undefined') return null;
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return null;
+  let parsed: StoredUser;
+  try { parsed = JSON.parse(stored) as StoredUser; } catch { return null; }
+  const updated: StoredUser = { ...parsed, is_default_username: false, expiresAt: Date.now() + EXPIRY_MS };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  const { expiresAt, ...plainUser } = updated;
   return { ...plainUser, isNew: false };
 }
 

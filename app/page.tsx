@@ -1,60 +1,76 @@
+import Logo from '@/components/room/ui/Logo';
+import StarField from '@/components/room/ui/StarField';
 import CreateRoom from '@/components/CreateRoom';
-import ThemeToggle from '@/components/ThemeToggle';
-import './home.css';
+import PublicRooms from '@/components/PublicRooms';
+import ThemeToggleButton from '@/components/ThemeToggleButton';
 
 export default function HomePage() {
   return (
-    <main className="home-page">
-      {/* Background */}
-      <div className="home-bg" />
-      <div className="home-bg-orb orb-1" />
-      <div className="home-bg-orb orb-2" />
-      <div className="home-bg-orb orb-3" />
+    <main style={{ position: 'relative', minHeight: '100vh', zIndex: 1 }}>
+      <div className="cosmos-bg" />
+      <StarField n={30} seed={7} />
 
-      {/* Theme Toggle */}
-      <div className="absolute top-6 right-6 z-50">
-        <ThemeToggle />
-      </div>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '26px 26px 80px', position: 'relative' }}>
 
-      <div className="home-content">
-        {/* Hero */}
-        <div className="home-hero">
-          <div className="home-badge">
-            <div className="eq-bars">
-              <div className="eq-bar" />
-              <div className="eq-bar" />
-              <div className="eq-bar" />
-            </div>
-            <span>Collaborative Music Player</span>
+        {/* top bar */}
+        <div className="flex justify-between items-center flex-wrap gap-3 mb-12">
+          <Logo size={36} />
+          <ThemeToggleButton />
+        </div>
+
+        {/* hero */}
+        <div style={{ position: 'relative', marginBottom: 40 }}>
+          <div
+            className="chip"
+            style={{
+              background: 'var(--accent-3)',
+              color: '#140f1f',
+              marginBottom: 18,
+              transform: 'rotate(-2deg)',
+              display: 'inline-flex',
+            }}
+          >
+            ⚡ tune in together · across the galaxy
           </div>
-
-          <h1 className="home-title">
-            Drop<span>A</span>Track
+          <h1
+            className="display"
+            style={{
+              fontSize: 'clamp(44px, 7.5vw, 96px)',
+              margin: 0,
+              maxWidth: 880,
+            } as React.CSSProperties}
+          >
+            One queue.<br />
+            Everybody{' '}
+            <span style={{ color: 'var(--accent)', WebkitTextStroke: '2px var(--outline)' }}>
+              floating
+            </span>{' '}
+            to the same beat.
           </h1>
-
-          <p className="home-subtitle">
-            Create a room, share the link, and listen to music together in real-time.
+          <p style={{
+            fontSize: 18, color: 'var(--ink-soft)',
+            maxWidth: 560, marginTop: 18, fontWeight: 600, lineHeight: 1.5,
+          }}>
+            Spin up a room, paste a YouTube link, and drift through space with your crew —
+            synced playback, live reactions, and a chat that actually has taste.
           </p>
         </div>
 
-        {/* Create Room Card */}
-        <div className="home-card">
-          <div className="home-card-header">
-            <h2 className="home-card-title">Create a Room</h2>
-            <p className="home-card-desc">Pick a name and start sharing music instantly</p>
-          </div>
+        {/* create room */}
+        <div style={{ marginBottom: 46 }}>
           <CreateRoom />
         </div>
 
-        {/* Footer */}
-        <footer className="home-footer">
-          <p>
-            Built with Next.js, Supabase &amp; YouTube · Inspired by{' '}
-            <a href="https://jukebox.today" target="_blank" rel="noopener noreferrer">
-              jukebox.today
-            </a>
-          </p>
-        </footer>
+        {/* public rooms */}
+        <PublicRooms />
+
+        {/* footer */}
+        <div
+          className="mono flex justify-center items-center gap-2"
+          style={{ marginTop: 54, color: 'var(--ink-dim)', fontSize: 12, letterSpacing: '.06em' }}
+        >
+          📍 broadcasting from sector 7-G · DropATrack ©2026
+        </div>
       </div>
     </main>
   );

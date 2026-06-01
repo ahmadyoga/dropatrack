@@ -7,28 +7,45 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://dropatrack.vercel.app'
   ),
-  title: "DropATrack — Collaborative Music Rooms",
+  title: {
+    default: "DropATrack — Drop a track. Share the vibe.",
+    template: "%s · DropATrack",
+  },
   description:
-    "Share music across devices in real-time. Create a room, drop tracks, and listen together with friends.",
-  keywords: ["music", "collaborative", "jukebox", "youtube", "rooms", "sync"],
+    "Collaborative music rooms. Same queue, same beat — drop tracks and listen together in real time.",
+  keywords: ["music", "collaborative", "jukebox", "youtube", "rooms", "sync", "listen together", "playlist"],
   robots: {
-    index: false,
-    follow: false,
-    nocache: true,
+    index: true,
+    follow: true,
     googleBot: {
-      index: false,
-      follow: false,
-      noimageindex: true,
+      index: true,
+      follow: true,
       "max-video-preview": -1,
-      "max-image-preview": "none",
+      "max-image-preview": "large",
       "max-snippet": -1,
     },
   },
   openGraph: {
-    title: "DropATrack — Collaborative Music Rooms",
+    title: "DropATrack — Drop a track. Share the vibe.",
     description:
-      "Share music across devices in real-time. Create a room, drop tracks, and listen together.",
+      "Collaborative music rooms. Same queue, same beat — drop tracks and listen together in real time.",
     type: "website",
+    siteName: "DropATrack",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "DropATrack — Collaborative Music Rooms",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "DropATrack — Drop a track. Share the vibe.",
+    description:
+      "Collaborative music rooms. Same queue, same beat — drop tracks and listen together in real time.",
+    images: ["/twitter-image.png"],
   },
 };
 
@@ -37,6 +54,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: "#ffd23f",
 };
 
 export default function RootLayout({
@@ -45,10 +63,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark" data-type="scifi" data-accent="solar">
       <body className="antialiased">
         <ThemeProvider>
-          <div className="bg-pattern" />
+          <div
+            id="react-layer"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 200,
+              pointerEvents: 'none',
+              overflow: 'hidden',
+            }}
+          />
           {children}
           <Analytics />
         </ThemeProvider>

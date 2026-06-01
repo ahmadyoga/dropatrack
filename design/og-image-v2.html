@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" data-type="scifi" data-accent="solar">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DropATrack — Share Card v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --pop-yellow:#ffd23f;
+  --pop-magenta:#ff5da2;
+  --pop-cyan:#46e0d4;
+  --pop-violet:#9d7bff;
+  --pop-coral:#ff7a4d;
+  --pop-lime:#b6f24d;
+
+  --font-display:'Bungee', system-ui, sans-serif;
+  --font-body:'Space Grotesk', system-ui, sans-serif;
+  --font-mono:'Space Mono', monospace;
+
+  --bg:#14101f;
+  --bg-grad-1:#241640;
+  --bg-grad-2:#10101f;
+  --panel:#241c3a;
+  --panel-2:#2d2348;
+  --panel-3:#352a55;
+  --ink:#f7eeda;
+  --ink-soft:#b9acd6;
+  --ink-dim:#8a7db0;
+  --outline:#0b0814;
+  --shadow:#070510;
+  --star:#fff4d0;
+  --line:rgba(247,238,218,.14);
+
+  /* solar palette */
+  --accent:var(--pop-coral);
+  --accent-2:var(--pop-yellow);
+  --accent-3:var(--pop-violet);
+
+  --r-wobble:18px 22px 20px 24px / 24px 18px 22px 20px;
+  --r-pill:40px;
+
+  --np-hue:14; /* Comet Tail Disco */
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{background:#05030c;}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:var(--font-body);}
+
+.og{
+  position:relative;width:1200px;height:630px;overflow:hidden;
+  background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
+  display:flex;
+}
+
+.display{font-family:var(--font-display);font-weight:400;line-height:1.02;}
+.mono{font-family:var(--font-mono);}
+.row{display:flex;align-items:center;}
+
+.chip{
+  font-family:var(--font-mono);font-size:14px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.08em;
+  border:2.5px solid var(--outline);border-radius:var(--r-pill);
+  padding:7px 16px;display:inline-flex;align-items:center;gap:8px;
+  background:var(--panel);white-space:nowrap;
+}
+.live-dot{width:12px;height:12px;border-radius:50%;background:var(--pop-magenta);border:2.5px solid var(--outline);}
+
+/* ============ LEFT: full-bleed track art hero ============ */
+.art-hero{
+  position:relative;width:470px;flex:none;overflow:hidden;
+  border-right:4px solid var(--outline);
+  background:radial-gradient(120% 110% at 30% 12%, oklch(0.62 0.2 var(--np-hue)) 0%, oklch(0.44 0.19 calc(var(--np-hue) + 40)) 58%, oklch(0.26 0.12 calc(var(--np-hue) + 90)) 100%);
+}
+.art-hero .rings{position:absolute;inset:0;width:100%;height:100%;opacity:.5;}
+.art-hero .vinyl{
+  position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+  width:330px;height:330px;border-radius:50%;
+  background:repeating-radial-gradient(circle at center,#14101f 0 6px,oklch(0.32 0.1 var(--np-hue)) 6px 12px);
+  border:4px solid var(--outline);box-shadow:inset 0 0 0 14px rgba(255,255,255,.05), 10px 10px 0 rgba(7,5,16,.45);
+}
+.art-hero .vinyl .hole{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:74px;height:74px;border-radius:50%;background:oklch(0.72 0.2 var(--np-hue));border:3.5px solid var(--outline);}
+.art-hero .nowtag{
+  position:absolute;left:24px;bottom:24px;right:24px;
+  background:rgba(20,15,31,.82);border:3px solid var(--outline);border-radius:16px;
+  box-shadow:5px 5px 0 rgba(7,5,16,.5);padding:14px 18px;backdrop-filter:blur(2px);
+}
+.art-hero .nowtag .lab{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-2);margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.art-hero .nowtag .eq{display:inline-flex;align-items:flex-end;gap:3px;height:13px;}
+.art-hero .nowtag .eq span{width:4px;background:var(--accent-2);border-radius:2px;}
+.art-hero .nowtag .trk{font-size:21px;font-weight:700;line-height:1.1;}
+.art-hero .nowtag .art{font-family:var(--font-mono);font-size:13px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;}
+.art-hero .float{position:absolute;font-size:40px;filter:drop-shadow(2px 3px 0 rgba(7,5,16,.4));}
+
+/* ============ RIGHT: details panel ============ */
+.panel{
+  flex:1;position:relative;padding:48px 52px;display:flex;flex-direction:column;justify-content:space-between;
+  background:
+    radial-gradient(120% 90% at 110% -10%, var(--bg-grad-1) 0%, transparent 55%),
+    var(--bg);
+}
+.panel .stars{position:absolute;inset:0;pointer-events:none;}
+.star{position:absolute;background:var(--star);border-radius:50%;}
+.plus{position:absolute;}
+.plus svg{display:block;}
+
+.phead{display:flex;align-items:center;justify-content:space-between;position:relative;z-index:2;}
+.logo{display:flex;align-items:center;gap:13px;}
+.logo .mark{position:relative;width:46px;height:46px;flex:none;}
+.logo .ring{position:absolute;inset:0;border-radius:50%;border:3px solid var(--outline);background:var(--accent-2);box-shadow:3px 3px 0 var(--shadow);}
+.logo .core{position:absolute;left:50%;top:50%;width:15px;height:15px;transform:translate(-50%,-50%);border-radius:50%;background:var(--accent);border:3px solid var(--outline);}
+.logo .orbit{position:absolute;top:-3px;left:50%;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--accent-3);border:2.5px solid var(--outline);}
+.logo .name{font-family:var(--font-display);font-size:27px;line-height:.9;}
+.logo .name .a{color:var(--accent);}
+
+.pbody{position:relative;z-index:2;}
+.kicker{background:var(--accent-2);color:#140f1f;transform:rotate(-1.5deg);margin-bottom:20px;}
+.roomname{font-family:var(--font-display);font-size:62px;line-height:.98;text-wrap:balance;margin-bottom:22px;}
+.roomname .hl{color:var(--accent);-webkit-text-stroke:2px var(--outline);}
+
+.metarow{display:flex;align-items:center;gap:14px;margin-bottom:26px;}
+.host-avatars{display:flex;}
+.host-avatars > span{margin-left:-14px;}
+.host-avatars > span:first-child{margin-left:0;}
+.metatext{font-size:18px;font-weight:600;color:var(--ink-soft);}
+.metatext b{color:var(--ink);font-weight:700;}
+
+.statgrid{display:flex;gap:12px;}
+.stat{
+  flex:1;background:var(--panel);border:3px solid var(--outline);border-radius:16px;
+  box-shadow:5px 5px 0 var(--shadow);padding:14px 18px;
+}
+.stat .big{font-family:var(--font-display);font-size:30px;line-height:1;color:var(--accent);-webkit-text-stroke:1.5px var(--outline);}
+.stat .lab{font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin-top:7px;}
+
+.pfoot{position:relative;z-index:2;display:flex;align-items:center;gap:16px;}
+.urlpill{flex:1;display:flex;align-items:center;gap:12px;background:var(--panel);border:3px solid var(--outline);border-radius:var(--r-pill);
+  box-shadow:5px 5px 0 var(--shadow);padding:12px 18px 12px 14px;min-width:0;}
+.urlpill .glyph{width:32px;height:32px;flex:none;border-radius:50%;background:var(--accent-3);border:2.5px solid var(--outline);display:flex;align-items:center;justify-content:center;}
+.urlpill .u{font-family:var(--font-mono);font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.urlpill .u .dim{color:var(--ink-dim);}
+.cta{flex:none;font-family:var(--font-display);font-size:17px;background:var(--accent);color:#140f1f;border:3px solid var(--outline);
+  box-shadow:5px 5px 0 var(--shadow);border-radius:16px;padding:14px 22px;display:inline-flex;align-items:center;gap:10px;}
+</style>
+</head>
+<body>
+<div class="og">
+
+  <!-- LEFT: full-bleed art hero -->
+  <div class="art-hero">
+    <svg class="rings" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <circle cx="50" cy="46" r="46" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.3"/>
+      <circle cx="50" cy="46" r="34" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.24"/>
+      <circle cx="50" cy="46" r="22" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.18"/>
+    </svg>
+    <div class="vinyl"><div class="hole"></div></div>
+    <div class="float" style="top:34px;right:40px;transform:rotate(-10deg)">🪩</div>
+    <div class="float" style="top:96px;left:34px;transform:rotate(8deg)">🚀</div>
+    <div class="nowtag">
+      <div class="lab">
+        <span class="eq"><span style="height:6px"></span><span style="height:12px"></span><span style="height:8px"></span><span style="height:13px"></span></span>
+        now playing
+      </div>
+      <div class="trk">Comet Tail Disco</div>
+      <div class="art">SUPRNOVA</div>
+    </div>
+  </div>
+
+  <!-- RIGHT: details -->
+  <div class="panel">
+    <div class="stars" id="stars"></div>
+
+    <div class="phead">
+      <div class="logo">
+        <div class="mark"><div class="ring"></div><div class="core"></div><div class="orbit"></div></div>
+        <div class="name">Drop<span class="a">A</span>Track</div>
+      </div>
+      <span class="chip"><span class="live-dot"></span>LIVE</span>
+    </div>
+
+    <div class="pbody">
+      <span class="chip kicker">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#140f1f"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg>
+        a room is waiting for you
+      </span>
+      <div class="roomname">Disco<br/><span class="hl">Asteroid</span> Field</div>
+
+      <div class="metarow">
+        <div class="host-avatars" id="avatars"></div>
+        <div class="metatext">hosted by <b>@Quasar&nbsp;Queen</b></div>
+      </div>
+
+      <div class="statgrid">
+        <div class="stat"><div class="big">128</div><div class="lab">listening now</div></div>
+        <div class="stat"><div class="big">SPACE</div><div class="lab">disco · genre</div></div>
+        <div class="stat"><div class="big">∞</div><div class="lab">queue length</div></div>
+      </div>
+    </div>
+
+    <div class="pfoot">
+      <div class="urlpill">
+        <div class="glyph">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#140f1f" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>
+        </div>
+        <div class="u"><span class="dim">dropatrack.fm/r/</span>disco-asteroid-field</div>
+      </div>
+      <div class="cta">
+        JOIN
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#140f1f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"/><path d="m12 5 7 7-7 7"/></svg>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  let s = 13*9301+49297;
+  const rnd = ()=>{ s=(s*9301+49297)%233280; return s/233280; };
+  const host = document.getElementById('stars');
+  for(let i=0;i<22;i++){
+    const x=rnd()*100, y=rnd()*100, sz=3+rnd()*6, isPlus=rnd()>0.72;
+    if(isPlus){
+      const d=document.createElement('div');
+      d.className='plus'; d.style.left=x+'%'; d.style.top=y+'%';
+      d.innerHTML='<svg width="'+(sz*2)+'" height="'+(sz*2)+'" viewBox="0 0 10 10"><path d="M5 0v10M0 5h10" stroke="var(--star)" stroke-width="2" stroke-linecap="round"/></svg>';
+      host.appendChild(d);
+    }else{
+      const d=document.createElement('div');
+      d.className='star'; d.style.left=x+'%'; d.style.top=y+'%';
+      d.style.width=sz+'px'; d.style.height=sz+'px'; d.style.opacity=(0.4+rnd()*0.6).toFixed(2);
+      host.appendChild(d);
+    }
+  }
+})();
+
+(function(){
+  function avatarFor(seed){
+    let h=0; for(let i=0;i<seed.length;i++){ h=(h*31+seed.charCodeAt(i))>>>0; }
+    const types=['planet','blob','star','moon'];
+    return { hue:h%360, type:types[h%types.length], ring:(h>>3)%3===0, eyes:(h>>5)%4, mouth:(h>>7)%4, spots:(h>>9)%2===0, rot:((h>>11)%14)-7 };
+  }
+  function svgFor(seed, size){
+    const a=avatarFor(seed);
+    const c='oklch(0.72 0.17 '+a.hue+')';
+    const c2='oklch(0.58 0.18 '+a.hue+')';
+    const cx=24,cy=24,R=16,eyeY=a.type==='star'?23:22;
+    let g='';
+    if(a.ring) g+='<ellipse cx="'+cx+'" cy="'+cy+'" rx="21" ry="8" fill="none" transform="rotate(-18 '+cx+' '+cy+')"/>';
+    if(a.type==='star') g+='<polygon points="24,6 29,19 43,19 31,27 36,41 24,32 12,41 17,27 5,19 19,19" fill="'+c+'"/>';
+    else g+='<circle cx="'+cx+'" cy="'+cy+'" r="'+R+'" fill="'+c+'"/>';
+    if(a.spots&&a.type!=='star') g+='<g fill="'+c2+'" stroke="none"><circle cx="16" cy="18" r="2.4"/><circle cx="31" cy="28" r="3"/><circle cx="29" cy="16" r="1.8"/></g>';
+    if(a.eyes===3) g+='<circle cx="24" cy="'+eyeY+'" r="3.4" fill="#fff"/><circle cx="24" cy="'+(eyeY+0.5)+'" r="1.5" fill="#140f1f" stroke="none"/>';
+    else g+='<circle cx="19" cy="'+eyeY+'" r="3.1" fill="#fff"/><circle cx="29" cy="'+eyeY+'" r="3.1" fill="#fff"/><circle cx="'+(a.eyes===1?20:19)+'" cy="'+(eyeY+0.6)+'" r="1.4" fill="#140f1f" stroke="none"/><circle cx="'+(a.eyes===1?30:29)+'" cy="'+(eyeY+0.6)+'" r="1.4" fill="#140f1f" stroke="none"/>';
+    if(a.mouth===0) g+='<path d="M19 '+(eyeY+6)+' q5 4 10 0" fill="none"/>';
+    else if(a.mouth===1) g+='<path d="M20 '+(eyeY+7)+' q4 -3 8 0" fill="none"/>';
+    else if(a.mouth===2) g+='<circle cx="24" cy="'+(eyeY+6)+'" r="2.3" fill="#140f1f" stroke="none"/>';
+    else g+='<path d="M20 '+(eyeY+6)+' h8" fill="none"/>';
+    return '<svg viewBox="0 0 48 48" width="'+size+'" height="'+size+'" style="transform:rotate('+a.rot+'deg);background:var(--panel);"><g stroke="var(--outline)" stroke-width="2.6" stroke-linejoin="round">'+g+'</g></svg>';
+  }
+  const seeds=['quasarqueen','wormhole99','bleepblorp','voidwalker','NovaKat'];
+  const host=document.getElementById('avatars');
+  host.innerHTML = seeds.map(s=>'<span style="border:3px solid var(--outline);border-radius:50%;display:inline-flex;box-shadow:2px 2px 0 var(--shadow);">'+svgFor(s,48)+'</span>').join('');
+})();
+</script>
+</body>
+</html>

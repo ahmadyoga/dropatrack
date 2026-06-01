@@ -2,14 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser, updateLocalUsername } from '@/lib/names';
 import type { Room, UserRole } from '@/lib/types';
-import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 
 interface UseIdentityProps {
   initialRoom: Room;
   room: Room;
-  channelRef: React.RefObject<RealtimeChannel | null>;
+  broadcast: (event: string, payload: Record<string, unknown>) => void;
   onShowExtensionPopup: () => void;
   onUpdateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
 }
@@ -17,7 +16,7 @@ interface UseIdentityProps {
 export function useIdentity({
   initialRoom,
   room,
-  channelRef,
+  broadcast,
   onShowExtensionPopup,
   onUpdateUserRole,
 }: UseIdentityProps) {
@@ -105,18 +104,30 @@ export function useIdentity({
     const updated = updateLocalUsername(trimmed);
     if (updated) {
       setCurrentUser(updated);
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'username_changed',
-        payload: {
-          user_id: currentUser.user_id,
-          old_username: oldUsername,
-          new_username: trimmed,
-        },
+      broadcast('username_changed', {
+        user_id: currentUser.user_id,
+        old_username: oldUsername,
+        new_username: trimmed,
       });
     }
     setEditingUsername(false);
-  }, [currentUser, newUsername, channelRef]);
+  }, [currentUser, newUsername, broadcast]);
+
+  const renameSelf = useCallback((name: string) => {
+    if (!currentUser) return;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === currentUser.username) return;
+    const oldUsername = currentUser.username;
+    const updated = updateLocalUsername(trimmed);
+    if (updated) {
+      setCurrentUser(updated);
+      broadcast('username_changed', {
+        user_id: currentUser.user_id,
+        old_username: oldUsername,
+        new_username: trimmed,
+      });
+    }
+  }, [currentUser, broadcast]);
 
   return {
     currentUser,
@@ -129,5 +140,6 @@ export function useIdentity({
     newUsername,
     setNewUsername,
     handleUsernameChange,
+    renameSelf,
   };
 }

@@ -18,8 +18,10 @@ export async function generateMetadata({
     .single();
 
   const roomName = room?.name ?? slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const title = `Join ${roomName} on DropATrack`;
-  const description = `Listen together in real-time. Join the "${roomName}" room and drop tracks with friends.`;
+  // template in layout.tsx appends " · DropATrack" — so just use the room name here
+  const title = roomName;
+  const ogTitle = `${roomName} — listening now on DropATrack`;
+  const description = `Drop tracks and listen together in real-time inside "${roomName}".`;
 
   // /api/og?t=slug fetches room, current track, and recent chatters directly from DB
   const ogImageUrl = `/api/og?t=${encodeURIComponent(slug)}`;
@@ -28,7 +30,7 @@ export async function generateMetadata({
     title,
     description,
     openGraph: {
-      title,
+      title: ogTitle,
       description,
       type: 'website',
       url: `/${slug}`,
@@ -43,7 +45,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title,
+      title: ogTitle,
       description,
       images: [ogImageUrl],
     },
