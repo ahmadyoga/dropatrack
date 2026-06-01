@@ -121,19 +121,19 @@ export async function GET(req: NextRequest) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={frame} width={1200} height={630} style={{ position: 'absolute', top: 0, left: 0 }} alt="" />
 
-          {/* now-playing track + artist — inside left card (card top=510, pad 14px top+18px left, clear eq bars ~19px) */}
-          <div style={{ position: 'absolute', left: 42, top: 547, width: 386, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* now-playing: nowtag bottom=24, ~87px tall → top=519; pad 14+eq(19) = text at 552; left=24+18=42 */}
+          <div style={{ position: 'absolute', left: 42, top: 552, width: 386, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ fontSize: 21, fontWeight: 700, color: INK, lineHeight: 1.1, display: 'flex' }}>{track || 'Queue is empty'}</div>
             {artist && (
               <div style={{ fontSize: 13, color: INK_DIM, fontFamily: 'monospace', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex' }}>{artist}</div>
             )}
           </div>
 
-          {/* room name */}
-          <div style={{ position: 'absolute', left: 522, top: 196, width: 626, display: 'flex', fontFamily: 'Bungee, system-ui', fontSize: 60, lineHeight: 0.98, color: INK }}>{roomDisplay}</div>
+          {/* room name: body y≈164 + kicker 53px = 217 */}
+          <div style={{ position: 'absolute', left: 522, top: 217, width: 626, display: 'flex', fontFamily: 'Bungee, system-ui', fontSize: 60, lineHeight: 0.98, color: INK }}>{roomDisplay}</div>
 
-          {/* listener avatars + hosted-by */}
-          <div style={{ position: 'absolute', left: 522, top: 296, width: 626, display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* listeners: after room name 61+22px = 300 */}
+          <div style={{ position: 'absolute', left: 522, top: 300, width: 626, display: 'flex', alignItems: 'center', gap: 12 }}>
             {listeners.length > 0 && (
               <div style={{ display: 'flex' }}>
                 {listeners.map((name, i) => (
@@ -149,14 +149,14 @@ export async function GET(req: NextRequest) {
             )}
           </div>
 
-          {/* stat numbers — x = card_left + 18px inner padding; y = card_top + 14px inner padding */}
-          <div style={{ position: 'absolute', left: 540, top: 384, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{listeners.length > 0 ? String(listeners.length + extra) : '—'}</div>
-          <div style={{ position: 'absolute', left: 752, top: 384, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{queueDisplay}</div>
-          <div style={{ position: 'absolute', left: 964, top: 384, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{isPublic ? 'OPEN' : 'PRIV'}</div>
+          {/* stat numbers: statgrid y=380 + 14px pad = 394; x = card_left + 18px pad */}
+          <div style={{ position: 'absolute', left: 540, top: 394, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{listeners.length > 0 ? String(listeners.length + extra) : '—'}</div>
+          <div style={{ position: 'absolute', left: 753, top: 394, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{queueDisplay}</div>
+          <div style={{ position: 'absolute', left: 966, top: 394, fontFamily: 'Bungee, system-ui', fontSize: 28, lineHeight: 1, color: CORAL, display: 'flex' }}>{isPublic ? 'OPEN' : 'PRIV'}</div>
 
-          {/* URL slug — inside pill: x = pill_left + 14px pad + 32px circle + 12px gap; y = pill_top + 12px pad + centering */}
+          {/* URL slug: footer y=526, pill pad 12+circle_center 16 = 544; x=470+52+14+32+12=580 */}
           {t && (
-            <div style={{ position: 'absolute', left: 580, top: 541, display: 'flex', fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: INK }}>{`/${t}`}</div>
+            <div style={{ position: 'absolute', left: 580, top: 544, display: 'flex', fontFamily: 'monospace', fontSize: 17, fontWeight: 700, color: INK }}>{`/${t}`}</div>
           )}
         </div>
       ),
