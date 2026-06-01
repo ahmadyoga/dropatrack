@@ -4,11 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
+import type { UserIdentity } from '@/lib/names';
+import UsernameModal from '@/components/UsernameModal';
 
 export default function CreateRoom() {
   const [roomName, setRoomName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [pendingUser, setPendingUser] = useState<(UserIdentity & { isNew: boolean }) | null>(null);
   const router = useRouter();
 
   const slugify = (text: string) =>
@@ -18,13 +22,13 @@ export default function CreateRoom() {
       .replace(/-+/g, '-')
       .substring(0, 50);
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!roomName.trim()) return;
+  const proceedWithCreate = async () => {
+    const trimmed = roomName.trim();
+    if (!trimmed) return;
     setLoading(true);
     setError('');
 
-    const slug = slugify(roomName);
+    const slug = slugify(trimmed);
     if (!slug) {
       setError('Please enter a valid room name');
       setLoading(false);
@@ -45,7 +49,7 @@ export default function CreateRoom() {
 
       const { error: insertError } = await supabase.from('rooms').insert({
         slug,
-        name: roomName.trim(),
+        name: trimmed,
         created_by: user.username,
         is_playing: false,
         current_song_index: 0,
@@ -66,7 +70,24 @@ export default function CreateRoom() {
     }
   };
 
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roomName.trim()) return;
+
+    const user = getOrCreateUser();
+    if (!user) { setError('Unable to create user identity'); return; }
+
+    if (user.is_default_username) {
+      setPendingUser(user);
+      setShowUsernameModal(true);
+      return;
+    }
+
+    await proceedWithCreate();
+  };
+
   return (
+    <>
     <form
       onSubmit={handleCreate}
       className="pop wobble-2 relative overflow-hidden"
@@ -127,5 +148,13 @@ export default function CreateRoom() {
         <p style={{ fontSize: 13, color: 'var(--pop-coral)', marginTop: 8, position: 'relative' }}>{error}</p>
       )}
     </form>
+      {showUsernameModal && pendingUser && (
+        <UsernameModal
+          currentName={pendingUser.username}
+          onConfirm={() => { setShowUsernameModal(false); proceedWithCreate(); }}
+          onSkip={() => { setShowUsernameModal(false); proceedWithCreate(); }}
+        />
+      )}
+    </>
   );
 }
