@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getOrCreateUser } from '@/lib/names';
 import { useAntiDebug } from '@/lib/antiDebug';
+import UsernameModal from '@/components/UsernameModal';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { YTPlayer } from './room/hooks/useYouTubePlayer';
 import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
@@ -51,6 +53,18 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   useAntiDebug();
 
   const { theme, toggleTheme } = useTheme();
+
+  const [usernameReady, setUsernameReady] = useState(false);
+  const [defaultUsername, setDefaultUsername] = useState('');
+
+  useEffect(() => {
+    const user = getOrCreateUser();
+    if (user?.is_default_username) {
+      setDefaultUsername(user.username);
+    } else {
+      setUsernameReady(true);
+    }
+  }, []);
 
   const [room, setRoom] = useState<Room>(initialRoom);
   const [queue, setQueue] = useState<QueueItem[]>(initialQueue);
@@ -297,6 +311,16 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onPreviewImage: setPreviewImage,
     onSeen: () => setUnreadChatCount(0),
   };
+
+  if (!usernameReady) {
+    return (
+      <UsernameModal
+        currentName={defaultUsername}
+        onConfirm={() => setUsernameReady(true)}
+        onSkip={() => setUsernameReady(true)}
+      />
+    );
+  }
 
   return (
     <RoomProvider value={contextValue}>
