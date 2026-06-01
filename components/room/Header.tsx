@@ -3,6 +3,7 @@
 import LiveDot from './ui/LiveDot';
 import Icon from './ui/Icon';
 import { useRoom } from './RoomContext';
+import ShareButton from './ShareButton';
 
 interface HeaderProps {
   onLeave: () => void;
@@ -41,6 +42,7 @@ export default function Header({ onLeave, onOpenSettings, canOpenSettings }: Hea
         <span className="chip" style={{ background: 'var(--accent-2)', color: '#140f1f' }}>
           <Icon name="users" size={13} /> {users.length} aboard
         </span>
+        <ShareButton />
         <button className="btn pop-sm btn-icon" onClick={toggleTheme} title="Toggle lights">
           <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={19} />
         </button>
