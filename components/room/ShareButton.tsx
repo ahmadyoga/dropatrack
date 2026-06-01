@@ -44,12 +44,13 @@ export default function ShareButton() {
 
   return (
     <button
-      className="btn pop-sm btn-icon"
+      className="btn pop-sm flex items-center gap-1.5"
       onClick={handleShare}
       disabled={busy}
       title={copied ? 'Link copied!' : 'Share room'}
     >
       <Icon name={copied ? 'check' : 'link'} size={19} />
+      <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
     </button>
   );
 }
