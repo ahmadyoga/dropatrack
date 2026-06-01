@@ -79,11 +79,14 @@ export async function GET(req: NextRequest) {
     const dbLog: Record<string, unknown> = {};
 
     if (t) {
-      const roomRes = await supabase
-        .from('rooms')
-        .select('id, name, current_song_index, is_public, is_playing')
-        .eq('slug', t)
-        .single();
+      const [roomRes] = await Promise.all([
+        supabase
+          .from('rooms')
+          .select('id, name, current_song_index, is_public, is_playing')
+          .eq('slug', t)
+          .single(),
+        loadFont('Bungee', 400), // warm cache in parallel with DB
+      ]);
       dbLog.roomRes = { data: roomRes.data, error: roomRes.error };
 
       const roomRow = roomRes.data;
@@ -330,6 +333,9 @@ export async function GET(req: NextRequest) {
         fonts: [
           { name: 'Bungee', data: bungee, weight: 400 as const, style: 'normal' as const },
         ],
+        headers: {
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+        },
       }
     );
   } catch (e: unknown) {
