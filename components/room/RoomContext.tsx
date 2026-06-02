@@ -14,6 +14,8 @@ export interface RoomContextValue {
   myRole: UserRole;
   currentSong: QueueItem | null;
   canPlayPause: boolean;
+  canSeek: boolean;
+  canVolume: boolean;
   canRearrange: boolean;
   isSpeaker: boolean;
   duration: number;

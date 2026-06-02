@@ -242,6 +242,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── Derived ───────────────────────────────────────────────────────────────
   const currentSong = queue[room.current_song_index] || null;
   const canPlayPause = myRole === 'admin' || myRole === 'moderator';
+  const canSeek = myRole === 'admin' || myRole === 'moderator';
+  const canVolume = myRole === 'admin' || myRole === 'moderator';
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
   const queuedVideoIds = useMemo(() => new Set(queue.map((q) => q.youtube_id)), [queue]);
 
@@ -255,7 +257,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── Context value ─────────────────────────────────────────────────────────
   const contextValue = {
     room, queue, users, currentUser, myRole, currentSong,
-    canPlayPause, canRearrange, isSpeaker, duration,
+    canPlayPause, canSeek, canVolume, canRearrange, isSpeaker, duration,
     broadcast, theme, toggleTheme,
   };
 

@@ -47,7 +47,7 @@ export default function Player({
   volume,
   onVolumeChange,
 }: PlayerProps) {
-  const { room, currentSong, canPlayPause, duration } = useRoom();
+  const { room, currentSong, canPlayPause, canSeek, canVolume, duration } = useRoom();
   const currentTime = usePlaybackTime();
   const effectiveDuration = duration > 0 ? duration : (currentSong?.duration_seconds ?? 0);
 
@@ -68,7 +68,7 @@ export default function Player({
   };
 
   const handleProgressSeek = (t: number) => {
-    if (!canPlayPause) return;
+    if (!canSeek) return;
     onSeek(t);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const player = playerRef.current as any;
@@ -179,7 +179,9 @@ export default function Player({
         {/* progress */}
         <div className="flex items-center gap-2 mb-2">
           <span className="mono" style={{ fontSize: 10, fontWeight: 700, width: 32, textAlign: 'right' }}>{fmt(currentTime)}</span>
-          <Scrubber value={currentTime} max={effectiveDuration || 1} onChange={handleProgressSeek} height={10} />
+          <div style={{ flex: 1, pointerEvents: canSeek ? 'auto' : 'none', opacity: canSeek ? 1 : 0.4 }}>
+            <Scrubber value={currentTime} max={effectiveDuration || 1} onChange={handleProgressSeek} height={10} />
+          </div>
           <span className="mono" style={{ fontSize: 10, fontWeight: 700, width: 32, color: 'var(--ink-dim)' }}>{fmt(effectiveDuration)}</span>
         </div>
 
@@ -194,7 +196,8 @@ export default function Player({
             <button className="btn pop-sm btn-icon" onClick={onNext} disabled={!canPlayPause} title="Next" style={{ padding: 8, opacity: canPlayPause ? 1 : 0.4 }}><Icon name="next" size={17} /></button>
           </div>
 
-          {/* volume */}
+          {/* volume — hidden for dj role */}
+          {canVolume && (
           <div
             className="flex items-center gap-2"
             style={{
@@ -217,6 +220,7 @@ export default function Player({
               {Math.round(volume * 100)}
             </span>
           </div>
+          )}
 
           {/* speaker toggle */}
           <button
