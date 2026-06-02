@@ -245,7 +245,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
   const queuedVideoIds = useMemo(() => new Set(queue.map((q) => q.youtube_id)), [queue]);
 
-  const leave = useCallback(() => { window.history.back(); }, []);
+  const leave = useCallback(() => { window.location.href = '/'; }, []);
 
   const handleChatTabSwitch = (tab: MobileTab) => {
     setMobileTab(tab);
