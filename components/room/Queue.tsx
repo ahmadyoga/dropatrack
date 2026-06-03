@@ -217,8 +217,9 @@ export default function Queue({
           >
             <Icon name="shuffle" size={18} />
           </button>
-          <button className="btn btn-accent pop-sm btn-icon" onClick={() => setShowAdd(true)} title="Add a song">
+          <button className="btn btn-accent pop-sm btn-icon" onClick={() => setShowAdd(true)} title="Add a song" style={{ gap: 6 }}>
             <Icon name="plus" size={18} />
+            <span className="hidden md:inline" style={{ fontSize: 13, fontWeight: 700 }}>Add a song</span>
           </button>
         </div>
       </div>
