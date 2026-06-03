@@ -109,6 +109,8 @@ export async function GET(req: NextRequest) {
     }
 
     const roomDisplay = room.replace(/-/g, ' ');
+    // ~38 chars fit per line at fontSize 19 in a 386px container
+    const trackDisplay = track.length > 76 ? track.slice(0, 73) + '…' : track;
     const listeners = listenersRaw ? listenersRaw.split(',').filter(Boolean).slice(0, 4) : [];
     const extra = parseInt(extraCount) || 0;
     const queueDisplay = queueLen > 0 ? String(queueLen) : '∞';
@@ -124,7 +126,7 @@ export async function GET(req: NextRequest) {
 
           {/* now-playing: nowtag bottom=24, ~87px tall → top=519; pad 14+eq(19) = text at 552; left=24+18=42 */}
           <div style={{ position: 'absolute', left: 42, top: 540, width: 386, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ fontSize: 19, fontWeight: 700, color: INK, lineHeight: 1.1, display: 'flex' }}>{track || 'Queue is empty'}</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: INK, lineHeight: 1.1, display: 'flex', flexWrap: 'wrap', width: 386 }}>{trackDisplay || 'Queue is empty'}</div>
             {artist && (
               <div style={{ fontSize: 11, color: INK_DIM, fontFamily: 'monospace', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex' }}>{artist}</div>
             )}
