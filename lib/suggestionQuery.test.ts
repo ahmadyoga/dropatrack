@@ -6,10 +6,10 @@ describe('buildSuggestionQuery', () => {
     expect(buildSuggestionQuery([])).toBe('');
   });
 
-  it('uses a "similar mix" query when one artist dominates (2+ of 3)', () => {
+  it('uses the bare artist name when one artist dominates (2+ of 3)', () => {
     expect(
       buildSuggestionQuery(['Nujabes - Feather', 'Nujabes - Luv Sic', 'J Dilla - Donuts'])
-    ).toBe('Nujabes similar mix');
+    ).toBe('Nujabes');
   });
 
   it('strips bracket/paren/pipe noise and emojis when joining', () => {
@@ -24,10 +24,10 @@ describe('buildSuggestionQuery', () => {
     ).toBe('lofi hip hop');
   });
 
-  it('joins cleaned titles (dashes flattened) when no artist dominates', () => {
+  it('uses the most-recent title (dashes flattened) when no artist dominates', () => {
     expect(
       buildSuggestionQuery(["Drake - God's Plan", 'Kendrick - HUMBLE', 'Travis - SICKO MODE'])
-    ).toBe("Drake God's Plan Kendrick HUMBLE Travis SICKO MODE");
+    ).toBe('Travis SICKO MODE');
   });
 
   it('ignores titles that clean to empty', () => {

@@ -6,6 +6,9 @@ import type { Room, QueueItem } from '@/lib/types';
 const BUFFER_SIZE = 5;   // target number of suggested songs
 const REFILL_AT = 1;     // refill (batched) once the buffer drains to this
 
+// Titles that signal compilations, DJ remixes, or non-song clips.
+const JUNK_TITLE = /\b(dj|remix|nonstop|kumpulan|full album|compilation|megamix|mashup|mixtape|mix|playlist|jam session)\b/i;
+
 interface UseAutoSuggestProps {
   room: Room;
   queue: QueueItem[];
@@ -44,7 +47,19 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
 
         const existingIds = new Set(q.map((i) => i.youtube_id));
         const need = BUFFER_SIZE - suggested.length;
-        const picks = results.filter((r) => !existingIds.has(r.id)).slice(0, need);
+        // Reject compilations / DJ mixes / non-song clips: junk in the title
+        // or an off-song duration (real tracks ~1-10 min; "kumpulan lagu" is 20-120 min).
+        const isReasonable = (r: { title: string; durationSeconds: number }) =>
+          r.durationSeconds >= 60 &&
+          r.durationSeconds <= 600 &&
+          !JUNK_TITLE.test(r.title);
+        let picks = results.filter((r) => !existingIds.has(r.id) && isReasonable(r)).slice(0, need);
+        // Fallback: if filtering left nothing, allow non-junk regardless of duration.
+        if (picks.length === 0) {
+          picks = results
+            .filter((r) => !existingIds.has(r.id) && !JUNK_TITLE.test(r.title))
+            .slice(0, need);
+        }
         if (picks.length === 0) return;
 
         const maxSugPos = suggested.reduce(

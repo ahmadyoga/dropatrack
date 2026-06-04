@@ -40,14 +40,16 @@ export function buildSuggestionQuery(titles: string[]): string {
   }
 
   if (dominant) {
+    // Bare artist name (category=music biases to their tracks). Avoid words
+    // like "mix"/"similar" that pull DJ mixes and compilations.
     const orig = cleaned.find((t) => t.toLowerCase().startsWith(dominant + ' - '));
-    const name = orig ? orig.slice(0, orig.indexOf(' - ')).trim() : dominant;
-    return `${name} similar mix`;
+    return orig ? orig.slice(0, orig.indexOf(' - ')).trim() : dominant;
   }
 
-  return cleaned
-    .map((t) => t.replace(/ - /g, ' '))
-    .join(' ')
+  // No dominant artist: use the single most-recent title (dashes flattened).
+  // Joining several titles into a word-soup matched compilations/DJ remixes.
+  return cleaned[cleaned.length - 1]
+    .replace(/ - /g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
