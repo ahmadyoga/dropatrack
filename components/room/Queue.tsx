@@ -212,9 +212,9 @@ export default function Queue({
           <button
             className="btn pop-sm btn-icon"
             onClick={onToggleAutoSuggest}
-            disabled={!canAutoSuggest}
-            title={room.auto_suggest ? 'Auto-suggest on' : 'Auto-suggest off'}
-            style={{ background: room.auto_suggest ? 'var(--accent)' : 'var(--panel)', color: room.auto_suggest ? '#140f1f' : 'var(--ink-dim)', opacity: canAutoSuggest ? 1 : 0.4 }}
+            disabled={!canAutoSuggest || room.repeat}
+            title={room.repeat ? 'Turn off repeat to use auto-suggest' : room.auto_suggest ? 'Auto-suggest on' : 'Auto-suggest off'}
+            style={{ background: room.auto_suggest && !room.repeat ? 'var(--accent)' : 'var(--panel)', color: room.auto_suggest && !room.repeat ? '#140f1f' : 'var(--ink-dim)', opacity: canAutoSuggest && !room.repeat ? 1 : 0.4 }}
           >
             <Icon name="bolt" size={18} />
           </button>

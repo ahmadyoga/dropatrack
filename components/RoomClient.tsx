@@ -229,17 +229,23 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   const handleToggleRepeat = useCallback(() => {
     const next = !room.repeat;
-    setRoom((prev) => ({ ...prev, repeat: next }));
+    // Repeat and auto-suggest are mutually exclusive — turning repeat ON
+    // forces auto-suggest OFF.
+    setRoom((prev) => ({ ...prev, repeat: next, auto_suggest: next ? false : prev.auto_suggest }));
     broadcast('repeat_toggle', { repeat: next });
-    supabase.from('rooms').update({ repeat: next }).eq('id', initialRoom.id).then(() => {});
+    if (next) broadcast('auto_suggest_toggle', { auto_suggest: false });
+    supabase.from('rooms')
+      .update(next ? { repeat: true, auto_suggest: false } : { repeat: false })
+      .eq('id', initialRoom.id).then(() => {});
   }, [room.repeat, broadcast, initialRoom.id]);
 
   const handleToggleAutoSuggest = useCallback(() => {
+    if (room.repeat) return; // disabled while repeat is on
     const next = !room.auto_suggest;
     setRoom((prev) => ({ ...prev, auto_suggest: next }));
     broadcast('auto_suggest_toggle', { auto_suggest: next });
     supabase.from('rooms').update({ auto_suggest: next }).eq('id', initialRoom.id).then(() => {});
-  }, [room.auto_suggest, broadcast, initialRoom.id]);
+  }, [room.repeat, room.auto_suggest, broadcast, initialRoom.id]);
 
   const handleSeek = useCallback((t: number) => {
     setStoreTime(t);
