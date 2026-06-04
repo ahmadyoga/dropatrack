@@ -14,7 +14,7 @@ npm install
 # Set environment variables in .env.local
 # See .env.local for the template
 
-# Run the Supabase schema (supabase-schema.sql) in Supabase SQL Editor
+# Apply the database schema: `supabase db push` (or run supabase/migrations/*.sql in order in the SQL Editor)
 
 # Start dev server
 npm run dev
@@ -119,7 +119,7 @@ Tracks who's in the room with metadata:
 
 ## Database Schema
 
-See `supabase-schema.sql` for the full SQL. Key tables:
+See `supabase/migrations/` for the full SQL (timestamped migration history). Key tables:
 
 ### `rooms`
 - `slug` (TEXT UNIQUE): URL-friendly room name

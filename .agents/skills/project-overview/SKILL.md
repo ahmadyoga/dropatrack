@@ -90,7 +90,7 @@ dropatrack/
 │   └── antiDebug.ts                  # Anti-devtools protection
 │
 ├── extension/                        # Browser extension for adding songs externally
-├── supabase-schema.sql               # Full database schema (run in Supabase SQL Editor)
+├── supabase/migrations/              # Timestamped DB migration history (supabase db push)
 ├── vercel.json                       # Vercel cron config
 └── CLAUDE.md                         # Legacy agent documentation
 ```
