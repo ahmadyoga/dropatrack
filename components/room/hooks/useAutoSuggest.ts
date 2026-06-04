@@ -5,6 +5,7 @@ import type { Room, QueueItem } from '@/lib/types';
 
 const BUFFER_SIZE = 5;   // target number of suggested songs
 const REFILL_AT = 1;     // refill (batched) once the buffer drains to this
+const SAMPLE_SIZE = 10;  // recent regular titles sent to the AI for taste context
 
 // Titles that signal compilations, DJ remixes, or non-song clips.
 const JUNK_TITLE = /\b(dj|remix|nonstop|kumpulan|full album|compilation|megamix|mashup|mixtape|mix|playlist|jam session)\b/i;
@@ -62,7 +63,7 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           const aiRes = await fetch('/api/suggestions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ titles: regular.slice(-5).map((i) => i.title), count: need }),
+            body: JSON.stringify({ titles: regular.slice(-SAMPLE_SIZE).map((i) => i.title), count: need }),
           });
           const aiData = await aiRes.json();
           const songs: Array<{ artist: string; title: string }> = aiData.songs || [];
