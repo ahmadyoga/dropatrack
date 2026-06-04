@@ -120,6 +120,10 @@ export function useRoomSync({
       setRoom((prev) => ({ ...prev, repeat: payload.repeat as boolean }));
     });
 
+    channel.on('broadcast', { event: 'auto_suggest_toggle' }, ({ payload }) => {
+      setRoom((prev) => ({ ...prev, auto_suggest: payload.auto_suggest as boolean }));
+    });
+
     channel.on('broadcast', { event: 'role_update' }, ({ payload }) => {
       setRoom((prev) => ({
         ...prev,
@@ -201,7 +205,9 @@ export function useRoomSync({
             .from('queue_items')
             .select('*')
             .eq('room_id', initialRoom.id)
-            .order('position', { ascending: true });
+            .order('is_suggested', { ascending: true })
+            .order('position', { ascending: true, nullsFirst: false })
+            .order('suggested_position', { ascending: true, nullsFirst: false });
           if (data) setQueue(data);
         }
       )

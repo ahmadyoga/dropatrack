@@ -57,12 +57,15 @@ export function usePlayback({
         current_time: type === 'next' || type === 'prev' || type === 'jump' ? 0 : playbackTime,
       };
       broadcast('playback_sync', event as unknown as Record<string, unknown>);
-      supabase.from('rooms').update({
-        current_song_index: songIndex,
-        is_playing: type !== 'pause',
-        current_playback_time: event.current_time,
-        playback_updated_at: new Date().toISOString(),
-      }).eq('id', roomRef.current.id).then();
+      // RPC sets the index + playback fields AND graduates the target song if
+      // it is a suggested item. Returns the resolved index; the rooms realtime
+      // subscription propagates it (and corrects any graduation index shift).
+      supabase.rpc('play_song_at', {
+        p_room_id: roomRef.current.id,
+        p_index: songIndex,
+        p_is_playing: type !== 'pause',
+        p_current_time: event.current_time,
+      }).then();
     },
     [currentUser, playerRef, playerReadyRef, broadcast, roomRef]
   );

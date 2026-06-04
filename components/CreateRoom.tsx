@@ -56,6 +56,7 @@ export default function CreateRoom() {
         is_public: true,
         default_role: 'dj',
         user_roles: { [user.user_id]: 'admin' },
+        auto_suggest: true,
       });
 
       if (insertError) {

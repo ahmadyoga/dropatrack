@@ -12,6 +12,7 @@ export interface Room {
   is_playing: boolean;
   is_public: boolean;
   repeat: boolean;
+  auto_suggest: boolean;
   default_role: UserRole;
   user_roles: Record<string, UserRole>;
   created_at: string;
@@ -28,6 +29,8 @@ export interface QueueItem {
   added_by: string;
   position: number;
   played: boolean;
+  is_suggested: boolean;
+  suggested_position: number | null;
   created_at: string;
 }
 

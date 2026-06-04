@@ -18,6 +18,7 @@ import { useRoomSync } from './room/hooks/useRoomSync';
 import { useYouTubePlayer } from './room/hooks/useYouTubePlayer';
 import { usePlayback } from './room/hooks/usePlayback';
 import { useQueue } from './room/hooks/useQueue';
+import { useAutoSuggest } from './room/hooks/useAutoSuggest';
 import { useDiscovery } from './room/hooks/useDiscovery';
 import { useChat } from './room/hooks/useChat';
 
@@ -167,6 +168,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── Time-level playback sync ──────────────────────────────────────────────
   usePlaybackSync({ room, roomRef, isSpeaker, playerRef, playerReadyRef, isSourceRef, anchorRef });
 
+  // ── Auto-suggestion ───────────────────────────────────────────────────────
+  useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef });
+
   // ── Queue ─────────────────────────────────────────────────────────────────
   const {
     searching, searchQuery, setSearchQuery, searchResults, setSearchResults,
@@ -225,10 +229,23 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   const handleToggleRepeat = useCallback(() => {
     const next = !room.repeat;
-    setRoom((prev) => ({ ...prev, repeat: next }));
+    // Repeat and auto-suggest are mutually exclusive — turning repeat ON
+    // forces auto-suggest OFF.
+    setRoom((prev) => ({ ...prev, repeat: next, auto_suggest: next ? false : prev.auto_suggest }));
     broadcast('repeat_toggle', { repeat: next });
-    supabase.from('rooms').update({ repeat: next }).eq('id', initialRoom.id).then(() => {});
+    if (next) broadcast('auto_suggest_toggle', { auto_suggest: false });
+    supabase.from('rooms')
+      .update(next ? { repeat: true, auto_suggest: false } : { repeat: false })
+      .eq('id', initialRoom.id).then(() => {});
   }, [room.repeat, broadcast, initialRoom.id]);
+
+  const handleToggleAutoSuggest = useCallback(() => {
+    if (room.repeat) return; // disabled while repeat is on
+    const next = !room.auto_suggest;
+    setRoom((prev) => ({ ...prev, auto_suggest: next }));
+    broadcast('auto_suggest_toggle', { auto_suggest: next });
+    supabase.from('rooms').update({ auto_suggest: next }).eq('id', initialRoom.id).then(() => {});
+  }, [room.repeat, room.auto_suggest, broadcast, initialRoom.id]);
 
   const handleSeek = useCallback((t: number) => {
     setStoreTime(t);
@@ -245,6 +262,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const canSeek = myRole === 'admin' || myRole === 'moderator';
   const canVolume = myRole === 'admin' || myRole === 'moderator';
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
+  const canAutoSuggest = myRole === 'admin' || myRole === 'moderator';
   const queuedVideoIds = useMemo(() => new Set(queue.map((q) => q.youtube_id)), [queue]);
 
   const leave = useCallback(() => { window.location.href = '/'; }, []);
@@ -257,7 +275,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── Context value ─────────────────────────────────────────────────────────
   const contextValue = {
     room, queue, users, currentUser, myRole, currentSong,
-    canPlayPause, canSeek, canVolume, canRearrange, isSpeaker, duration,
+    canPlayPause, canSeek, canVolume, canRearrange, canAutoSuggest, isSpeaker, duration,
     broadcast, theme, toggleTheme,
   };
 
@@ -276,6 +294,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onDrop: handleDrop,
     onAdd: addSongToQueue,
     onToggleRepeat: handleToggleRepeat,
+    onToggleAutoSuggest: handleToggleAutoSuggest,
   };
 
   const playerProps = {

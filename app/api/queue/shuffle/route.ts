@@ -13,11 +13,13 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'Missing room_id or current_song_index' }, { status: 400 });
   }
 
-  // Fetch only upcoming queue items (skip already-played + current)
+  // Fetch only regular queue items — suggested songs (position NULL) are never
+  // shuffled and keep their own suggested_position ordering.
   const { data: allQueue, error } = await supabase
     .from('queue_items')
     .select('id, position')
     .eq('room_id', room_id)
+    .eq('is_suggested', false)
     .order('position', { ascending: true });
 
   if (error || !allQueue) {
