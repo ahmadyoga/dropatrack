@@ -17,6 +17,7 @@ export interface RoomContextValue {
   canSeek: boolean;
   canVolume: boolean;
   canRearrange: boolean;
+  canAutoSuggest: boolean;
   isSpeaker: boolean;
   duration: number;
   broadcast: (event: string, payload: Record<string, unknown>) => void;

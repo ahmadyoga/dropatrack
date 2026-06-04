@@ -123,7 +123,9 @@ export default async function RoomPage({
     .from('queue_items')
     .select('*')
     .eq('room_id', room.id)
-    .order('position', { ascending: true });
+    .order('is_suggested', { ascending: true })
+    .order('position', { ascending: true, nullsFirst: false })
+    .order('suggested_position', { ascending: true, nullsFirst: false });
 
   return <RoomClient initialRoom={room} initialQueue={queue || []} />;
 }

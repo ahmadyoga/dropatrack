@@ -166,6 +166,7 @@ interface QueueProps {
   onDrop: (index: number) => void;
   onAdd: (id: string, title: string, thumb: string, dur: number) => Promise<void>;
   onToggleRepeat: () => void;
+  onToggleAutoSuggest: () => void;
 }
 
 export default function Queue({
@@ -173,9 +174,9 @@ export default function Queue({
   searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
   shuffling, dragOverIndex,
   onJumpTo, onRemoveSong, onMoveSongToNext, onShuffle,
-  onDragStart, onDragOver, onDragLeave, onDrop, onAdd, onToggleRepeat,
+  onDragStart, onDragOver, onDragLeave, onDrop, onAdd, onToggleRepeat, onToggleAutoSuggest,
 }: QueueProps) {
-  const { queue, room, canRearrange, canPlayPause } = useRoom();
+  const { queue, room, canRearrange, canPlayPause, canAutoSuggest } = useRoom();
   const [showAdd, setShowAdd] = useState(false);
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
   const currentIndex = room.current_song_index;
@@ -207,6 +208,15 @@ export default function Queue({
             style={{ background: room.repeat ? 'var(--accent-3)' : 'var(--panel)', color: room.repeat ? '#140f1f' : 'var(--ink-dim)', opacity: canPlayPause ? 1 : 0.4 }}
           >
             <Icon name="replay" size={18} />
+          </button>
+          <button
+            className="btn pop-sm btn-icon"
+            onClick={onToggleAutoSuggest}
+            disabled={!canAutoSuggest}
+            title={room.auto_suggest ? 'Auto-suggest on' : 'Auto-suggest off'}
+            style={{ background: room.auto_suggest ? 'var(--accent)' : 'var(--panel)', color: room.auto_suggest ? '#140f1f' : 'var(--ink-dim)', opacity: canAutoSuggest ? 1 : 0.4 }}
+          >
+            <Icon name="bolt" size={18} />
           </button>
           <button
             className="btn pop-sm btn-icon"
@@ -272,6 +282,9 @@ export default function Queue({
           const isMatch = searchMatchIndices.includes(index);
           const isDragOver = dragOverIndex === index;
           const isDragSrc = dragSrcIdx === index;
+          const isSuggested = item.is_suggested;
+          const showSuggestedDivider =
+            room.auto_suggest && isSuggested && (index === 0 || !queue[index - 1].is_suggested);
 
           let borderColor = 'var(--line)';
           if (isNow) borderColor = 'var(--accent)';
@@ -279,8 +292,13 @@ export default function Queue({
           else if (isMatch) borderColor = 'rgba(70,224,212,.35)';
 
           return (
+            <div key={item.id}>
+              {showSuggestedDivider && (
+                <div className="mono flex items-center gap-2" style={{ fontSize: 10, color: 'var(--ink-dim)', letterSpacing: '.1em', padding: '10px 4px 6px' }}>
+                  ✦ Suggested
+                </div>
+              )}
             <div
-              key={item.id}
               id={`q-item-${index}`}
               style={{
                 // smooth insertion gap: push target item down when something hovers above it
@@ -336,7 +354,7 @@ export default function Queue({
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
                   <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {isNow ? '▶ now playing · ' : isPlayed ? 'played · ' : ''}{item.added_by} · {fmt(item.duration_seconds)}
+                    {isNow ? '▶ now playing · ' : isPlayed ? 'played · ' : ''}{isSuggested ? 'auto · ' : ''}{item.added_by} · {fmt(item.duration_seconds)}
                   </div>
                 </div>
 
@@ -364,6 +382,7 @@ export default function Queue({
                   )}
                 </div>
               </div>
+            </div>
             </div>
           );
         })}

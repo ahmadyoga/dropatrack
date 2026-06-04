@@ -1,0 +1,53 @@
+// Builds a YouTube search query from the room's recent queue titles.
+// Strategy: clean noise, detect a dominant artist via " - " separator,
+// otherwise join the cleaned titles. Pure + deterministic for testing.
+
+const NOISE_BRACKETS = /\[[^\]]*\]/g;   // [Official Video], [HD], ...
+const NOISE_PARENS = /\([^)]*\)/g;      // (Official), (feat. ...), ...
+const PIPE_SEG = /\|.*/;                // drop everything from the first pipe on
+// Keep letters, numbers, whitespace, apostrophe, ampersand, hyphen. Drop emojis/symbols.
+const SYMBOLS = /[^\p{L}\p{N}\s'&-]/gu;
+
+function cleanTitle(t: string): string {
+  return t
+    .replace(NOISE_BRACKETS, ' ')
+    .replace(NOISE_PARENS, ' ')
+    .replace(PIPE_SEG, ' ')
+    .replace(SYMBOLS, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function buildSuggestionQuery(titles: string[]): string {
+  const cleaned = titles.map(cleanTitle).filter(Boolean);
+  if (cleaned.length === 0) return '';
+
+  // Count artists (text before the first " - ").
+  const counts = new Map<string, number>();
+  for (const t of cleaned) {
+    const idx = t.indexOf(' - ');
+    if (idx > 0) {
+      const artist = t.slice(0, idx).trim().toLowerCase();
+      counts.set(artist, (counts.get(artist) ?? 0) + 1);
+    }
+  }
+
+  let dominant: string | null = null;
+  for (const [artist, c] of counts) {
+    if (c >= 2 && (dominant === null || c > (counts.get(dominant) ?? 0))) {
+      dominant = artist;
+    }
+  }
+
+  if (dominant) {
+    const orig = cleaned.find((t) => t.toLowerCase().startsWith(dominant + ' - '));
+    const name = orig ? orig.slice(0, orig.indexOf(' - ')).trim() : dominant;
+    return `${name} similar mix`;
+  }
+
+  return cleaned
+    .map((t) => t.replace(/ - /g, ' '))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
