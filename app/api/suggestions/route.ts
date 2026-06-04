@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
+import { getGeminiApiKey, recordGeminiSuccess, recordGeminiError, geminiAvailableKeyCount } from '@/lib/geminiKeyRotation';
 
-// Server-side only — GEMINI_API_KEY is never exposed to the browser.
+// Server-side only — GEMINI keys are never exposed to the browser.
 // Given recent queue titles, ask Gemini for similar songs as {artist, title}.
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
@@ -20,12 +21,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: 'No titles provided' }, { status: 400 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    // Signal to the client to use its heuristic fallback.
-    return Response.json({ songs: [], fallback: true });
-  }
-
   const prompt =
     `You are a music recommendation engine. The list below is every song already ` +
     `played or queued in this room — treat it as the room's taste profile. ` +
@@ -35,57 +30,65 @@ export async function POST(request: NextRequest) {
     `Do not suggest DJ remixes, mixes, or compilations.\n\nAlready in the room:\n` +
     titles.map((t) => `- ${t}`).join('\n');
 
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.9,
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: 'ARRAY',
-              items: {
-                type: 'OBJECT',
-                properties: {
-                  artist: { type: 'STRING' },
-                  title: { type: 'STRING' },
-                },
-                required: ['artist', 'title'],
-              },
-            },
-          },
-        }),
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      temperature: 0.9,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: 'ARRAY',
+        items: {
+          type: 'OBJECT',
+          properties: { artist: { type: 'STRING' }, title: { type: 'STRING' } },
+          required: ['artist', 'title'],
+        },
+      },
+    },
+  });
+
+  // Try keys in rotation; on a 429 (rate/quota) advance to the next key.
+  const maxAttempts = Math.max(geminiAvailableKeyCount(), 1);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const apiKey = getGeminiApiKey();
+    if (!apiKey) break; // no keys configured → heuristic fallback
+
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+      );
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error('Gemini error:', res.status, errText.slice(0, 200));
+        const isRateLimited = recordGeminiError(apiKey, res.status);
+        if (isRateLimited && attempt < maxAttempts - 1) continue; // try next key
+        break; // other error or out of keys → fallback
       }
-    );
 
-    if (!res.ok) {
-      console.error('Gemini error:', res.status, await res.text());
-      return Response.json({ songs: [], fallback: true });
+      recordGeminiSuccess(apiKey);
+      const data = await res.json();
+      const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) break;
+
+      let parsed: unknown;
+      try { parsed = JSON.parse(text); } catch { break; }
+
+      const songs = Array.isArray(parsed)
+        ? parsed
+            .filter((s): s is { artist: string; title: string } =>
+              !!s && typeof s.artist === 'string' && typeof s.title === 'string')
+            .map((s) => ({ artist: s.artist.trim(), title: s.title.trim() }))
+            .filter((s) => s.artist && s.title)
+            .slice(0, count)
+        : [];
+
+      return Response.json({ songs });
+    } catch (err) {
+      console.error('Suggestions route error:', err);
+      break;
     }
-
-    const data = await res.json();
-    const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return Response.json({ songs: [], fallback: true });
-
-    let parsed: unknown;
-    try { parsed = JSON.parse(text); } catch { return Response.json({ songs: [], fallback: true }); }
-
-    const songs = Array.isArray(parsed)
-      ? parsed
-          .filter((s): s is { artist: string; title: string } =>
-            !!s && typeof s.artist === 'string' && typeof s.title === 'string')
-          .map((s) => ({ artist: s.artist.trim(), title: s.title.trim() }))
-          .filter((s) => s.artist && s.title)
-          .slice(0, count)
-      : [];
-
-    return Response.json({ songs });
-  } catch (err) {
-    console.error('Suggestions route error:', err);
-    return Response.json({ songs: [], fallback: true });
   }
+
+  return Response.json({ songs: [], fallback: true });
 }
