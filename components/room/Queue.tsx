@@ -308,12 +308,12 @@ export default function Queue({
               }}
             >
               <div
-                draggable={canRearrange && !muted}
-                onDragStart={() => { setDragSrcIdx(index); onDragStart(index); }}
-                onDragOver={(e) => onDragOver(e, index)}
-                onDragLeave={onDragLeave}
-                onDrop={() => { onDrop(index); setDragSrcIdx(null); }}
-                onDragEnd={() => setDragSrcIdx(null)}
+                draggable={canRearrange && !muted && !isSuggested}
+                onDragStart={isSuggested ? undefined : () => { setDragSrcIdx(index); onDragStart(index); }}
+                onDragOver={isSuggested ? undefined : (e) => onDragOver(e, index)}
+                onDragLeave={isSuggested ? undefined : onDragLeave}
+                onDrop={isSuggested ? undefined : () => { onDrop(index); setDragSrcIdx(null); }}
+                onDragEnd={isSuggested ? undefined : () => setDragSrcIdx(null)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '9px 10px', borderRadius: 12,
@@ -326,7 +326,7 @@ export default function Queue({
                   boxShadow: isDragOver && !isDragSrc ? '0 0 0 2px var(--accent)' : 'none',
                 }}
               >
-                <div style={{ cursor: muted ? 'default' : 'grab', color: 'var(--ink-dim)', flexShrink: 0, opacity: muted ? 0.3 : 1 }}>
+                <div style={{ cursor: muted || isSuggested ? 'default' : 'grab', color: 'var(--ink-dim)', flexShrink: 0, opacity: muted || isSuggested ? 0.3 : 1 }}>
                   <Icon name="drag" size={18} />
                 </div>
 
