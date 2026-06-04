@@ -18,6 +18,11 @@ function cleanTitle(t: string): string {
     .trim();
 }
 
+// Canonical key for dedup/exclusion: noise-stripped, lowercased.
+export function normalizeTitle(t: string): string {
+  return cleanTitle(t).toLowerCase();
+}
+
 export function buildSuggestionQuery(titles: string[]): string {
   const cleaned = titles.map(cleanTitle).filter(Boolean);
   if (cleaned.length === 0) return '';

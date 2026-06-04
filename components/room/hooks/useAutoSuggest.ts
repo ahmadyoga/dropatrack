@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { buildSuggestionQuery } from '@/lib/suggestionQuery';
+import { buildSuggestionQuery, normalizeTitle } from '@/lib/suggestionQuery';
 import type { Room, QueueItem } from '@/lib/types';
 
-const BUFFER_SIZE = 5;   // target number of suggested songs
-const REFILL_AT = 1;     // refill (batched) once the buffer drains to this
-const SAMPLE_SIZE = 10;  // recent regular titles sent to the AI for taste context
+const BUFFER_SIZE = 5;    // target number of suggested songs
+const REFILL_AT = 1;      // refill (batched) once the buffer drains to this
+const HISTORY_LIMIT = 40; // max unique titles sent to the AI (full taste + exclude list)
 
 // Titles that signal compilations, DJ remixes, or non-song clips.
 const JUNK_TITLE = /\b(dj|remix|nonstop|kumpulan|full album|compilation|megamix|mashup|mixtape|mix|playlist|jam session)\b/i;
@@ -56,6 +56,20 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
       try {
         const need = BUFFER_SIZE - suggested.length;
         const existingIds = new Set(q.map((i) => i.youtube_id));
+        // Title-level dedup catches alternate uploads of a song we already have.
+        const existingTitles = new Set(q.map((i) => normalizeTitle(i.title)));
+        const isNew = (r: YtResult) =>
+          !existingIds.has(r.id) && !existingTitles.has(normalizeTitle(r.title));
+
+        // Full taste + exclude list: unique titles, recency-weighted, capped.
+        // Dedup collapses repeated plays so the prompt stays short.
+        const history: string[] = [];
+        const seen = new Set<string>();
+        for (let i = regular.length - 1; i >= 0 && history.length < HISTORY_LIMIT; i--) {
+          const key = normalizeTitle(regular[i].title);
+          if (key && !seen.has(key)) { seen.add(key); history.unshift(regular[i].title); }
+        }
+
         let picks: YtResult[] = [];
 
         // 1. Ask the AI for similar songs, then resolve each to a YouTube video.
@@ -63,7 +77,7 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           const aiRes = await fetch('/api/suggestions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ titles: regular.slice(-SAMPLE_SIZE).map((i) => i.title), count: need }),
+            body: JSON.stringify({ titles: history, count: need }),
           });
           const aiData = await aiRes.json();
           const songs: Array<{ artist: string; title: string }> = aiData.songs || [];
@@ -71,7 +85,7 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
             const searches = await Promise.all(songs.map((s) => ytSearch(`${s.artist} ${s.title}`)));
             for (const results of searches) {
               const hit = results.find(
-                (r) => isReasonable(r) && !existingIds.has(r.id) && !picks.some((p) => p.id === r.id)
+                (r) => isReasonable(r) && isNew(r) && !picks.some((p) => p.id === r.id)
               );
               if (hit) picks.push(hit);
               if (picks.length >= need) break;
@@ -86,10 +100,10 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           const query = buildSuggestionQuery(regular.slice(-3).map((i) => i.title));
           if (query) {
             const results = await ytSearch(query);
-            picks = results.filter((r) => !existingIds.has(r.id) && isReasonable(r)).slice(0, need);
+            picks = results.filter((r) => isNew(r) && isReasonable(r)).slice(0, need);
             if (picks.length === 0) {
               picks = results
-                .filter((r) => !existingIds.has(r.id) && !JUNK_TITLE.test(r.title))
+                .filter((r) => isNew(r) && !JUNK_TITLE.test(r.title))
                 .slice(0, need);
             }
           }

@@ -27,10 +27,12 @@ export async function POST(request: NextRequest) {
   }
 
   const prompt =
-    `You are a music recommendation engine. Based on these recently played songs, ` +
-    `suggest ${count} more songs with a similar vibe, genre, era, and language/region. ` +
-    `Only suggest real, findable songs by real artists. Do not repeat any of the input songs, ` +
-    `and do not suggest DJ remixes, mixes, or compilations.\n\nRecently played:\n` +
+    `You are a music recommendation engine. The list below is every song already ` +
+    `played or queued in this room — treat it as the room's taste profile. ` +
+    `Suggest ${count} more songs with a similar vibe, genre, era, and language/region. ` +
+    `Only suggest real, findable songs by real artists. ` +
+    `Do NOT suggest any song in the list, nor obvious duplicates/alternate versions of them. ` +
+    `Do not suggest DJ remixes, mixes, or compilations.\n\nAlready in the room:\n` +
     titles.map((t) => `- ${t}`).join('\n');
 
   try {
