@@ -295,7 +295,7 @@ export default function Queue({
             <div key={item.id}>
               {showSuggestedDivider && (
                 <div className="mono flex items-center gap-2" style={{ fontSize: 10, color: 'var(--ink-dim)', letterSpacing: '.1em', padding: '10px 4px 6px' }}>
-                  ✦ Suggested
+                  🔮 More like this
                 </div>
               )}
             <div
@@ -359,7 +359,7 @@ export default function Queue({
                 </div>
 
                 <div className="flex gap-1" style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                  {!isNow && (
+                  {!isNow && !isSuggested && (
                     <button className="btn btn-ghost btn-icon" disabled={muted || !canPlayPause} title={isPlayed ? 'Replay' : 'Play now'}
                       onClick={() => !muted && canPlayPause && onJumpTo(index)}
                       style={{ padding: 7, opacity: muted || !canPlayPause ? 0.35 : 1, cursor: muted || !canPlayPause ? 'not-allowed' : 'pointer' }}
@@ -367,7 +367,7 @@ export default function Queue({
                       <Icon name="play" size={16} />
                     </button>
                   )}
-                  {!isNow && canRearrange && (
+                  {!isNow && !isSuggested && canRearrange && (
                     <button className="btn btn-ghost btn-icon" disabled={muted} title="Move to next"
                       onClick={(e) => !muted && onMoveSongToNext(e, index)}
                       style={{ padding: 7, opacity: muted ? 0.35 : 1, cursor: muted ? 'not-allowed' : 'pointer' }}
