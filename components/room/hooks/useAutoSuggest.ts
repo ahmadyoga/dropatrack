@@ -9,6 +9,22 @@ const REFILL_AT = 1;     // refill (batched) once the buffer drains to this
 // Titles that signal compilations, DJ remixes, or non-song clips.
 const JUNK_TITLE = /\b(dj|remix|nonstop|kumpulan|full album|compilation|megamix|mashup|mixtape|mix|playlist|jam session)\b/i;
 
+type YtResult = { id: string; title: string; thumbnail: string; durationSeconds: number };
+
+// Real tracks run ~1-10 min; compilations ("kumpulan lagu") run 20-120 min.
+const isReasonable = (r: YtResult) =>
+  r.durationSeconds >= 60 && r.durationSeconds <= 600 && !JUNK_TITLE.test(r.title);
+
+async function ytSearch(query: string): Promise<YtResult[]> {
+  try {
+    const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    return (data.results as YtResult[]) || [];
+  } catch {
+    return [];
+  }
+}
+
 interface UseAutoSuggestProps {
   room: Room;
   queue: QueueItem[];
@@ -37,35 +53,50 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
     fetchingRef.current = true;
     (async () => {
       try {
-        const query = buildSuggestionQuery(regular.slice(-3).map((i) => i.title));
-        if (!query) return;
-
-        const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        const results: Array<{ id: string; title: string; thumbnail: string; durationSeconds: number }> =
-          data.results || [];
-
-        const existingIds = new Set(q.map((i) => i.youtube_id));
         const need = BUFFER_SIZE - suggested.length;
-        // Reject compilations / DJ mixes / non-song clips: junk in the title
-        // or an off-song duration (real tracks ~1-10 min; "kumpulan lagu" is 20-120 min).
-        const isReasonable = (r: { title: string; durationSeconds: number }) =>
-          r.durationSeconds >= 60 &&
-          r.durationSeconds <= 600 &&
-          !JUNK_TITLE.test(r.title);
-        let picks = results.filter((r) => !existingIds.has(r.id) && isReasonable(r)).slice(0, need);
-        // Fallback: if filtering left nothing, allow non-junk regardless of duration.
-        if (picks.length === 0) {
-          picks = results
-            .filter((r) => !existingIds.has(r.id) && !JUNK_TITLE.test(r.title))
-            .slice(0, need);
+        const existingIds = new Set(q.map((i) => i.youtube_id));
+        let picks: YtResult[] = [];
+
+        // 1. Ask the AI for similar songs, then resolve each to a YouTube video.
+        try {
+          const aiRes = await fetch('/api/suggestions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ titles: regular.slice(-5).map((i) => i.title), count: need }),
+          });
+          const aiData = await aiRes.json();
+          const songs: Array<{ artist: string; title: string }> = aiData.songs || [];
+          if (songs.length > 0) {
+            const searches = await Promise.all(songs.map((s) => ytSearch(`${s.artist} ${s.title}`)));
+            for (const results of searches) {
+              const hit = results.find(
+                (r) => isReasonable(r) && !existingIds.has(r.id) && !picks.some((p) => p.id === r.id)
+              );
+              if (hit) picks.push(hit);
+              if (picks.length >= need) break;
+            }
+          }
+        } catch {
+          /* fall through to the heuristic single-search */
         }
+
+        // 2. Fallback: no AI key / no AI hits → one heuristic search.
+        if (picks.length === 0) {
+          const query = buildSuggestionQuery(regular.slice(-3).map((i) => i.title));
+          if (query) {
+            const results = await ytSearch(query);
+            picks = results.filter((r) => !existingIds.has(r.id) && isReasonable(r)).slice(0, need);
+            if (picks.length === 0) {
+              picks = results
+                .filter((r) => !existingIds.has(r.id) && !JUNK_TITLE.test(r.title))
+                .slice(0, need);
+            }
+          }
+        }
+
         if (picks.length === 0) return;
 
-        const maxSugPos = suggested.reduce(
-          (m, i) => Math.max(m, i.suggested_position ?? 0),
-          0
-        );
+        const maxSugPos = suggested.reduce((m, i) => Math.max(m, i.suggested_position ?? 0), 0);
         const rows = picks.map((r, idx) => ({
           room_id: roomRef.current.id,
           youtube_id: r.id,
