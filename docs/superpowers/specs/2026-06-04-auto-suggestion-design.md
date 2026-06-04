@@ -206,6 +206,48 @@ Toggle button sits in the Queue panel header alongside the existing repeat butto
 
 ---
 
+---
+
+## Supabase Migration Structure Setup
+
+Before adding new columns, migrate the project to proper Supabase CLI migration structure so future schema changes are push-to-deploy via GitHub integration.
+
+### Current state
+
+4 loose SQL files at project root:
+- `supabase-schema.sql` — full initial schema
+- `add-playback-updated-at.sql` — migration
+- `supabase-migration-og-snapshot.sql` — migration
+- `og_tokens_migration.sql` — migration
+
+### Target structure
+
+```
+supabase/
+  config.toml          ← supabase init generates this
+  migrations/
+    20240101000000_initial_schema.sql
+    20240101000001_add_playback_updated_at.sql
+    20240101000002_og_snapshot.sql
+    20240101000003_og_tokens.sql
+    20260604000001_auto_suggest.sql   ← new
+```
+
+### Migration file for this feature
+
+`supabase/migrations/20260604000001_auto_suggest.sql`:
+```sql
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS auto_suggest boolean NOT NULL DEFAULT false;
+ALTER TABLE queue_items ADD COLUMN IF NOT EXISTS is_suggested boolean NOT NULL DEFAULT false;
+ALTER TABLE queue_items ADD COLUMN IF NOT EXISTS suggested_position integer NULL;
+```
+
+### GitHub integration
+
+After `supabase/` is committed and pushed, user connects repo via Supabase dashboard → GitHub integration. Future migrations: push branch → Supabase applies automatically. Original loose SQL files can be removed from root after migration structure is confirmed.
+
+---
+
 ## Out of Scope
 
 - Personalization by individual user history
