@@ -120,7 +120,7 @@ Each subsequent fetch: assign `suggested_position = MAX(current suggested_positi
 
 ### Who fetches
 
-Only the **playback sync authority** (lowest `user_id` among active speakers) fires the suggestion fetch and DB insert. All other clients wait for the Supabase Realtime row-insert event. This prevents N clients all calling `/api/youtube/search` simultaneously.
+Only the **playback sync authority** (lowest `user_id` among active speakers) fires the suggestion fetch and DB insert. All other clients wait for the Supabase Realtime row-insert event. This prevents N clients calling `/api/youtube/search` simultaneously. Note: graduation itself is now handled by the DB trigger — the authority client is only responsible for fetching new suggestions.
 
 ### Skip detection
 
@@ -143,18 +143,57 @@ If YouTube search fails or returns no new results: suggested section stays at cu
 
 ## Graduation: Suggested → Regular Queue
 
-When `current_song_index` moves to point at an `is_suggested` item:
+Handled by a **Postgres trigger** — no client-side authority needed.
 
-1. The playback sync authority client (lowest `user_id` among active speakers) detects this
-2. Fires Supabase update on that `queue_items` row:
-   ```
-   is_suggested = false
-   position = MAX(regular position) + 1
-   suggested_position = NULL
-   ```
-3. Supabase Realtime pushes row change to all clients
-4. All clients re-render — item disappears from Suggested section, appears at tail of regular queue
-5. No broadcast needed (Realtime handles it)
+When `rooms.current_song_index` is updated, the trigger checks if the song at that index has `is_suggested = true`. If so, it promotes it atomically.
+
+```sql
+CREATE OR REPLACE FUNCTION graduate_suggested_song()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_item_id uuid;
+  v_max_pos integer;
+BEGIN
+  IF OLD.current_song_index = NEW.current_song_index THEN
+    RETURN NEW;
+  END IF;
+
+  -- Find item at new index (mirrors client array ordering:
+  -- regular songs first by position, then suggested by suggested_position)
+  SELECT id INTO v_item_id
+  FROM (
+    SELECT id,
+      ROW_NUMBER() OVER (
+        ORDER BY is_suggested ASC,
+        CASE WHEN is_suggested = false THEN position
+             ELSE suggested_position END ASC
+      ) - 1 AS idx
+    FROM queue_items
+    WHERE room_id = NEW.id
+  ) ranked
+  WHERE idx = NEW.current_song_index AND is_suggested = true;
+
+  IF v_item_id IS NOT NULL THEN
+    SELECT COALESCE(MAX(position), 0) INTO v_max_pos
+    FROM queue_items WHERE room_id = NEW.id AND is_suggested = false;
+
+    UPDATE queue_items
+    SET is_suggested = false,
+        position = v_max_pos + 1,
+        suggested_position = NULL
+    WHERE id = v_item_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_graduate_suggested
+AFTER UPDATE OF current_song_index ON rooms
+FOR EACH ROW EXECUTE FUNCTION graduate_suggested_song();
+```
+
+Supabase Realtime pushes the `queue_items` row change to all clients automatically. All clients re-render — item moves from Suggested section to regular queue tail. No client authority or broadcast needed.
 
 ---
 
@@ -240,6 +279,43 @@ supabase/
 ALTER TABLE rooms ADD COLUMN IF NOT EXISTS auto_suggest boolean NOT NULL DEFAULT false;
 ALTER TABLE queue_items ADD COLUMN IF NOT EXISTS is_suggested boolean NOT NULL DEFAULT false;
 ALTER TABLE queue_items ADD COLUMN IF NOT EXISTS suggested_position integer NULL;
+
+-- Trigger: auto-graduate suggested song when current_song_index advances to it
+CREATE OR REPLACE FUNCTION graduate_suggested_song()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_item_id uuid;
+  v_max_pos integer;
+BEGIN
+  IF OLD.current_song_index = NEW.current_song_index THEN
+    RETURN NEW;
+  END IF;
+  SELECT id INTO v_item_id
+  FROM (
+    SELECT id,
+      ROW_NUMBER() OVER (
+        ORDER BY is_suggested ASC,
+        CASE WHEN is_suggested = false THEN position
+             ELSE suggested_position END ASC
+      ) - 1 AS idx
+    FROM queue_items WHERE room_id = NEW.id
+  ) ranked
+  WHERE idx = NEW.current_song_index AND is_suggested = true;
+
+  IF v_item_id IS NOT NULL THEN
+    SELECT COALESCE(MAX(position), 0) INTO v_max_pos
+    FROM queue_items WHERE room_id = NEW.id AND is_suggested = false;
+    UPDATE queue_items
+    SET is_suggested = false, position = v_max_pos + 1, suggested_position = NULL
+    WHERE id = v_item_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_graduate_suggested
+AFTER UPDATE OF current_song_index ON rooms
+FOR EACH ROW EXECUTE FUNCTION graduate_suggested_song();
 ```
 
 ### GitHub integration
