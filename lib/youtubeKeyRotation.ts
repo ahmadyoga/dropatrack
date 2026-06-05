@@ -106,10 +106,12 @@ class YouTubeKeyRotation {
 
         stats.errorCount++;
 
-        // Detect quota exhaustion
-        const isQuotaError =
-            statusCode === 403 ||
-            (statusCode === 429 && errorMessage?.includes('quota'));
+        // Any 403 or 429 from YouTube means "stop using this key for now":
+        // the search_list quota is a hard 100/day-per-project cap that returns
+        // 429 rateLimitExceeded, and 403 covers quotaExceeded. Sideline the key
+        // so rotation moves to the next one (only helps across separate GCP
+        // projects, since the cap is per project, not per key).
+        const isQuotaError = statusCode === 403 || statusCode === 429;
 
         if (isQuotaError) {
             stats.quotaExhausted = true;

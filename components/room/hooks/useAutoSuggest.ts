@@ -16,9 +16,12 @@ type YtResult = { id: string; title: string; thumbnail: string; durationSeconds:
 const isReasonable = (r: YtResult) =>
   r.durationSeconds >= 60 && r.durationSeconds <= 600 && !JUNK_TITLE.test(r.title);
 
-async function ytSearch(query: string): Promise<YtResult[]> {
+// Returns the results, or null when YouTube is rate-limited / quota-exhausted
+// (429/403) so callers can stop firing more searches that will only fail.
+async function ytSearch(query: string): Promise<YtResult[] | null> {
   try {
     const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+    if (res.status === 429 || res.status === 403) return null;
     const data = await res.json();
     return (data.results as YtResult[]) || [];
   } catch {
@@ -91,6 +94,7 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           for (const s of songs) {
             if (picks.length >= need) break;
             const results = await ytSearch(`${s.artist} ${s.title}`);
+            if (results === null) return; // rate-limited / quota dead — stop the batch
             const hit = results.find(
               (r) => isReasonable(r) && isNew(r) && !picks.some((p) => p.id === r.id)
             );
@@ -105,6 +109,7 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           const query = buildSuggestionQuery(regular.slice(-3).map((i) => i.title));
           if (query) {
             const results = await ytSearch(query);
+            if (results === null) return; // rate-limited / quota dead
             picks = results.filter((r) => isNew(r) && isReasonable(r)).slice(0, need);
             if (picks.length === 0) {
               picks = results
