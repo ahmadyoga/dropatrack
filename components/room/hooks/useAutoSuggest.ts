@@ -77,19 +77,24 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           const aiRes = await fetch('/api/suggestions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ titles: history, count: need }),
+            // Ask for extras so the serial search loop has backups when a
+            // candidate fails to resolve — the Gemini call is free; only the
+            // YouTube searches (early-exited at `need`) cost quota.
+            body: JSON.stringify({ titles: history, count: need + 3 }),
           });
           const aiData = await aiRes.json();
           const songs: Array<{ artist: string; title: string }> = aiData.songs || [];
-          if (songs.length > 0) {
-            const searches = await Promise.all(songs.map((s) => ytSearch(`${s.artist} ${s.title}`)));
-            for (const results of searches) {
-              const hit = results.find(
-                (r) => isReasonable(r) && isNew(r) && !picks.some((p) => p.id === r.id)
-              );
-              if (hit) picks.push(hit);
-              if (picks.length >= need) break;
-            }
+          // Search one song at a time and stop as soon as the buffer is filled.
+          // search.list costs 100 quota units each, so resolving 5 songs in
+          // parallel burned ~500 units/batch and tripped YouTube's per-100s rate
+          // limit (429). Serial + early-exit keeps it to ~need searches.
+          for (const s of songs) {
+            if (picks.length >= need) break;
+            const results = await ytSearch(`${s.artist} ${s.title}`);
+            const hit = results.find(
+              (r) => isReasonable(r) && isNew(r) && !picks.some((p) => p.id === r.id)
+            );
+            if (hit) picks.push(hit);
           }
         } catch {
           /* fall through to the heuristic single-search */

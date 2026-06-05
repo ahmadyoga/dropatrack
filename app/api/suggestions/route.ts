@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
     `You are a music recommendation engine. The list below is every song already ` +
     `played or queued in this room — treat it as the room's taste profile. ` +
     `Suggest ${count} more songs with a similar vibe, genre, era, and language/region. ` +
+    `Favor songs by different but related artists over more songs by the same artist. ` +
     `Only suggest real, findable songs by real artists. ` +
     `Do NOT suggest any song in the list, nor obvious duplicates/alternate versions of them. ` +
     `Do not suggest DJ remixes, mixes, or compilations.\n\nAlready in the room:\n` +
