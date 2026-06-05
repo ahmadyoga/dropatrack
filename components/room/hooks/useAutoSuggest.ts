@@ -6,6 +6,9 @@ import type { Room, QueueItem } from '@/lib/types';
 const BUFFER_SIZE = 5;    // target number of suggested songs
 const REFILL_AT = 1;      // refill (batched) once the buffer drains to this
 const HISTORY_LIMIT = 40; // max unique titles sent to the AI (full taste + exclude list)
+const SEARCH_GAP_MS = 1500; // stagger between resolution searches to respect YouTube's per-100s rate
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Titles that signal compilations, DJ remixes, or non-song clips.
 const JUNK_TITLE = /\b(dj|remix|nonstop|kumpulan|full album|compilation|megamix|mashup|mixtape|mix|playlist|jam session)\b/i;
@@ -91,9 +94,10 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           // search.list costs 100 quota units each, so resolving 5 songs in
           // parallel burned ~500 units/batch and tripped YouTube's per-100s rate
           // limit (429). Serial + early-exit keeps it to ~need searches.
-          for (const s of songs) {
+          for (let i = 0; i < songs.length; i++) {
             if (picks.length >= need) break;
-            const results = await ytSearch(`${s.artist} ${s.title}`);
+            if (i > 0) await sleep(SEARCH_GAP_MS); // stagger to avoid burst rate-limit
+            const results = await ytSearch(`${songs[i].artist} ${songs[i].title}`);
             if (results === null) return; // rate-limited / quota dead — stop the batch
             const hit = results.find(
               (r) => isReasonable(r) && isNew(r) && !picks.some((p) => p.id === r.id)
