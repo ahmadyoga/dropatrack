@@ -21,6 +21,7 @@ import { useQueue } from './room/hooks/useQueue';
 import { useAutoSuggest } from './room/hooks/useAutoSuggest';
 import { useDiscovery } from './room/hooks/useDiscovery';
 import { useChat } from './room/hooks/useChat';
+import { useGameSession } from './room/hooks/useGameSession';
 
 // Context
 import { RoomProvider } from './room/RoomContext';
@@ -37,6 +38,10 @@ import MobileNav from './room/MobileNav';
 import StarField from './room/ui/StarField';
 import SettingsModal from './room/modals/SettingsModal';
 import ImagePreviewModal from './room/modals/ImagePreviewModal';
+import GameCreateModal from './room/game/GameCreateModal';
+import WaitingRoom from './room/game/WaitingRoom';
+import MinesweeperBoard from './room/game/MinesweeperBoard';
+import type { Level } from '@/lib/types';
 
 function detectTimezone(): string {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta'; }
@@ -73,6 +78,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [mobileTab, setMobileTab] = useState<MobileTab>('player');
   const [isMobile, setIsMobile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGameCreate, setShowGameCreate] = useState(false);
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [userTimezone] = useState(() => detectTimezone());
 
@@ -153,6 +160,50 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     currentUserRef, isChatVisibleRef,
     isSpeaker, myRole, room,
   });
+
+  // ── Game Session ──────────────────────────────────────────────────────────
+  const {
+    session, board, myTurn, startSession, joinSession, makeMove,
+  } = useGameSession();
+
+  const handleCreateGame = useCallback(async (level: Level) => {
+    if (!currentUser) return;
+    await startSession(level);
+    setShowGameCreate(false);
+  }, [currentUser, startSession]);
+
+  useEffect(() => {
+    if (session && session.host_id === currentUser?.user_id && !session.chat_message_id) {
+      handleSendChat(undefined, 'game_invite', {
+        id: session.id,
+        level: session.level,
+        status: session.status,
+        players: session.players,
+        host_id: session.host_id,
+        host_username: session.host_username,
+        current_turn_index: session.current_turn_index,
+        room_id: session.room_id,
+        created_at: session.created_at,
+        updated_at: session.updated_at,
+      });
+      supabase.from('game_sessions').update({ chat_message_id: 'sent' }).eq('id', session.id).then(() => {});
+    }
+  }, [session, currentUser?.user_id, handleSendChat]);
+
+  const handleJoinGame = useCallback(async (sessionId: string) => {
+    setActiveGameId(sessionId);
+    await joinSession(sessionId);
+  }, [joinSession]);
+
+  const gamePlayers = useMemo(() => {
+    if (!session) return [];
+    return session.players.map(pid => {
+      const u = users.find(u => u.user_id === pid);
+      return { user_id: pid, username: u?.username || 'Unknown' };
+    });
+  }, [session, users]);
+
+  const gameUsernames = useMemo(() => gamePlayers.map(p => p.username), [gamePlayers]);
 
   // Sync broadcast to ref immediately (safe — refs don't trigger re-renders)
   broadcastRef.current = broadcast;
@@ -332,6 +383,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       addSongToQueue(youtubeId, title, '', 0),
     onPreviewImage: setPreviewImage,
     onSeen: () => setUnreadChatCount(0),
+    onCreateGame: () => setShowGameCreate(true),
+    onJoinGame: handleJoinGame,
   };
 
   if (usernameState === 'loading') {
@@ -445,6 +498,36 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         )}
         {previewImage && (
           <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+        )}
+
+        {showGameCreate && (
+          <GameCreateModal onClose={() => setShowGameCreate(false)} onCreateGame={handleCreateGame} />
+        )}
+
+        {activeGameId && session && (
+          <div className="scrim" style={{ zIndex: 1000 }} onClick={() => setActiveGameId(null)}>
+            <div onClick={e => e.stopPropagation()}>
+              {session.status === 'playing' ? (
+                <MinesweeperBoard
+                  board={board!}
+                  myTurn={myTurn}
+                  currentTurnUser={gameUsernames[session.current_turn_index]}
+                  players={gameUsernames}
+                  onReveal={(r, c) => makeMove(r, c, 'reveal')}
+                  onFlag={(r, c) => makeMove(r, c, 'flag')}
+                  gameOver={session.winner_id ? { won: session.winner_id === currentUser?.user_id } : null}
+                />
+              ) : (
+                <WaitingRoom
+                  session={session}
+                  players={gamePlayers}
+                  isHost={session.host_id === currentUser?.user_id}
+                  onStart={() => supabase.from('game_sessions').update({ status: 'playing' }).eq('id', session.id)}
+                  onLeave={() => setActiveGameId(null)}
+                />
+              )}
+            </div>
+          </div>
         )}
 
         {/* Chat toast */}

@@ -103,5 +103,62 @@ export interface ChatMessage {
   message: string;
   image_url: string | null;
   song_ref: ChatSongRef | null;
+  type?: string;
+  payload?: any;
+  created_at: string;
+}
+
+// ─── Minesweeper game types ───────────────────────────────────────────────────
+
+export type Level = 'easy' | 'medium' | 'hard';
+
+export const LEVEL_CONFIG: Record<Level, { rows: number; cols: number; mines: number; label: string }> = {
+  easy:   { rows: 9,  cols: 9,  mines: 10, label: 'Easy'   },
+  medium: { rows: 16, cols: 16, mines: 40, label: 'Medium'  },
+  hard:   { rows: 16, cols: 30, mines: 99, label: 'Hard'    },
+};
+
+export type CellState = 'unrevealed' | 'revealed' | 'flagged' | 'mine';
+
+export interface Cell {
+  state: CellState;
+  adjacentMines: number;
+  isMine: boolean;
+}
+
+export type Board = Cell[][];
+
+export interface UserPresence {
+  user_id: string;
+  username: string;
+}
+
+export type GameStatus = 'waiting' | 'playing' | 'finished';
+
+export interface GameSession {
+  id: string;
+  room_id: string;
+  chat_message_id?: string;
+  level: Level;
+  status: GameStatus;
+  host_id: string;
+  host_username: string;
+  players: string[];           // ordered turn list (user_ids)
+  current_turn_index: number;
+  board?: Board;               // sent when game starts
+  winner_id?: string;
+  created_at: string;
+  updated_at: string;
+  started_at?: string;
+  finished_at?: string;
+}
+
+export interface GameMove {
+  id: string;
+  game_session_id: string;
+  user_id: string;
+  row: number;
+  col: number;
+  action: 'reveal' | 'flag' | 'chord';
   created_at: string;
 }
