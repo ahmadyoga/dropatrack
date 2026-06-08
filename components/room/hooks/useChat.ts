@@ -100,11 +100,11 @@ export function useChat({
     }
   }, [chatMessages]);
 
-  const handleSendChat = useCallback(async (imageUrl?: string, type?: string, payload?: any) => {
+  const handleSendChat = useCallback(async (imageUrl?: string) => {
     const messageText = chatInput.trim();
-    if (!messageText && !imageUrl && !type) return;
+    if (!messageText && !imageUrl) return;
     if (sendingChat || !currentUser) return;
-    if (!type) setChatInput('');
+    setChatInput('');
     setSendingChat(true);
     try {
       await fetch('/api/chat', {
@@ -117,8 +117,6 @@ export function useChat({
           avatar_color: currentUser.avatar_color,
           message: messageText,
           ...(imageUrl ? { image_url: imageUrl } : {}),
-          ...(type ? { type } : {}),
-          ...(payload ? { payload } : {}),
         }),
       });
     } catch (err) { console.error('Chat send failed:', err); }

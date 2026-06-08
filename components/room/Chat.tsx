@@ -3,7 +3,6 @@
 import { useRef, useState, useCallback } from 'react';
 import Avatar from './ui/Avatar';
 import Icon from './ui/Icon';
-import GameInviteMessage from './game/GameInviteMessage';
 import { useRoom } from './RoomContext';
 import type { ChatMessage } from '@/lib/types';
 
@@ -22,13 +21,11 @@ interface ChatProps {
   uploadingImage: boolean;
   unreadChatCount: number;
   chatEndRef: React.RefObject<HTMLDivElement | null>;
-  onSendChat: (imageUrl?: string, type?: string, payload?: any) => Promise<void>;
+  onSendChat: (imageUrl?: string) => Promise<void>;
   onUploadImage: (file: File) => Promise<string | null>;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
   onSeen: () => void;
-  onCreateGame: () => void;
-  onJoinGame: (sessionId: string) => void;
 }
 
 export default function Chat({
@@ -44,8 +41,6 @@ export default function Chat({
   onAddSongFromChat,
   onPreviewImage,
   onSeen,
-  onCreateGame,
-  onJoinGame,
 }: ChatProps) {
   const { currentUser } = useRoom();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -125,7 +120,6 @@ export default function Chat({
             isMe={msg.user_id === currentUser?.user_id}
             onAddSongFromChat={onAddSongFromChat}
             onPreviewImage={onPreviewImage}
-            onJoinGame={onJoinGame}
           />
         ))}
         <div ref={chatEndRef} />
@@ -153,15 +147,6 @@ export default function Chat({
       {/* input row */}
       <div className="flex items-center gap-2" style={{ padding: '11px 13px', borderTop: '3px solid var(--outline)', background: 'var(--panel)', flexShrink: 0 }}>
         <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { if (e.target.files?.[0]) stageFile(e.target.files[0]); }} />
-        <button
-          className="btn pop-sm btn-icon"
-          onClick={onCreateGame}
-          disabled={busy}
-          title="Start Minesweeper"
-          style={{ flexShrink: 0 }}
-        >
-          <Icon name="gamepad" size={19} />
-        </button>
         <button
           className="btn pop-sm btn-icon"
           onClick={() => fileInputRef.current?.click()}
@@ -195,14 +180,11 @@ export default function Chat({
   );
 }
 
-function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame }: {
+function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage }: {
   msg: ChatMessage; isMe: boolean;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
-  onJoinGame: (sessionId: string) => void;
 }) {
-  const { currentUser } = useRoom();
-
   return (
     <div className="flex items-start gap-2" style={{ flexDirection: isMe ? 'row-reverse' : 'row' }}>
       <div className="pop-sm" style={{ borderRadius: '50%', overflow: 'hidden', border: '2.5px solid var(--outline)', width: 34, height: 34, flexShrink: 0, background: 'var(--panel-2)' }}>
@@ -218,15 +200,7 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame }: {
           </span>
         </div>
 
-        {msg.type === 'game_invite' && msg.payload?.sessionId && (
-          <GameInviteMessage 
-            session={msg.payload} 
-            onJoin={onJoinGame} 
-            currentUserId={currentUser?.user_id || ''} 
-          />
-        )}
-
-        {(msg.message || msg.image_url) && msg.type !== 'game_invite' && (
+        {(msg.message || msg.image_url) && (
           <div
             className="pop-sm"
             style={{
