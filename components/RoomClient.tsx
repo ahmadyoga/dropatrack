@@ -21,6 +21,7 @@ import { useQueue } from './room/hooks/useQueue';
 import { useAutoSuggest } from './room/hooks/useAutoSuggest';
 import { useDiscovery } from './room/hooks/useDiscovery';
 import { useChat } from './room/hooks/useChat';
+import { useGameSession } from './room/hooks/useGameSession';
 
 // Context
 import { RoomProvider } from './room/RoomContext';
@@ -37,6 +38,9 @@ import MobileNav from './room/MobileNav';
 import StarField from './room/ui/StarField';
 import SettingsModal from './room/modals/SettingsModal';
 import ImagePreviewModal from './room/modals/ImagePreviewModal';
+import GameCreateModal from './room/game/GameCreateModal';
+import MinesweeperBoard from './room/game/MinesweeperBoard';
+import type { Level } from '@/lib/types';
 
 function detectTimezone(): string {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta'; }
@@ -59,13 +63,18 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [defaultUsername, setDefaultUsername] = useState('');
 
   useEffect(() => {
-    const user = getOrCreateUser();
-    if (user?.is_default_username) {
-      setDefaultUsername(user.username);
-      setUsernameState('modal');
-    } else {
-      setUsernameState('ready');
-    }
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      const user = getOrCreateUser();
+      if (user?.is_default_username) {
+        setDefaultUsername(user.username);
+        setUsernameState('modal');
+      } else {
+        setUsernameState('ready');
+      }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const [room, setRoom] = useState<Room>(initialRoom);
@@ -73,6 +82,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [mobileTab, setMobileTab] = useState<MobileTab>('player');
   const [isMobile, setIsMobile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showGameCreate, setShowGameCreate] = useState(false);
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [userTimezone] = useState(() => detectTimezone());
 
@@ -102,10 +113,16 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 1024px)');
-    setIsMobile(mq.matches);
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) setIsMobile(mq.matches);
+    });
     const h = (e: MediaQueryListEvent) => setIsMobile(e.matches);
     mq.addEventListener('change', h);
-    return () => mq.removeEventListener('change', h);
+    return () => {
+      cancelled = true;
+      mq.removeEventListener('change', h);
+    };
   }, []);
   useEffect(() => { isChatVisibleRef.current = mobileTab === 'chat'; }, [mobileTab]);
 
@@ -154,8 +171,67 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     isSpeaker, myRole, room,
   });
 
-  // Sync broadcast to ref immediately (safe — refs don't trigger re-renders)
-  broadcastRef.current = broadcast;
+  // ── Game Session ──────────────────────────────────────────────────────────
+  const {
+    session, board, myTurn, startSession, joinSession, makeMove, playAgain, finishSession,
+  } = useGameSession(room.id, currentUser ?? null);
+
+  const handleCreateGame = useCallback(async (level: Level) => {
+    if (!currentUser) return;
+    const sessionId = await startSession(level);
+    if (sessionId) {
+      setShowGameCreate(false);
+      setActiveGameId(sessionId);
+    }
+  }, [currentUser, startSession]);
+
+  const inviteSentRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      session &&
+      session.host_id === currentUser?.user_id &&
+      !session.chat_message_id &&
+      inviteSentRef.current !== session.id
+    ) {
+      inviteSentRef.current = session.id;
+      handleSendChat(undefined, 'game_invite', {
+        id: session.id,
+        level: session.level,
+        status: session.status,
+        players: session.players,
+        host_id: session.host_id,
+        host_username: session.host_username,
+        current_turn_index: session.current_turn_index,
+        room_id: session.room_id,
+        created_at: session.created_at,
+        updated_at: session.updated_at,
+      });
+    }
+  }, [session, currentUser?.user_id, handleSendChat]);
+
+  const handleJoinGame = useCallback(async (sessionId: string) => {
+    setActiveGameId(sessionId);
+    await joinSession(sessionId);
+  }, [joinSession]);
+
+  const gamePlayers = useMemo(() => {
+    if (!session) return [];
+    return session.players.map(pid => {
+      // 1. presence (most live)
+      const presenceUser = users.find(u => u.user_id === pid);
+      if (presenceUser) return { user_id: pid, username: presenceUser.username };
+      // 2. stored in session (written on join)
+      const storedName = session.player_usernames?.[pid];
+      if (storedName) return { user_id: pid, username: storedName };
+      // 3. self
+      if (currentUser && pid === currentUser.user_id) return { user_id: pid, username: currentUser.username };
+      return { user_id: pid, username: 'Unknown' };
+    });
+  }, [session, users, currentUser]);
+
+  const gameUsernames = useMemo(() => gamePlayers.map(p => p.username), [gamePlayers]);
+
+  useEffect(() => { broadcastRef.current = broadcast; }, [broadcast]);
 
   // ── Playback ──────────────────────────────────────────────────────────────
   const { broadcastPlayback, handlePlayPause, handleNext, handlePrev, handleJumpTo } = usePlayback({
@@ -184,7 +260,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     canPlayPause: myRole === 'admin' || myRole === 'moderator',
     broadcast, broadcastPlayback,
   });
-  addSongRef.current = addSongToQueue;
+  useEffect(() => { addSongRef.current = addSongToQueue; }, [addSongToQueue]);
 
   // ── Discovery ─────────────────────────────────────────────────────────────
   const {
@@ -332,6 +408,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       addSongToQueue(youtubeId, title, '', 0),
     onPreviewImage: setPreviewImage,
     onSeen: () => setUnreadChatCount(0),
+    onCreateGame: () => setShowGameCreate(true),
+    onJoinGame: handleJoinGame,
+    activeSession: session,
   };
 
   if (usernameState === 'loading') {
@@ -445,6 +524,73 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         )}
         {previewImage && (
           <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
+        )}
+
+        {session?.status === 'active' && (
+          <button
+            className="pop wobble flex items-center gap-3"
+            onClick={() => setActiveGameId(session.id)}
+            style={{
+              position: 'fixed',
+              right: isMobile ? 16 : 24,
+              bottom: isMobile ? 86 : 24,
+              zIndex: 180,
+              padding: '10px 14px',
+              background: 'var(--accent)',
+              color: '#140f1f',
+              border: '3px solid var(--outline)',
+              borderRadius: 14,
+              boxShadow: '5px 5px 0 var(--shadow)',
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            <span style={{ fontSize: 20 }}>🎮</span>
+            <span className="col" style={{ gap: 2 }}>
+              <span className="display" style={{ fontSize: 13 }}>Active Game</span>
+              <span className="mono" style={{ fontSize: 10 }}>Minesweeper · Match #{session.match_number ?? 1}</span>
+            </span>
+          </button>
+        )}
+
+        {showGameCreate && (
+          <GameCreateModal onClose={() => setShowGameCreate(false)} onCreateGame={handleCreateGame} />
+        )}
+
+        {activeGameId && session && (
+          <div className="scrim" style={{ zIndex: 1000 }} onClick={() => setActiveGameId(null)}>
+            <div onClick={e => e.stopPropagation()}>
+              {board && (
+                <MinesweeperBoard
+                  board={board}
+                  myTurn={myTurn && !session.loser_id && session.status === 'active'}
+                  currentTurnUser={gameUsernames[session.current_turn_index] ?? ''}
+                  currentTurnStartedAt={session.current_turn_started_at ?? null}
+                  players={gameUsernames}
+                  matchNumber={session.match_number ?? 1}
+                  scores={session.scores ?? []}
+                  loserUserId={session.loser_id ?? null}
+                  onReveal={(r, c) => makeMove(r, c, 'reveal')}
+                  onFlag={(r, c) => makeMove(r, c, 'flag')}
+                  gameOver={session.loser_id ? {
+                    won: session.loser_id !== currentUser?.user_id,
+                    message: `${gamePlayers.find(p => p.user_id === session.loser_id)?.username ?? 'Someone'} hit a mine.`,
+                  } : null}
+                  onPlayAgain={() => playAgain(session.id)}
+                  onFinish={() => {
+                    finishSession(session.id);
+                    setActiveGameId(null);
+                    handleSendChat(undefined, 'game_summary', {
+                      id: session.id,
+                      level: session.level,
+                      scores: session.scores ?? [],
+                    });
+                  }}
+                  onClose={() => setActiveGameId(null)}
+                />
+              )}
+            </div>
+          </div>
         )}
 
         {/* Chat toast */}

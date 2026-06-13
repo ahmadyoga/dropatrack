@@ -3,8 +3,9 @@
 import { useRef, useState, useCallback } from 'react';
 import Avatar from './ui/Avatar';
 import Icon from './ui/Icon';
+import GameInviteMessage from './game/GameInviteMessage';
 import { useRoom } from './RoomContext';
-import type { ChatMessage } from '@/lib/types';
+import type { ChatMessage, GameSession } from '@/lib/types';
 
 function relTime(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -21,11 +22,33 @@ interface ChatProps {
   uploadingImage: boolean;
   unreadChatCount: number;
   chatEndRef: React.RefObject<HTMLDivElement | null>;
-  onSendChat: (imageUrl?: string) => Promise<void>;
+  onSendChat: (imageUrl?: string, type?: string, payload?: unknown) => Promise<void>;
   onUploadImage: (file: File) => Promise<string | null>;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
   onSeen: () => void;
+  onCreateGame: () => void;
+  onJoinGame: (sessionId: string) => void;
+  activeSession?: GameSession | null;
+}
+
+function isGameSummaryPayload(payload: unknown): payload is { scores: Array<{ user_id: string; username?: string; wins: number; losses: number }> } {
+  return Boolean(
+    payload &&
+    typeof payload === 'object' &&
+    'scores' in payload &&
+    Array.isArray((payload as { scores?: unknown }).scores)
+  );
+}
+
+function isGameInvitePayload(payload: unknown): payload is GameSession {
+  return Boolean(
+    payload &&
+    typeof payload === 'object' &&
+    'id' in payload &&
+    'level' in payload &&
+    'players' in payload
+  );
 }
 
 export default function Chat({
@@ -41,11 +64,15 @@ export default function Chat({
   onAddSongFromChat,
   onPreviewImage,
   onSeen,
+  onCreateGame,
+  onJoinGame,
+  activeSession,
 }: ChatProps) {
   const { currentUser } = useRoom();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+  const [showGameMenu, setShowGameMenu] = useState(false);
 
   const stageFile = useCallback((file: File) => {
     const reader = new FileReader();
@@ -60,6 +87,11 @@ export default function Chat({
 
   const handleSend = async () => {
     if (!chatInput.trim() && !pendingFile) return;
+    if (chatInput.trim().toLowerCase() === '/game') {
+      setChatInput('');
+      setShowGameMenu(true);
+      return;
+    }
     if (pendingFile) {
       const url = await onUploadImage(pendingFile);
       clearPending();
@@ -120,6 +152,8 @@ export default function Chat({
             isMe={msg.user_id === currentUser?.user_id}
             onAddSongFromChat={onAddSongFromChat}
             onPreviewImage={onPreviewImage}
+            onJoinGame={onJoinGame}
+            activeSession={activeSession}
           />
         ))}
         <div ref={chatEndRef} />
@@ -156,6 +190,15 @@ export default function Chat({
         >
           <Icon name="image" size={19} />
         </button>
+        <button
+          className="btn pop-sm btn-icon"
+          onClick={() => setShowGameMenu((open) => !open)}
+          disabled={busy}
+          title="Games"
+          style={{ flexShrink: 0 }}
+        >
+          <Icon name="gamepad" size={19} />
+        </button>
         <input
           className="field"
           style={{ flex: 1, padding: '11px 14px' }}
@@ -176,15 +219,59 @@ export default function Chat({
           {busy ? '…' : <Icon name="send" size={19} />}
         </button>
       </div>
+
+      {showGameMenu && (
+        <div
+          className="scrim"
+          style={{ zIndex: 900 }}
+          onClick={() => setShowGameMenu(false)}
+        >
+          <div
+            className="pop wobble-2 col popin"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: 'min(340px, 92vw)', overflow: 'hidden', boxShadow: '9px 9px 0 var(--shadow)' }}
+          >
+            <div className="flex items-center justify-between" style={{ padding: '14px 16px', borderBottom: '3px solid var(--outline)', background: 'var(--panel-2)' }}>
+              <div className="display" style={{ fontSize: 18 }}>Games</div>
+              <button className="btn btn-icon pop-sm" onClick={() => setShowGameMenu(false)} style={{ boxShadow: 'none' }}>✕</button>
+            </div>
+            <button
+              className="flex items-center gap-3"
+              onClick={() => {
+                setShowGameMenu(false);
+                onCreateGame();
+              }}
+              style={{
+                padding: '16px',
+                background: 'var(--panel)',
+                border: 0,
+                borderBottom: '3px solid var(--outline)',
+                cursor: 'pointer',
+                color: 'var(--ink)',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 24 }}>💣</span>
+              <span className="col" style={{ gap: 2 }}>
+                <span style={{ fontWeight: 800 }}>Minesweeper</span>
+                <span className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>Multiplayer mine hunt</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage }: {
+function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, activeSession }: {
   msg: ChatMessage; isMe: boolean;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
+  onJoinGame: (sessionId: string) => void;
+  activeSession?: GameSession | null;
 }) {
+  const { currentUser } = useRoom();
   return (
     <div className="flex items-start gap-2" style={{ flexDirection: isMe ? 'row-reverse' : 'row' }}>
       <div className="pop-sm" style={{ borderRadius: '50%', overflow: 'hidden', border: '2.5px solid var(--outline)', width: 34, height: 34, flexShrink: 0, background: 'var(--panel-2)' }}>
@@ -200,7 +287,47 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage }: {
           </span>
         </div>
 
-        {(msg.message || msg.image_url) && (
+        {msg.type === 'game_invite' && isGameInvitePayload(msg.payload) && (
+          <GameInviteMessage
+            session={activeSession?.id === msg.payload.id ? activeSession : msg.payload}
+            onJoin={onJoinGame} 
+            currentUserId={currentUser?.user_id || ''} 
+          />
+        )}
+
+        {msg.type === 'game_summary' && (
+          <div
+            className="pop-sm col"
+            style={{
+              marginTop: 7,
+              borderRadius: 13,
+              padding: '12px 14px',
+              background: 'var(--panel)',
+              border: '2.5px solid var(--outline)',
+              boxShadow: '4px 4px 0 var(--shadow)',
+              width: '100%',
+              maxWidth: 320,
+              gap: 8,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <span style={{ fontSize: 22 }}>🎮</span>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 13 }}>Minesweeper Finished</div>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>Final Score</div>
+              </div>
+            </div>
+            {(isGameSummaryPayload(msg.payload) ? msg.payload.scores : []).map((score) => (
+              <div key={score.user_id} className="flex items-center gap-2 mono" style={{ fontSize: 11 }}>
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{score.username ?? score.user_id}</span>
+                <span>{score.wins} wins</span>
+                <span>{score.losses} losses</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(msg.message || msg.image_url) && msg.type !== 'game_invite' && msg.type !== 'game_summary' && (
           <div
             className="pop-sm"
             style={{

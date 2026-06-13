@@ -94,6 +94,10 @@ class GeminiKeyRotation {
     }).length;
   }
 
+  configuredKeyCount(): number {
+    return this.keys.length;
+  }
+
   private getLeastUsedKey(): string {
     let leastUsed = this.keys[0];
     let minUsage = this.stats.get(leastUsed)!.usageCount;
@@ -104,6 +108,8 @@ class GeminiKeyRotation {
     return leastUsed;
   }
 }
+
+export const GeminiKeyRotationForTest = GeminiKeyRotation;
 
 let instance: GeminiKeyRotation | null = null;
 
@@ -126,4 +132,8 @@ export function recordGeminiError(key: string, statusCode: number): boolean {
 
 export function geminiAvailableKeyCount(): number {
   return getRotation().availableKeyCount();
+}
+
+export function geminiConfiguredKeyCount(): number {
+  return getRotation().configuredKeyCount();
 }

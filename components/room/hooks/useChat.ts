@@ -100,14 +100,14 @@ export function useChat({
     }
   }, [chatMessages]);
 
-  const handleSendChat = useCallback(async (imageUrl?: string) => {
+  const handleSendChat = useCallback(async (imageUrl?: string, type?: string, payload?: unknown) => {
     const messageText = chatInput.trim();
-    if (!messageText && !imageUrl) return;
+    if (!messageText && !imageUrl && !type) return;
     if (sendingChat || !currentUser) return;
-    setChatInput('');
+    if (!type) setChatInput('');
     setSendingChat(true);
     try {
-      await fetch('/api/chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -117,8 +117,18 @@ export function useChat({
           avatar_color: currentUser.avatar_color,
           message: messageText,
           ...(imageUrl ? { image_url: imageUrl } : {}),
+          ...(type ? { type } : {}),
+          ...(payload ? { payload } : {}),
         }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error('Chat send error:', res.status, err);
+        // Room was deleted (stale page) — hard reload to re-create it
+        if (res.status === 500 && err?.detail?.includes('foreign key')) {
+          window.location.reload();
+        }
+      }
     } catch (err) { console.error('Chat send failed:', err); }
     finally { setSendingChat(false); }
   }, [chatInput, sendingChat, currentUser, roomId]);

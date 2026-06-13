@@ -41,10 +41,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { room_id, user_id, username, avatar_color, message, image_url, song_ref } = body;
+    const { room_id, user_id, username, avatar_color, message, image_url, song_ref, type, payload } = body;
 
-    // Either message text or image is required
-    if (!room_id || !user_id || !username || (!message?.trim() && !image_url)) {
+    // type-only messages (e.g. game_invite) don't require message/image
+    if (!room_id || !user_id || !username || (!message?.trim() && !image_url && !type)) {
       return Response.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -56,6 +56,8 @@ export async function POST(request: NextRequest) {
       message: (message || '').trim().substring(0, 500),
       image_url: image_url || null,
       song_ref: song_ref || null,
+      ...(type ? { type } : {}),
+      ...(payload ? { payload } : {}),
     };
 
     const { data, error } = await supabase
@@ -65,8 +67,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error('Chat insert error:', error);
-      return Response.json({ error: 'Failed to send message' }, { status: 500 });
+      console.error('Chat insert error:', error, '| room_id:', room_id, '| user:', username);
+      return Response.json({ error: 'Failed to send message', detail: error.message }, { status: 500 });
     }
 
     return Response.json({ message: data });

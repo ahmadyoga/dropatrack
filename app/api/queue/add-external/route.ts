@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
 import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getNextRegularQueuePosition, type QueuePositionRow } from '@/lib/queuePosition';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -155,16 +156,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get current max position
-    const { data: lastItem } = await supabase
+    // Get the next regular queue position. Suggested rows use NULL position
+    // and must not be considered when extension inserts append new songs.
+    const { data: positionRows, error: positionError } = await supabase
       .from('queue_items')
-      .select('position')
+      .select('position,is_suggested')
       .eq('room_id', room.id)
-      .order('position', { ascending: false })
-      .limit(1)
-      .single();
+      .eq('is_suggested', false);
 
-    const startPosition = (lastItem?.position ?? -1) + 1;
+    if (positionError) {
+      console.error('Position lookup error:', positionError);
+      return jsonResponse({ error: 'Failed to inspect queue' }, 500);
+    }
+
+    const startPosition = getNextRegularQueuePosition((positionRows ?? []) as QueuePositionRow[]);
 
     // Insert all videos
     const inserts = videosToAdd.map((video, idx) => ({
@@ -200,4 +205,3 @@ export async function POST(request: NextRequest) {
 export async function OPTIONS() {
   return new Response(null, { status: 204, headers: corsHeaders });
 }
-

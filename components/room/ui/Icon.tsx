@@ -32,6 +32,7 @@ const PATHS: Record<string, React.ReactNode> = {
   remote:  <g fill="none"><rect x="7" y="3" width="10" height="18" rx="3"/><circle cx="12" cy="8" r="1.6" fill="currentColor" stroke="none"/><path d="M9.5 13h5M9.5 16h5"/></g>,
   back:    <g fill="none"><path d="M19 12H5M11 6l-6 6 6 6"/></g>,
   bolt:    <polygon points="13,2 4,14 11,14 10,22 19,9 12,9" />,
+  gamepad: <g fill="none"><rect x="2" y="7" width="20" height="12" rx="4"/><path d="M8 13h4M10 11v4"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="14" r="1" fill="currentColor" stroke="none"/></g>,
 };
 
 interface IconProps {

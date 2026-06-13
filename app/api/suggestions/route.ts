@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getGeminiApiKey, recordGeminiSuccess, recordGeminiError, geminiAvailableKeyCount } from '@/lib/geminiKeyRotation';
+import { getGeminiApiKey, recordGeminiSuccess, recordGeminiError, geminiConfiguredKeyCount } from '@/lib/geminiKeyRotation';
 
 // Server-side only — GEMINI keys are never exposed to the browser.
 // Given recent queue titles, ask Gemini for similar songs as {artist, title}.
@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  // Try keys in rotation; on a 429 (rate/quota) advance to the next key.
-  const maxAttempts = Math.max(geminiAvailableKeyCount(), 1);
+  // Try every configured Gemini key before returning an empty recommendation set.
+  const maxAttempts = Math.max(geminiConfiguredKeyCount(), 1);
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const apiKey = getGeminiApiKey();
-    if (!apiKey) break; // no keys configured → heuristic fallback
+    if (!apiKey) break;
 
     try {
       const res = await fetch(
@@ -62,18 +62,17 @@ export async function POST(request: NextRequest) {
       if (!res.ok) {
         const errText = await res.text();
         console.error('Gemini error:', res.status, errText.slice(0, 200));
-        const isRateLimited = recordGeminiError(apiKey, res.status);
-        if (isRateLimited && attempt < maxAttempts - 1) continue; // try next key
-        break; // other error or out of keys → fallback
+        recordGeminiError(apiKey, res.status);
+        continue;
       }
 
       recordGeminiSuccess(apiKey);
       const data = await res.json();
       const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) break;
+      if (!text) continue;
 
       let parsed: unknown;
-      try { parsed = JSON.parse(text); } catch { break; }
+      try { parsed = JSON.parse(text); } catch { continue; }
 
       const songs = Array.isArray(parsed)
         ? parsed
@@ -84,12 +83,13 @@ export async function POST(request: NextRequest) {
             .slice(0, count)
         : [];
 
+      if (songs.length === 0) continue;
       return Response.json({ songs });
     } catch (err) {
       console.error('Suggestions route error:', err);
-      break;
+      continue;
     }
   }
 
-  return Response.json({ songs: [], fallback: true });
+  return Response.json({ songs: [] });
 }

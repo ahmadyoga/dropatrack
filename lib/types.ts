@@ -103,5 +103,74 @@ export interface ChatMessage {
   message: string;
   image_url: string | null;
   song_ref: ChatSongRef | null;
+  type?: string | null;
+  payload?: unknown;
   created_at: string;
+}
+
+export type Level = 'easy' | 'medium' | 'hard';
+
+export const LEVEL_CONFIG: Record<Level, { rows: number; cols: number; mines: number; label: string }> = {
+  easy:   { rows: 8,  cols: 8,  mines: 10, label: 'Easy' },
+  medium: { rows: 12, cols: 12, mines: 20, label: 'Medium' },
+  hard:   { rows: 16, cols: 16, mines: 40, label: 'Hard' },
+};
+
+export interface GameSession {
+  id: string;
+  room_id: string;
+  level: Level;
+  status: 'active' | 'finished' | 'waiting' | 'playing';
+  host_id: string;
+  host_username: string;
+  players: string[];
+  player_usernames: Record<string, string>; // user_id -> username
+  current_turn_index: number;
+  board: Board | null;
+  winner_id: string | null;
+  loser_id?: string | null;
+  match_id?: string | null;
+  match_number?: number;
+  current_turn_started_at?: string | null;
+  scores?: GamePlayerScore[];
+  chat_message_id: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface GamePlayerScore {
+  user_id: string;
+  username?: string;
+  wins: number;
+  losses: number;
+}
+
+export interface GameMove {
+  id: string;
+  game_session_id: string;
+  user_id: string;
+  row: number;
+  col: number;
+  action: 'reveal' | 'flag' | 'chord';
+  created_at: string;
+}
+
+export type CellState = 'unrevealed' | 'revealed' | 'flagged' | 'mine';
+
+export interface Cell {
+  state: CellState;
+  adjacentMines: number;
+  isMine: boolean;
+}
+
+export type Board = Cell[][];
+
+export interface UserPresence {
+  user_id: string;
+  username: string;
+  avatar_color?: string;
+  role?: string;
+  is_speaker?: boolean;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import { buildSuggestionQuery, normalizeTitle } from '@/lib/suggestionQuery';
+import { normalizeTitle } from '@/lib/suggestionQuery';
 import type { Room, QueueItem } from '@/lib/types';
 
 const BUFFER_SIZE = 5;    // target number of suggested songs
@@ -64,8 +64,16 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
         const existingIds = new Set(q.map((i) => i.youtube_id));
         // Title-level dedup catches alternate uploads of a song we already have.
         const existingTitles = new Set(q.map((i) => normalizeTitle(i.title)));
-        const isNew = (r: YtResult) =>
-          !existingIds.has(r.id) && !existingTitles.has(normalizeTitle(r.title));
+        const isNew = (r: YtResult) => {
+          if (existingIds.has(r.id)) return false;
+          const rNorm = normalizeTitle(r.title);
+          if (existingTitles.has(rNorm)) return false;
+          // Also catch substring variants: "Song - 6192019" contains "Song"
+          for (const et of existingTitles) {
+            if (rNorm.includes(et) || et.includes(rNorm)) return false;
+          }
+          return true;
+        };
 
         // Full taste + exclude list: unique titles, recency-weighted, capped.
         // Dedup collapses repeated plays so the prompt stays short.
@@ -76,9 +84,26 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
           if (key && !seen.has(key)) { seen.add(key); history.unshift(regular[i].title); }
         }
 
-        let picks: YtResult[] = [];
+        const picks: YtResult[] = [];
+        // Grows as picks are added; used for cross-pick dedup by normalized title.
+        const picksNormTitles = new Set<string>();
 
-        // 1. Ask the AI for similar songs, then resolve each to a YouTube video.
+        // Title-level check that also catches substring variants
+        // e.g. "Song - Artist - Date" contains "Song - Artist" → duplicate.
+        const isNotDupOfPicks = (r: YtResult) => {
+          if (picks.some((p) => p.id === r.id)) return false;
+          const rNorm = normalizeTitle(r.title);
+          if (picksNormTitles.has(rNorm)) return false;
+          for (const pNorm of picksNormTitles) {
+            if (rNorm.includes(pNorm) || pNorm.includes(rNorm)) return false;
+          }
+          return true;
+        };
+
+        // Ask Gemini for similar songs, then resolve each to a YouTube video.
+        // Gemini is the only recommendation source; when it returns no usable
+        // candidates we leave the buffer empty instead of searching from the
+        // last song, which tends to repeat the same track.
         try {
           const aiRes = await fetch('/api/suggestions', {
             method: 'POST',
@@ -99,28 +124,14 @@ export function useAutoSuggest({ room, queue, roomRef, queueRef, isSourceRef }: 
             if (i > 0) await sleep(SEARCH_GAP_MS); // stagger to avoid burst rate-limit
             const results = await ytSearch(`${songs[i].artist} ${songs[i].title}`);
             if (results === null) return; // rate-limited / quota dead — stop the batch
-            const hit = results.find(
-              (r) => isReasonable(r) && isNew(r) && !picks.some((p) => p.id === r.id)
-            );
-            if (hit) picks.push(hit);
-          }
-        } catch {
-          /* fall through to the heuristic single-search */
-        }
-
-        // 2. Fallback: no AI key / no AI hits → one heuristic search.
-        if (picks.length === 0) {
-          const query = buildSuggestionQuery(regular.slice(-3).map((i) => i.title));
-          if (query) {
-            const results = await ytSearch(query);
-            if (results === null) return; // rate-limited / quota dead
-            picks = results.filter((r) => isNew(r) && isReasonable(r)).slice(0, need);
-            if (picks.length === 0) {
-              picks = results
-                .filter((r) => isNew(r) && !JUNK_TITLE.test(r.title))
-                .slice(0, need);
+            const hit = results.find((r) => isReasonable(r) && isNew(r) && isNotDupOfPicks(r));
+            if (hit) {
+              picks.push(hit);
+              picksNormTitles.add(normalizeTitle(hit.title));
             }
           }
+        } catch {
+          return;
         }
 
         if (picks.length === 0) return;

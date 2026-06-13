@@ -19,8 +19,12 @@ function cleanTitle(t: string): string {
 }
 
 // Canonical key for dedup/exclusion: noise-stripped, lowercased.
+// Also strips trailing date-like pure-numeric segments that survive slash removal
+// e.g. "Song - 6/19/2019" → cleanTitle → "Song - 6192019" → strip → "Song"
 export function normalizeTitle(t: string): string {
-  return cleanTitle(t).toLowerCase();
+  let s = cleanTitle(t).toLowerCase();
+  s = s.replace(/(\s*-\s*\d{4,})+\s*$/, '').trim();
+  return s;
 }
 
 export function buildSuggestionQuery(titles: string[]): string {

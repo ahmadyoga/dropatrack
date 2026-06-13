@@ -11,9 +11,8 @@ const STALE_MINUTES = 30;
 
 export async function GET() {
   try {
-    // 1. Find stale rooms (inactive for 5+ minutes)
+    // Find stale rooms (inactive for 30+ minutes)
     const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
-
     const { data: staleRooms, error: fetchErr } = await supabase
       .from('rooms')
       .select('id')
