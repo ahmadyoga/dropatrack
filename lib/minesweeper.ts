@@ -177,6 +177,7 @@ export function boardToCellRows(board: Board, matchId: string) {
       y: rowIndex,
       is_mine: cell.isMine,
       is_opened: cell.state === 'revealed' || cell.state === 'mine',
+      is_flagged: cell.state === 'flagged',
       adjacent_count: cell.adjacentMines,
       opened_by: null as string | null,
       opened_at: null as string | null,
@@ -190,6 +191,7 @@ export function cellRowsToBoard(
     y: number;
     is_mine: boolean;
     is_opened: boolean;
+    is_flagged?: boolean;
     adjacent_count: number;
   }>
 ): Board {
@@ -205,7 +207,7 @@ export function cellRowsToBoard(
 
   for (const cell of cells) {
     board[cell.y][cell.x] = {
-      state: cell.is_opened ? (cell.is_mine ? 'mine' : 'revealed') : 'unrevealed',
+      state: cell.is_opened ? (cell.is_mine ? 'mine' : 'revealed') : cell.is_flagged ? 'flagged' : 'unrevealed',
       adjacentMines: cell.adjacent_count,
       isMine: cell.is_mine,
     };

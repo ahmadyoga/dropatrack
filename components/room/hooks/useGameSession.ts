@@ -8,6 +8,7 @@ import {
   revealCell,
   scoreMineHitMatch,
 } from '@/lib/minesweeper';
+import { getNextTurnUserId } from '@/lib/minesweeperTurn';
 import type { Board, GameMove, GamePlayerScore, GameSession, Level, UserPresence } from '@/lib/types';
 
 type MoveAction = 'reveal' | 'flag' | 'chord';
@@ -56,6 +57,7 @@ interface CellRow {
   y: number;
   is_mine: boolean;
   is_opened: boolean;
+  is_flagged?: boolean;
   adjacent_count: number;
   opened_by: string | null;
   opened_at: string | null;
@@ -268,25 +270,27 @@ export function useGameSession(roomId: string, currentUser: UserPresence | null)
     })));
   }, []);
 
-  const advanceTurn = useCallback(async (matchId: string, currentUserId: string) => {
+  const loadTurnRows = useCallback(async (matchId: string): Promise<TurnRow[]> => {
     const { data: turns } = await supabase
       .from('minesweeper_turns')
       .select('*')
       .eq('match_id', matchId)
       .order('turn_order', { ascending: true });
 
-    const ordered = (turns ?? []) as TurnRow[];
-    if (ordered.length === 0) return;
+    return (turns ?? []) as TurnRow[];
+  }, []);
 
-    const currentIndex = Math.max(0, ordered.findIndex((turn) => turn.user_id === currentUserId));
-    const next = ordered[(currentIndex + 1) % ordered.length];
-    const now = new Date().toISOString();
+  const advanceTurn = useCallback(async (matchId: string, currentUserId: string) => {
+    const { data, error } = await supabase.rpc('advance_minesweeper_turn', {
+      p_match_id: matchId,
+      p_current_user_id: currentUserId,
+    });
 
-    await Promise.all([
-      supabase.from('minesweeper_turns').update({ is_current: false }).eq('match_id', matchId),
-      supabase.from('minesweeper_turns').update({ is_current: true }).eq('id', next.id),
-      supabase.from('minesweeper_matches').update({ current_turn_started_at: now }).eq('id', matchId),
-    ]);
+    if (error) {
+      console.error('Failed to advance Minesweeper turn:', error);
+      return false;
+    }
+    return data === true;
   }, []);
 
   const startSession = useCallback(async (level: Level): Promise<string | null> => {
@@ -408,8 +412,14 @@ export function useGameSession(roomId: string, currentUser: UserPresence | null)
 
   const makeMove = useCallback(async (row: number, col: number, action: MoveAction) => {
     const currentSession = sessionRef.current;
-    if (!currentSession?.match_id || !currentUser || action !== 'reveal') return;
+    if (!currentSession?.match_id || !currentUser || (action !== 'reveal' && action !== 'flag')) return;
     if (currentSession.players[currentSession.current_turn_index] !== currentUser.user_id) return;
+
+    const turnRows = await loadTurnRows(currentSession.match_id);
+    if (getNextTurnUserId(turnRows, currentUser.user_id) === null) {
+      await loadSession(currentSession.id);
+      return;
+    }
 
     await touchMinesweeperSession(currentSession.id);
 
@@ -423,7 +433,22 @@ export function useGameSession(roomId: string, currentUser: UserPresence | null)
     if (!cells?.length) return;
     const currentBoard = cellRowsToBoard(cells as CellRow[]);
     const cell = currentBoard[row]?.[col];
-    if (!cell || cell.state !== 'unrevealed') return;
+    if (!cell) return;
+
+    if (action === 'flag') {
+      if (cell.state !== 'unrevealed' && cell.state !== 'flagged') return;
+      await supabase
+        .from('minesweeper_cells')
+        .update({ is_flagged: cell.state !== 'flagged' })
+        .eq('match_id', currentSession.match_id)
+        .eq('x', col)
+        .eq('y', row)
+        .eq('is_opened', false);
+      await loadSession(currentSession.id);
+      return;
+    }
+
+    if (cell.state !== 'unrevealed') return;
 
     const result = revealCell(currentBoard, row, col);
     const changedCells = result.board.flatMap((boardRow, y) =>
@@ -445,6 +470,7 @@ export function useGameSession(roomId: string, currentUser: UserPresence | null)
         .from('minesweeper_cells')
         .update({
           is_opened: changed.is_opened,
+          is_flagged: false,
           opened_by: changed.opened_by,
           opened_at: changed.opened_at,
         })
@@ -478,7 +504,7 @@ export function useGameSession(roomId: string, currentUser: UserPresence | null)
 
     await advanceTurn(currentSession.match_id, currentUser.user_id);
     await loadSession(currentSession.id);
-  }, [advanceTurn, currentUser, loadSession]);
+  }, [advanceTurn, currentUser, loadSession, loadTurnRows]);
 
   const playAgain = useCallback(async (sessionId: string) => {
     const { data: sessionRows } = await supabase

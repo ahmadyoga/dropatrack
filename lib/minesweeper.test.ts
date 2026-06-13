@@ -7,6 +7,8 @@ import {
   checkWin,
   applyMove,
   replayMoves,
+  boardToCellRows,
+  cellRowsToBoard,
 } from './minesweeper';
 import type { Board, GameMove } from './types';
 
@@ -293,6 +295,24 @@ describe('replayMoves', () => {
     const newBoard = replayMoves(board, moves);
     expect(newBoard[0][0].state).toBe('flagged');
     expect(newBoard[1][1].state).toBe('flagged');
+  });
+});
+
+describe('database cell mapping', () => {
+  it('hydrates flagged cells from database rows', () => {
+    const board = cellRowsToBoard([
+      { x: 0, y: 0, is_mine: false, is_opened: false, is_flagged: true, adjacent_count: 0 },
+    ]);
+
+    expect(board[0][0].state).toBe('flagged');
+  });
+
+  it('serializes flagged board cells for database inserts', () => {
+    const rows = boardToCellRows([
+      [{ state: 'flagged', adjacentMines: 0, isMine: false }],
+    ], 'match-1');
+
+    expect(rows[0].is_flagged).toBe(true);
   });
 });
 
