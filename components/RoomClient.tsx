@@ -8,6 +8,7 @@ import UsernameModal from '@/components/UsernameModal';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { YTPlayer } from './room/hooks/useYouTubePlayer';
 import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
+import { getRoomShortcutAction, isEditableShortcutTarget } from '@/lib/keyboardShortcuts';
 import { usePlaybackSync } from './room/hooks/usePlaybackSync';
 import { setTime as setStoreTime } from './room/playbackTimeStore';
 import { useTheme } from './ThemeProvider';
@@ -84,6 +85,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [showSettings, setShowSettings] = useState(false);
   const [showGameCreate, setShowGameCreate] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const [openAddSongSignal, setOpenAddSongSignal] = useState(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [userTimezone] = useState(() => detectTimezone());
 
@@ -343,6 +345,31 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   const leave = useCallback(() => { window.location.href = '/'; }, []);
 
+  const openAddSongSearch = useCallback(() => {
+    if (isMobile) setMobileTab('queue');
+    setOpenAddSongSignal((signal) => signal + 1);
+  }, [isMobile]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const action = getRoomShortcutAction(event, isEditableShortcutTarget(event.target));
+      if (!action) return;
+
+      event.preventDefault();
+      if (action === 'open-add-song') {
+        openAddSongSearch();
+        return;
+      }
+      if (!canPlayPause) return;
+      if (action === 'play-pause') handlePlayPause();
+      else if (action === 'next') handleNext();
+      else if (action === 'previous') handlePrev();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [canPlayPause, handleNext, handlePlayPause, handlePrev, openAddSongSearch]);
+
   const handleChatTabSwitch = (tab: MobileTab) => {
     setMobileTab(tab);
     if (tab === 'chat') setUnreadChatCount(0);
@@ -371,6 +398,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onAdd: addSongToQueue,
     onToggleRepeat: handleToggleRepeat,
     onToggleAutoSuggest: handleToggleAutoSuggest,
+    openAddSignal: openAddSongSignal,
   };
 
   const playerProps = {

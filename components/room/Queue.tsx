@@ -167,6 +167,7 @@ interface QueueProps {
   onAdd: (id: string, title: string, thumb: string, dur: number) => Promise<void>;
   onToggleRepeat: () => void;
   onToggleAutoSuggest: () => void;
+  openAddSignal?: number;
 }
 
 export default function Queue({
@@ -175,6 +176,7 @@ export default function Queue({
   shuffling, dragOverIndex,
   onJumpTo, onRemoveSong, onMoveSongToNext, onShuffle,
   onDragStart, onDragOver, onDragLeave, onDrop, onAdd, onToggleRepeat, onToggleAutoSuggest,
+  openAddSignal = 0,
 }: QueueProps) {
   const { queue, room, canRearrange, canPlayPause, canAutoSuggest } = useRoom();
   const [showAdd, setShowAdd] = useState(false);
@@ -188,6 +190,16 @@ export default function Queue({
     const idx = searchMatchIndices[searchMatchCurrentIdx];
     document.getElementById(`q-item-${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [searchMatchCurrentIdx, searchMatchIndices]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (openAddSignal > 0) {
+      void Promise.resolve().then(() => {
+        if (!cancelled) setShowAdd(true);
+      });
+    }
+    return () => { cancelled = true; };
+  }, [openAddSignal]);
 
   return (
     <div className="pop wobble col overflow-hidden" style={{ height: '100%', boxShadow: '7px 7px 0 var(--shadow)' }}>
