@@ -118,6 +118,28 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
             sub={theme === 'dark' ? 'deep space' : 'daylight cosmos'}
           />
 
+          {/* Extension download */}
+          <div style={{ padding: '14px 0', borderBottom: '2px solid var(--line)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>Browser extension</div>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', marginBottom: 12 }}>
+              add tracks from YouTube, YouTube Music, and Spotify
+            </div>
+            <a
+              className="btn pop-sm"
+              href="/extension.zip"
+              download
+              style={{
+                width: '100%',
+                background: 'var(--accent)',
+                color: '#140f1f',
+                justifyContent: 'center',
+                textDecoration: 'none',
+              }}
+            >
+              📦 DOWNLOAD EXTENSION ZIP
+            </a>
+          </div>
+
           {/* Leave */}
           <button
             className="btn pop-sm"
