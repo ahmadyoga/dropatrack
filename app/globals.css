@@ -254,6 +254,13 @@ body {
 }
 .popin { animation: popin .22s cubic-bezier(.2,1.2,.4,1); }
 
+/* ---- jump-to-original highlight ---- */
+@keyframes chatMsgHighlight {
+  0%, 100% { background-color: transparent; }
+  30% { background-color: var(--accent-2, #f0c419); }
+}
+.chat-msg-highlight { animation: chatMsgHighlight 1.2s ease-out; border-radius: 13px; }
+
 /* ---- drag state ---- */
 .dragging  { opacity: .4; }
 .drag-over { outline: 3px solid var(--accent); outline-offset: -2px; }
