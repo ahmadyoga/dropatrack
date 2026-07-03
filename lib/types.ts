@@ -94,6 +94,12 @@ export interface ChatSongRef {
   duration: string;
 }
 
+export interface ChatReplySnippet {
+  username: string;
+  message: string;
+  image_url: string | null;
+}
+
 export interface ChatMessage {
   id: string;
   room_id: string;
@@ -105,6 +111,8 @@ export interface ChatMessage {
   song_ref: ChatSongRef | null;
   type?: string | null;
   payload?: unknown;
+  reply_to_id?: string | null;
+  reply_snippet?: ChatReplySnippet | null;
   created_at: string;
 }
 
