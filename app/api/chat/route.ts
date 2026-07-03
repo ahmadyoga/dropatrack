@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { room_id, user_id, username, avatar_color, message, image_url, song_ref, type, payload } = body;
+    const { room_id, user_id, username, avatar_color, message, image_url, song_ref, type, payload, reply_to_id, reply_snippet } = body;
 
     // type-only messages (e.g. game_invite) don't require message/image
     if (!room_id || !user_id || !username || (!message?.trim() && !image_url && !type)) {
@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       song_ref: song_ref || null,
       ...(type ? { type } : {}),
       ...(payload ? { payload } : {}),
+      ...(reply_to_id ? { reply_to_id, reply_snippet } : {}),
     };
 
     const { data, error } = await supabase
