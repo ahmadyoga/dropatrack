@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { newestPageForDisplay } from '@/lib/chatPaging';
 
 // Server-side Supabase client (uses service role for direct DB access)
 const supabase = createClient(
@@ -12,25 +13,32 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const roomId = searchParams.get('room_id');
   const limit = parseInt(searchParams.get('limit') || '50', 10);
+  const before = searchParams.get('before');
 
   if (!roomId) {
     return Response.json({ error: 'Missing room_id' }, { status: 400 });
   }
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('chat_messages')
       .select('*')
       .eq('room_id', roomId)
-      .order('created_at', { ascending: true })
-      .limit(limit);
+      .order('created_at', { ascending: false });
+
+    if (before) query = query.lt('created_at', before);
+
+    const { data, error } = await query.limit(limit);
 
     if (error) {
       console.error('Chat fetch error:', error);
       return Response.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
 
-    return Response.json({ messages: data || [] });
+    return Response.json({
+      messages: newestPageForDisplay(data || []),
+      has_more: (data || []).length === limit,
+    });
   } catch (error) {
     console.error('Chat API error:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });

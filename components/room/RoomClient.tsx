@@ -157,6 +157,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     sendingChat, uploadingImage, unreadChatCount, setUnreadChatCount,
     chatToast, setChatToast,
     chatEndRef, handleSendChat, uploadImage,
+    loadingOlderChat, hasOlderChat, loadOlderChat,
     replyTo, setReplyTo,
   } = useChat({
     roomId: initialRoom.id, currentUser, currentUserRef,
@@ -431,6 +432,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     chatMessages, chatInput, setChatInput,
     sendingChat, uploadingImage, unreadChatCount,
     chatEndRef,
+    loadingOlderChat,
+    hasOlderChat,
+    onLoadOlderChat: loadOlderChat,
     onSendChat: handleSendChat,
     onUploadImage: uploadImage,
     onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) =>

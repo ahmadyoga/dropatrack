@@ -1,11 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
-const MAX_CHAT_MESSAGES = 200;
-export function capMessages<T>(messages: T[], max = MAX_CHAT_MESSAGES): T[] {
-  return messages.length > max ? messages.slice(messages.length - max) : messages;
-}
 import { getOrCreateUser } from '@/lib/names';
+import { mergeOlderChatMessages } from '@/lib/chatPaging';
 import type { ChatMessage } from '@/lib/types';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
@@ -33,9 +30,12 @@ export function useChat({
   const [chatToast, setChatToast] = useState<{ username: string; message: string; color: string } | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [loadingOlderChat, setLoadingOlderChat] = useState(false);
+  const [hasOlderChat, setHasOlderChat] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialChatLoadedRef = useRef(false);
 
   // Load initial messages + subscribe
   useEffect(() => {
@@ -43,9 +43,13 @@ export function useChat({
 
     const loadMessages = async () => {
       try {
-        const res = await fetch(`/api/chat?room_id=${roomId}&limit=50`);
+        initialChatLoadedRef.current = false;
+        const res = await fetch(`/api/chat?${new URLSearchParams({ room_id: roomId, limit: '50' })}`);
         const data = await res.json();
-        if (data.messages) setChatMessages(data.messages);
+        if (data.messages) {
+          setChatMessages(data.messages);
+          setHasOlderChat(Boolean(data.has_more));
+        }
       } catch (err) { console.error('Chat load failed:', err); }
     };
     loadMessages();
@@ -57,7 +61,7 @@ export function useChat({
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `room_id=eq.${roomId}` },
         (payload) => {
           const msg = payload.new as ChatMessage;
-          setChatMessages((prev) => capMessages([...prev, msg]));
+          setChatMessages((prev) => prev.some((old) => old.id === msg.id) ? prev : [...prev, msg]);
 
           if (msg.user_id === currentUserRef.current?.user_id) return;
 
@@ -92,15 +96,32 @@ export function useChat({
     return () => { chatChannel.unsubscribe(); };
   }, [roomId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Auto-scroll to bottom on new messages
+  const loadOlderChat = useCallback(async () => {
+    const before = chatMessages[0]?.created_at;
+    if (!before || loadingOlderChat || !hasOlderChat) return;
+    setLoadingOlderChat(true);
+    try {
+      const res = await fetch(`/api/chat?${new URLSearchParams({ room_id: roomId, limit: '50', before })}`);
+      const data = await res.json();
+      if (data.messages) {
+        setChatMessages((prev) => mergeOlderChatMessages(data.messages, prev));
+        setHasOlderChat(Boolean(data.has_more));
+      }
+    } catch (err) { console.error('Older chat load failed:', err); }
+    finally { setLoadingOlderChat(false); }
+  }, [chatMessages, hasOlderChat, loadingOlderChat, roomId]);
+
+  // Auto-scroll to bottom on initial load and new messages, not older-page prepends.
   useEffect(() => {
     if (chatEndRef.current) {
       const parent = chatEndRef.current.parentElement;
       if (parent) {
-        parent.scrollTo({
-          top: parent.scrollHeight,
-          behavior: 'smooth',
-        });
+        const isInitialLoad = !initialChatLoadedRef.current;
+        const nearBottom = parent.scrollHeight - parent.scrollTop - parent.clientHeight < 80;
+        if (isInitialLoad || nearBottom) {
+          parent.scrollTo({ top: parent.scrollHeight, behavior: isInitialLoad ? 'auto' : 'smooth' });
+          initialChatLoadedRef.current = true;
+        }
       }
     }
   }, [chatMessages]);
@@ -173,6 +194,7 @@ export function useChat({
     previewImage, setPreviewImage,
     replyTo, setReplyTo,
     chatEndRef,
+    loadingOlderChat, hasOlderChat, loadOlderChat,
     handleSendChat, uploadImage,
     addSongToQueue,
   };

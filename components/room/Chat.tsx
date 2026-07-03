@@ -22,6 +22,9 @@ interface ChatProps {
   uploadingImage: boolean;
   unreadChatCount: number;
   chatEndRef: React.RefObject<HTMLDivElement | null>;
+  loadingOlderChat: boolean;
+  hasOlderChat: boolean;
+  onLoadOlderChat: () => Promise<void>;
   onSendChat: (imageUrl?: string, type?: string, payload?: unknown) => Promise<void>;
   onUploadImage: (file: File) => Promise<string | null>;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
@@ -61,6 +64,9 @@ export default function Chat({
   uploadingImage,
   unreadChatCount,
   chatEndRef,
+  loadingOlderChat,
+  hasOlderChat,
+  onLoadOlderChat,
   onSendChat,
   onUploadImage,
   onAddSongFromChat,
@@ -137,6 +143,13 @@ export default function Chat({
   };
 
   const busy = sendingChat || uploadingImage;
+  const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop > 0 || loadingOlderChat || !hasOlderChat) return;
+    const oldHeight = el.scrollHeight;
+    await onLoadOlderChat();
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight - oldHeight; });
+  };
 
   return (
     <div
@@ -156,7 +169,10 @@ export default function Chat({
       </div>
 
       {/* messages */}
-      <div className="scroll col" style={{ flex: 1, overflowY: 'auto', padding: 14, gap: 13 }}>
+      <div className="scroll col" onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', padding: 14, gap: 13 }}>
+        {loadingOlderChat && (
+          <div className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)', textAlign: 'center' }}>loading…</div>
+        )}
         {chatMessages.length === 0 && (
           <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', textAlign: 'center', margin: 'auto', lineHeight: 1.7 }}>
             no messages yet —<br />say something stellar ✨

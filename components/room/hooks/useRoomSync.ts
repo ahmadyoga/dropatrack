@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
-import { capMessages } from '@/components/room/hooks/useChat';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import { spawnReactions } from '../ui/spawnReactions';
@@ -160,7 +159,7 @@ export function useRoomSync({
         const updated = prev.map((msg) =>
           msg.user_id === user_id ? { ...msg, username: new_username } : msg
         );
-        return capMessages([...updated, systemMessage]);
+        return [...updated, systemMessage];
       });
     });
 
