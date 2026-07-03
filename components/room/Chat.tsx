@@ -30,6 +30,8 @@ interface ChatProps {
   onCreateGame: () => void;
   onJoinGame: (sessionId: string) => void;
   activeSession?: GameSession | null;
+  replyTo: ChatMessage | null;
+  setReplyTo: (msg: ChatMessage | null) => void;
 }
 
 function isGameSummaryPayload(payload: unknown): payload is { scores: Array<{ user_id: string; username?: string; wins: number; losses: number }> } {
@@ -67,6 +69,8 @@ export default function Chat({
   onCreateGame,
   onJoinGame,
   activeSession,
+  replyTo,
+  setReplyTo,
 }: ChatProps) {
   const { currentUser } = useRoom();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,6 +88,14 @@ export default function Chat({
   }, []);
 
   const clearPending = () => { setPendingFile(null); setPendingPreviewUrl(null); };
+
+  const jumpToMessage = useCallback((id: string) => {
+    const el = document.getElementById(`chat-msg-${id}`);
+    if (!el) return; // not loaded — silent no-op per design
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('chat-msg-highlight');
+    setTimeout(() => el.classList.remove('chat-msg-highlight'), 1200);
+  }, []);
 
   const handleSend = async () => {
     if (!chatInput.trim() && !pendingFile) return;
@@ -154,6 +166,8 @@ export default function Chat({
             onPreviewImage={onPreviewImage}
             onJoinGame={onJoinGame}
             activeSession={activeSession}
+            onReply={setReplyTo}
+            onJumpToMessage={jumpToMessage}
           />
         ))}
         <div ref={chatEndRef} />
@@ -171,6 +185,25 @@ export default function Chat({
           <button
             className="btn btn-ghost btn-icon"
             onClick={clearPending}
+            style={{ boxShadow: 'none', border: 'none', flexShrink: 0, padding: 6 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {replyTo && (
+        <div className="flex items-center gap-2" style={{ padding: '10px 13px', borderTop: '3px solid var(--outline)', background: 'var(--panel-2)', flexShrink: 0 }}>
+          <div style={{ width: 3, alignSelf: 'stretch', background: 'var(--accent)', borderRadius: 2, flexShrink: 0 }} />
+          <div className="col" style={{ flex: 1, minWidth: 0, gap: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 11 }}>{replyTo.username}</div>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--ink-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {replyTo.image_url && !replyTo.message ? '📷 Photo' : replyTo.message}
+            </div>
+          </div>
+          <button
+            className="btn btn-ghost btn-icon"
+            onClick={() => setReplyTo(null)}
             style={{ boxShadow: 'none', border: 'none', flexShrink: 0, padding: 6 }}
           >
             ✕
@@ -264,16 +297,19 @@ export default function Chat({
   );
 }
 
-function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, activeSession }: {
+function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, activeSession, onReply, onJumpToMessage }: {
   msg: ChatMessage; isMe: boolean;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
   onJoinGame: (sessionId: string) => void;
   activeSession?: GameSession | null;
+  onReply: (msg: ChatMessage) => void;
+  onJumpToMessage: (id: string) => void;
 }) {
   const { currentUser } = useRoom();
+  const canReply = msg.type !== 'game_invite' && msg.type !== 'game_summary';
   return (
-    <div className="flex items-start gap-2" style={{ flexDirection: isMe ? 'row-reverse' : 'row' }}>
+    <div id={`chat-msg-${msg.id}`} className="flex items-start gap-2 chat-bubble-row" style={{ flexDirection: isMe ? 'row-reverse' : 'row' }}>
       <div className="pop-sm" style={{ borderRadius: '50%', overflow: 'hidden', border: '2.5px solid var(--outline)', width: 34, height: 34, flexShrink: 0, background: 'var(--panel-2)' }}>
         <Avatar seed={msg.user_id} size={34} />
       </div>
@@ -285,7 +321,39 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
           <span className="mono" style={{ fontSize: 9, color: 'var(--ink-dim)', flexShrink: 0 }}>
             {relTime(msg.created_at)}
           </span>
+          {canReply && (
+            <button
+              className="btn btn-ghost btn-icon chat-reply-trigger"
+              onClick={() => onReply(msg)}
+              title="Reply"
+              style={{ boxShadow: 'none', border: 'none', padding: 3, flexShrink: 0 }}
+            >
+              <Icon name="reply" size={13} />
+            </button>
+          )}
         </div>
+
+        {msg.reply_snippet && msg.reply_to_id && (
+          <div
+            onClick={() => onJumpToMessage(msg.reply_to_id!)}
+            className="mono"
+            style={{
+              cursor: 'pointer',
+              fontSize: 10,
+              color: 'var(--ink-dim)',
+              borderLeft: '3px solid var(--accent)',
+              padding: '3px 8px',
+              marginBottom: 3,
+              maxWidth: 220,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <strong>{msg.reply_snippet.username}</strong>{' '}
+            {msg.reply_snippet.image_url && !msg.reply_snippet.message ? '📷 Photo' : msg.reply_snippet.message}
+          </div>
+        )}
 
         {msg.type === 'game_invite' && isGameInvitePayload(msg.payload) && (
           <GameInviteMessage

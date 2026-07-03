@@ -33,6 +33,7 @@ const PATHS: Record<string, React.ReactNode> = {
   back:    <g fill="none"><path d="M19 12H5M11 6l-6 6 6 6"/></g>,
   bolt:    <polygon points="13,2 4,14 11,14 10,22 19,9 12,9" />,
   gamepad: <g fill="none"><rect x="2" y="7" width="20" height="12" rx="4"/><path d="M8 13h4M10 11v4"/><circle cx="16" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="18" cy="14" r="1" fill="currentColor" stroke="none"/></g>,
+  reply:   <g fill="none"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></g>,
 };
 
 interface IconProps {

@@ -157,6 +157,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     sendingChat, uploadingImage, unreadChatCount, setUnreadChatCount,
     chatToast, setChatToast,
     chatEndRef, handleSendChat, uploadImage,
+    replyTo, setReplyTo,
   } = useChat({
     roomId: initialRoom.id, currentUser, currentUserRef,
     addSongToQueue: (id, title, thumb, dur) => addSongRef.current(id, title, thumb, dur),
@@ -439,6 +440,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onCreateGame: () => setShowGameCreate(true),
     onJoinGame: handleJoinGame,
     activeSession: session,
+    replyTo,
+    setReplyTo,
   };
 
   if (usernameState === 'loading') {
