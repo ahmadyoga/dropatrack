@@ -32,6 +32,7 @@ export function useChat({
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [chatToast, setChatToast] = useState<{ username: string; message: string; color: string } | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,6 +111,7 @@ export function useChat({
     if (sendingChat || !currentUser) return;
     if (!type) setChatInput('');
     setSendingChat(true);
+    const activeReply = type ? null : replyTo;
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -123,6 +125,14 @@ export function useChat({
           ...(imageUrl ? { image_url: imageUrl } : {}),
           ...(type ? { type } : {}),
           ...(payload ? { payload } : {}),
+          ...(activeReply ? {
+            reply_to_id: activeReply.id,
+            reply_snippet: {
+              username: activeReply.username,
+              message: activeReply.message,
+              image_url: activeReply.image_url,
+            },
+          } : {}),
         }),
       });
       if (!res.ok) {
@@ -133,9 +143,10 @@ export function useChat({
           window.location.reload();
         }
       }
+      if (activeReply) setReplyTo(null);
     } catch (err) { console.error('Chat send failed:', err); }
     finally { setSendingChat(false); }
-  }, [chatInput, sendingChat, currentUser, roomId]);
+  }, [chatInput, sendingChat, currentUser, roomId, replyTo]);
 
   const uploadImage = useCallback(async (file: File): Promise<string | null> => {
     if (!currentUser || uploadingImage) return null;
@@ -160,6 +171,7 @@ export function useChat({
     unreadChatCount, setUnreadChatCount,
     chatToast, setChatToast,
     previewImage, setPreviewImage,
+    replyTo, setReplyTo,
     chatEndRef,
     handleSendChat, uploadImage,
     addSongToQueue,
