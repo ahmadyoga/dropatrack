@@ -262,10 +262,11 @@ body {
 .chat-msg-highlight { animation: chatMsgHighlight 1.2s ease-out; border-radius: 13px; }
 
 /* ---- reply trigger hover/tap reveal ---- */
-.chat-reply-trigger { opacity: 0; transition: opacity .12s ease; }
-.chat-bubble-row:hover .chat-reply-trigger,
-.chat-bubble-row:active .chat-reply-trigger,
-.chat-bubble-row:focus-within .chat-reply-trigger { opacity: 1; }
+@media (hover: hover) {
+  .chat-reply-trigger { opacity: 0; transition: opacity .12s ease; }
+  .chat-bubble-row:hover .chat-reply-trigger,
+  .chat-bubble-row:focus-within .chat-reply-trigger { opacity: 1; }
+}
 
 /* ---- drag state ---- */
 .dragging  { opacity: .4; }

@@ -74,6 +74,7 @@ export default function Chat({
 }: ChatProps) {
   const { currentUser } = useRoom();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   const [showGameMenu, setShowGameMenu] = useState(false);
@@ -93,8 +94,9 @@ export default function Chat({
     const el = document.getElementById(`chat-msg-${id}`);
     if (!el) return; // not loaded — silent no-op per design
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     el.classList.add('chat-msg-highlight');
-    setTimeout(() => el.classList.remove('chat-msg-highlight'), 1200);
+    highlightTimerRef.current = setTimeout(() => el.classList.remove('chat-msg-highlight'), 1200);
   }, []);
 
   const handleSend = async () => {
