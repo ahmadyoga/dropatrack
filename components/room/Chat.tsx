@@ -75,6 +75,7 @@ export default function Chat({
   const { currentUser } = useRoom();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightedElRef = useRef<HTMLElement | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
   const [showGameMenu, setShowGameMenu] = useState(false);
@@ -95,7 +96,9 @@ export default function Chat({
     if (!el) return; // not loaded — silent no-op per design
     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightedElRef.current?.classList.remove('chat-msg-highlight');
     el.classList.add('chat-msg-highlight');
+    highlightedElRef.current = el;
     highlightTimerRef.current = setTimeout(() => el.classList.remove('chat-msg-highlight'), 1200);
   }, []);
 
