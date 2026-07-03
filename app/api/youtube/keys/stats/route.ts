@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getKeyRotationStats } from '@/lib/youtubeKeyRotation';
+import { getKeyRotationStats } from '@/lib/keys/youtubeKeyRotation';
 
 export async function GET(request: NextRequest) {
     try {

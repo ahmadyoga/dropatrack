@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { capMessages } from '@/lib/chatLimit';
+
+import { capMessages } from '@/components/room/hooks/useChat';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import { spawnReactions } from '../ui/spawnReactions';
 import type { Room, QueueItem, RoomUser, UserRole, PlaybackSyncEvent, ChatMessage } from '@/lib/types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import { setTime as setStoreTime } from '../playbackTimeStore';
+import { setTime as setStoreTime } from './playbackTimeStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 

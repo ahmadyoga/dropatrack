@@ -10,7 +10,7 @@ import {
   boardToCellRows,
   cellRowsToBoard,
 } from './minesweeper';
-import type { Board, GameMove } from './types';
+import type { Board, GameMove } from '../types';
 
 describe('createBoard', () => {
   it('creates a PRD easy board with 10 mines on 8x8', () => {

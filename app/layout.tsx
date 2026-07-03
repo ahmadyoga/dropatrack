@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { ThemeProvider } from '@/components/ThemeProvider';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { Analytics } from "@vercel/analytics/react";
 import "./globals.css";
 

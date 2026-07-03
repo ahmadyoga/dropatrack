@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getTurnSecondsRemaining } from '@/lib/minesweeperTurnTimeout';
+import { getTurnSecondsRemaining } from '@/lib/game/minesweeperTurnTimeout';
 import type { Board, Cell, GamePlayerScore } from '@/lib/types';
 
 interface MinesweeperBoardProps {

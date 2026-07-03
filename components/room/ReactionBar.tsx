@@ -17,8 +17,7 @@ export default function ReactionBar() {
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const fire = (emoji: string) => {
-    const n = 50 + Math.floor(Math.random() * 45);
-    spawnReactions(emoji, n);
+    spawnReactions(emoji, 72);
     broadcast('reaction', { emoji });
   };
 

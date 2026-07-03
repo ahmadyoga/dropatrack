@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 
 const REFERER = 'https://dropatrack.vercel.app';
 

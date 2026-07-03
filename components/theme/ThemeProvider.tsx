@@ -15,10 +15,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
+    let cancelled = false;
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     const resolved = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
-    setTheme(resolved);
     document.documentElement.setAttribute('data-theme', resolved);
+    void Promise.resolve().then(() => {
+      if (!cancelled) setTheme(resolved);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const toggleTheme = () => {

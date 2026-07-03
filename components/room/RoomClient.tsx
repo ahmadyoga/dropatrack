@@ -4,43 +4,43 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import { useAntiDebug } from '@/lib/antiDebug';
-import UsernameModal from '@/components/UsernameModal';
+import UsernameModal from './modals/UsernameModal';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
-import type { YTPlayer } from './room/hooks/useYouTubePlayer';
+import type { YTPlayer } from './hooks/useYouTubePlayer';
 import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
 import { getRoomShortcutAction, isEditableShortcutTarget } from '@/lib/keyboardShortcuts';
-import { usePlaybackSync } from './room/hooks/usePlaybackSync';
-import { setTime as setStoreTime } from './room/playbackTimeStore';
-import { useTheme } from './ThemeProvider';
+import { usePlaybackSync } from './hooks/usePlaybackSync';
+import { setTime as setStoreTime } from './hooks/playbackTimeStore';
+import { useTheme } from '@/components/theme/ThemeProvider';
 
 // Hooks
-import { useIdentity } from './room/hooks/useIdentity';
-import { useRoomSync } from './room/hooks/useRoomSync';
-import { useYouTubePlayer } from './room/hooks/useYouTubePlayer';
-import { usePlayback } from './room/hooks/usePlayback';
-import { useQueue } from './room/hooks/useQueue';
-import { useAutoSuggest } from './room/hooks/useAutoSuggest';
-import { useDiscovery } from './room/hooks/useDiscovery';
-import { useChat } from './room/hooks/useChat';
-import { useGameSession } from './room/hooks/useGameSession';
+import { useIdentity } from './hooks/useIdentity';
+import { useRoomSync } from './hooks/useRoomSync';
+import { useYouTubePlayer } from './hooks/useYouTubePlayer';
+import { usePlayback } from './hooks/usePlayback';
+import { useQueue } from './hooks/useQueue';
+import { useAutoSuggest } from './hooks/useAutoSuggest';
+import { useDiscovery } from './hooks/useDiscovery';
+import { useChat } from './hooks/useChat';
+import { useGameSession } from './hooks/useGameSession';
 
 // Context
-import { RoomProvider } from './room/RoomContext';
+import { RoomProvider } from './RoomContext';
 
 // New components
-import Header from './room/Header';
-import Player from './room/Player';
-import ReactionBar from './room/ReactionBar';
-import CrewStrip from './room/CrewStrip';
-import Queue from './room/Queue';
-import Discover from './room/Discover';
-import Chat from './room/Chat';
-import MobileNav from './room/MobileNav';
-import StarField from './room/ui/StarField';
-import SettingsModal from './room/modals/SettingsModal';
-import ImagePreviewModal from './room/modals/ImagePreviewModal';
-import GameCreateModal from './room/game/GameCreateModal';
-import MinesweeperBoard from './room/game/MinesweeperBoard';
+import Header from './Header';
+import Player from './Player';
+import ReactionBar from './ReactionBar';
+import CrewStrip from './CrewStrip';
+import Queue from './Queue';
+import Discover from './Discover';
+import Chat from './Chat';
+import MobileNav from './MobileNav';
+import StarField from './ui/StarField';
+import SettingsModal from './modals/SettingsModal';
+import ImagePreviewModal from './modals/ImagePreviewModal';
+import GameCreateModal from './game/GameCreateModal';
+import MinesweeperBoard from './game/MinesweeperBoard';
 import type { Level } from '@/lib/types';
 
 function detectTimezone(): string {

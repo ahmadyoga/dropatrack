@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
 import { getRegionCodeFromTimezone } from '@/lib/region';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 
 // Server-side only — fetches trending music videos from YouTube Data API v3
 // Uses videos.list with chart=mostPopular and videoCategoryId=10 (Music)

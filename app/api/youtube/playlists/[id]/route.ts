@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 
 // Server-side only — fetches videos from a specific YouTube playlist
 // Uses playlistItems.list (1 quota) + videos.list (1 quota) = 2 quota units

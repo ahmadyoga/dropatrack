@@ -1,8 +1,8 @@
 import Logo from '@/components/room/ui/Logo';
 import StarField from '@/components/room/ui/StarField';
-import CreateRoom from '@/components/CreateRoom';
-import PublicRooms from '@/components/PublicRooms';
-import ThemeToggleButton from '@/components/ThemeToggleButton';
+import CreateRoom from '@/components/home/CreateRoom';
+import PublicRooms from '@/components/home/PublicRooms';
+import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 
 export default function HomePage() {
   return (

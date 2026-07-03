@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getGeminiApiKey, recordGeminiSuccess, recordGeminiError, geminiConfiguredKeyCount } from '@/lib/geminiKeyRotation';
+import { getGeminiApiKey, recordGeminiSuccess, recordGeminiError, geminiConfiguredKeyCount } from '@/lib/keys/geminiKeyRotation';
 
 // Server-side only — GEMINI keys are never exposed to the browser.
 // Given recent queue titles, ask Gemini for similar songs as {artist, title}.

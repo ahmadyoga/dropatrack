@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 
 // Server-side only — YOUTUBE_API_KEY is never exposed to browser
 export async function GET(request: NextRequest) {

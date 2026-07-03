@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import type { UserIdentity } from '@/lib/names';
-import UsernameModal from '@/components/UsernameModal';
+import UsernameModal from '@/components/room/modals/UsernameModal';
 import type { Room } from '@/lib/types';
 
 const CARD_SHADOWS = [

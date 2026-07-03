@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getCuratedSections } from '@/lib/curatedPlaylists';
 import { getRegionCodeFromTimezone } from '@/lib/region';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 
 // Serves curated playlist sections based on user's region
 // No YouTube API quota cost — data is static/hardcoded

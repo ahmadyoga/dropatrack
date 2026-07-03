@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import RoomClient from '@/components/RoomClient';
+import RoomClient from '@/components/room/RoomClient';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { ogImageVersion, ogImagePath } from '@/lib/share';

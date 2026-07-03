@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 
 // Server-side only — fetches curated playlists from YouTube Music channel
 // Uses playlists.list (1 quota unit per call)

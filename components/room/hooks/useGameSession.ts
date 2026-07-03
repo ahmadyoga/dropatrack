@@ -7,61 +7,11 @@ import {
   randomizeTurnOrder,
   revealCell,
   scoreMineHitMatch,
-} from '@/lib/minesweeper';
-import { getNextTurnUserId } from '@/lib/minesweeperTurn';
-import type { Board, GameMove, GamePlayerScore, GameSession, Level, UserPresence } from '@/lib/types';
+} from '@/lib/game/minesweeper';
+import { getNextTurnUserId } from '@/lib/game/minesweeperTurn';
+import type { Board, CellRow, GameMove, GamePlayerScore, GameSession, Level, MatchRow, PlayerRow, SessionRow, TurnRow, UserPresence } from '@/lib/types';
 
 type MoveAction = 'reveal' | 'flag' | 'chord';
-
-interface SessionRow {
-  id: string;
-  music_room_id: string;
-  difficulty: Level;
-  status: 'active' | 'finished';
-  created_by: string;
-  created_at: string;
-  last_active_at: string;
-  finished_at: string | null;
-}
-
-interface PlayerRow extends GamePlayerScore {
-  id: string;
-  session_id: string;
-  username: string;
-  joined_at: string;
-}
-
-interface MatchRow {
-  id: string;
-  session_id: string;
-  match_number: number;
-  status: 'playing' | 'finished';
-  loser_user_id: string | null;
-  started_at: string;
-  current_turn_started_at: string;
-  finished_at: string | null;
-}
-
-interface TurnRow {
-  id: string;
-  match_id: string;
-  user_id: string;
-  turn_order: number;
-  is_current: boolean;
-}
-
-interface CellRow {
-  id: string;
-  match_id: string;
-  x: number;
-  y: number;
-  is_mine: boolean;
-  is_opened: boolean;
-  is_flagged?: boolean;
-  adjacent_count: number;
-  opened_by: string | null;
-  opened_at: string | null;
-}
 
 interface UseGameSessionReturn {
   session: GameSession | null;

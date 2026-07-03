@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
-import { getNextRegularQueuePosition, type QueuePositionRow } from '@/lib/queuePosition';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -10,6 +9,20 @@ const supabase = createClient(
 );
 
 const REFERER = 'https://dropatrack.vercel.app';
+
+interface QueuePositionRow {
+  position: number | null;
+  is_suggested?: boolean | null;
+}
+
+function getNextRegularQueuePosition(rows: QueuePositionRow[]): number {
+  const regularPositions = rows
+    .filter((row) => row.is_suggested !== true && typeof row.position === 'number')
+    .map((row) => row.position as number);
+
+  if (regularPositions.length === 0) return 0;
+  return Math.max(...regularPositions) + 1;
+}
 
 interface VideoInput {
   youtube_id: string;

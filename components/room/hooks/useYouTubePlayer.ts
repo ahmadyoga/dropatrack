@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Room, QueueItem } from '@/lib/types';
-import { setTime as setStoreTime } from '../playbackTimeStore';
+import { setTime as setStoreTime } from './playbackTimeStore';
 import { computeExpected, type PlaybackAnchor } from '@/lib/playbackSync';
 
 // ── YT IFrame API types ──────────────────────────────────────────────

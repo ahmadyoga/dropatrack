@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
 import type { Room, QueueItem, PlaybackSyncEvent } from '@/lib/types';
 import type { YTPlayer } from './useYouTubePlayer';
-import { setTime as setStoreTime } from '../playbackTimeStore';
+import { setTime as setStoreTime } from './playbackTimeStore';
 
 type CurrentUser = ReturnType<typeof getOrCreateUser>;
 

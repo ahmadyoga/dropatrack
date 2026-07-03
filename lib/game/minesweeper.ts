@@ -1,5 +1,5 @@
-import type { Board, Level, GameMove, GamePlayerScore } from './types';
-import { LEVEL_CONFIG } from './types';
+import type { Board, Level, GameMove, GamePlayerScore } from '../types';
+import { LEVEL_CONFIG } from '../types';
 
 function cloneBoard(board: Board): Board {
   return board.map(row => row.map(cell => ({ ...cell })));

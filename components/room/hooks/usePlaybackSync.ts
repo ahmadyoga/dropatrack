@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Room } from '@/lib/types';
 import type { YTPlayer } from './useYouTubePlayer';
-import { setTime as setStoreTime } from '../playbackTimeStore';
+import { setTime as setStoreTime } from './playbackTimeStore';
 import { computeExpected, type PlaybackAnchor } from '@/lib/playbackSync';
 
 const DRIFT_THRESHOLD_SECONDS = 1.5;

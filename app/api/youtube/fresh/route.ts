@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { parseISO8601Duration } from '@/lib/youtube';
 import { getRegionCodeFromTimezone } from '@/lib/region';
-import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/youtubeKeyRotation';
+import { getYouTubeApiKey, recordApiSuccess, recordApiError } from '@/lib/keys/youtubeKeyRotation';
 
 // Fresh This Week — music released in the last 7 days ordered by view count.
 // Step 1: search.list (100 quota units) to find new music videos.

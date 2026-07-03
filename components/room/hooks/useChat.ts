@@ -1,6 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { capMessages } from '@/lib/chatLimit';
 import { supabase } from '@/lib/supabase';
+
+const MAX_CHAT_MESSAGES = 200;
+export function capMessages<T>(messages: T[], max = MAX_CHAT_MESSAGES): T[] {
+  return messages.length > max ? messages.slice(messages.length - max) : messages;
+}
 import { getOrCreateUser } from '@/lib/names';
 import type { ChatMessage } from '@/lib/types';
 

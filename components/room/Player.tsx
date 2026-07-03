@@ -4,7 +4,7 @@ import Scrubber from './ui/Scrubber';
 import Icon from './ui/Icon';
 import VinylRecord from './ui/VinylRecord';
 import { useRoom } from './RoomContext';
-import { usePlaybackTime } from './playbackTimeStore';
+import { usePlaybackTime } from './hooks/playbackTimeStore';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 
 function fmt(s: number): string {
