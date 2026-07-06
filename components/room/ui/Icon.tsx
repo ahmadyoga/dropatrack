@@ -12,7 +12,7 @@ const PATHS: Record<string, React.ReactNode> = {
   plus:    <g fill="none"><path d="M12 5v14M5 12h14"/></g>,
   send:    <polygon points="4,4 21,12 4,20 7,12" />,
   image:   <g fill="none"><rect x="4" y="5" width="16" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="M5 17l4.5-4 3.5 3 3-3 4 3.5"/></g>,
-  gear:    <g fill="none"><circle cx="12" cy="12" r="3.4"/><path d="M12 3.5v3M12 17.5v3M20.5 12h-3M6.5 12h-3M18 6l-2.1 2.1M8.1 15.9 6 18M18 18l-2.1-2.1M8.1 8.1 6 6"/></g>,
+  gear:    <path fillRule="evenodd" clipRule="evenodd" fill="currentColor" stroke="none" d="M9.7 2.6h4.6l.6 2.6c.7.2 1.3.6 1.9 1.1l2.5-.9 2.3 4-2 1.7c.1.7.1 1.5 0 2.2l2 1.7-2.3 4-2.5-.9c-.6.5-1.2.9-1.9 1.1l-.6 2.6H9.7l-.6-2.6a7.5 7.5 0 0 1-1.9-1.1l-2.5.9-2.3-4 2-1.7a7.6 7.6 0 0 1 0-2.2l-2-1.7 2.3-4 2.5.9c.6-.5 1.2-.9 1.9-1.1l.6-2.6zM12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/>,
   close:   <g fill="none"><path d="M6 6l12 12M18 6 6 18"/></g>,
   sun:     <g fill="none"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.2 5.2 7 7M17 17l1.8 1.8M18.8 5.2 17 7M7 17l-1.8 1.8"/></g>,
   moon:    <path d="M20 14.5A8 8 0 1 1 9.5 4 6.4 6.4 0 0 0 20 14.5z" fill="currentColor" />,
