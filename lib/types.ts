@@ -124,9 +124,16 @@ export const LEVEL_CONFIG: Record<Level, { rows: number; cols: number; mines: nu
   hard:   { rows: 16, cols: 16, mines: 40, label: 'Hard' },
 };
 
+export const SUDOKU_LEVEL_CONFIG: Record<Level, { givens: number; label: string }> = {
+  easy:   { givens: 40, label: 'Easy' },
+  medium: { givens: 32, label: 'Medium' },
+  hard:   { givens: 24, label: 'Hard' },
+};
+
 export interface GameSession {
   id: string;
   room_id: string;
+  game_type: 'minesweeper' | 'sudoku';
   level: Level;
   status: 'active' | 'finished' | 'waiting' | 'playing';
   host_id: string;
@@ -231,4 +238,65 @@ export interface CellRow {
   adjacent_count: number;
   opened_by: string | null;
   opened_at: string | null;
+}
+
+export interface SudokuCell {
+  value: number | null;
+  given: boolean;
+  filledBy: string | null;
+}
+
+export type SudokuGrid = SudokuCell[][];
+
+export interface SudokuPlayerScore {
+  user_id: string;
+  username?: string;
+  wins: number;
+  losses: number;
+  correct: number;
+  wrong: number;
+}
+
+export interface SudokuSessionRow {
+  id: string;
+  music_room_id: string;
+  difficulty: Level;
+  status: 'active' | 'finished';
+  created_by: string;
+  created_at: string;
+  last_active_at: string;
+  finished_at: string | null;
+}
+
+export interface SudokuPlayerRow {
+  id: string;
+  session_id: string;
+  user_id: string;
+  username: string;
+  wins: number;
+  losses: number;
+  wrong_count: number;
+  joined_at: string;
+}
+
+export interface SudokuMatchRow {
+  id: string;
+  session_id: string;
+  match_number: number;
+  status: 'playing' | 'finished';
+  winner_user_id: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface SudokuCellRow {
+  id: string;
+  match_id: string;
+  x: number;
+  y: number;
+  given: boolean;
+  solution_value: number;
+  value: number | null;
+  filled_by: string | null;
+  filled_at: string | null;
 }
