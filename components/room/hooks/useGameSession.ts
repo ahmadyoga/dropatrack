@@ -46,6 +46,7 @@ function mapSession(
   return {
     id: session.id,
     room_id: session.music_room_id,
+    game_type: 'minesweeper',
     level: session.difficulty,
     status: session.status,
     host_id: session.created_by,
