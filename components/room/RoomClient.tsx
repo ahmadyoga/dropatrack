@@ -23,6 +23,7 @@ import { useAutoSuggest } from './hooks/useAutoSuggest';
 import { useDiscovery } from './hooks/useDiscovery';
 import { useChat } from './hooks/useChat';
 import { useGameSession } from './hooks/useGameSession';
+import { useSudokuSession } from './hooks/useSudokuSession';
 
 // Context
 import { RoomProvider } from './RoomContext';
@@ -41,6 +42,7 @@ import SettingsModal from './modals/SettingsModal';
 import ImagePreviewModal from './modals/ImagePreviewModal';
 import GameCreateModal from './game/GameCreateModal';
 import MinesweeperBoard from './game/MinesweeperBoard';
+import SudokuBoard from './game/SudokuBoard';
 import type { Level } from '@/lib/types';
 
 function detectTimezone(): string {
@@ -85,6 +87,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const [showSettings, setShowSettings] = useState(false);
   const [showGameCreate, setShowGameCreate] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const [pendingGameType, setPendingGameType] = useState<'minesweeper' | 'sudoku'>('minesweeper');
+  const [activeGameType, setActiveGameType] = useState<'minesweeper' | 'sudoku'>('minesweeper');
   const [openAddSongSignal, setOpenAddSongSignal] = useState(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [userTimezone] = useState(() => detectTimezone());
@@ -180,14 +184,28 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     session, board, myTurn, startSession, joinSession, makeMove, playAgain, finishSession,
   } = useGameSession(room.id, currentUser ?? null);
 
+  const {
+    session: sudokuSession, grid: sudokuGrid, scores: sudokuScores,
+    startSession: startSudokuSession, joinSession: joinSudokuSession,
+    submitCell, playAgain: playSudokuAgain, finishSession: finishSudokuSession,
+  } = useSudokuSession(room.id, currentUser ?? null);
+
   const handleCreateGame = useCallback(async (level: Level) => {
     if (!currentUser) return;
-    const sessionId = await startSession(level);
+    const sessionId = pendingGameType === 'sudoku'
+      ? await startSudokuSession(level)
+      : await startSession(level);
     if (sessionId) {
       setShowGameCreate(false);
       setActiveGameId(sessionId);
+      setActiveGameType(pendingGameType);
     }
-  }, [currentUser, startSession]);
+  }, [currentUser, pendingGameType, startSession, startSudokuSession]);
+
+  const handleOpenGameCreate = useCallback((gameType: 'minesweeper' | 'sudoku') => {
+    setPendingGameType(gameType);
+    setShowGameCreate(true);
+  }, []);
 
   const inviteSentRef = useRef<string | null>(null);
   useEffect(() => {
@@ -200,6 +218,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       inviteSentRef.current = session.id;
       handleSendChat(undefined, 'game_invite', {
         id: session.id,
+        game_type: 'minesweeper',
         level: session.level,
         status: session.status,
         players: session.players,
@@ -213,10 +232,41 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     }
   }, [session, currentUser?.user_id, handleSendChat]);
 
+  const sudokuInviteSentRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (
+      sudokuSession &&
+      sudokuSession.host_id === currentUser?.user_id &&
+      !sudokuSession.chat_message_id &&
+      sudokuInviteSentRef.current !== sudokuSession.id
+    ) {
+      sudokuInviteSentRef.current = sudokuSession.id;
+      handleSendChat(undefined, 'game_invite', {
+        id: sudokuSession.id,
+        game_type: 'sudoku',
+        level: sudokuSession.level,
+        status: sudokuSession.status,
+        players: sudokuSession.players,
+        host_id: sudokuSession.host_id,
+        host_username: sudokuSession.host_username,
+        current_turn_index: sudokuSession.current_turn_index,
+        room_id: sudokuSession.room_id,
+        created_at: sudokuSession.created_at,
+        updated_at: sudokuSession.updated_at,
+      });
+    }
+  }, [sudokuSession, currentUser?.user_id, handleSendChat]);
+
   const handleJoinGame = useCallback(async (sessionId: string) => {
     setActiveGameId(sessionId);
+    if (sudokuSession?.id === sessionId) {
+      setActiveGameType('sudoku');
+      await joinSudokuSession(sessionId);
+      return;
+    }
+    setActiveGameType('minesweeper');
     await joinSession(sessionId);
-  }, [joinSession]);
+  }, [joinSession, joinSudokuSession, sudokuSession]);
 
   const gamePlayers = useMemo(() => {
     if (!session) return [];
@@ -234,6 +284,16 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   }, [session, users, currentUser]);
 
   const gameUsernames = useMemo(() => gamePlayers.map(p => p.username), [gamePlayers]);
+
+  const sudokuPlayerColors = useMemo(() => {
+    if (!sudokuSession) return {};
+    const colors: Record<string, string> = {};
+    for (const pid of sudokuSession.players) {
+      const presenceUser = users.find(u => u.user_id === pid);
+      colors[pid] = presenceUser?.avatar_color ?? 'var(--panel-3)';
+    }
+    return colors;
+  }, [sudokuSession, users]);
 
   useEffect(() => { broadcastRef.current = broadcast; }, [broadcast]);
 
@@ -441,7 +501,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
       addSongToQueue(youtubeId, title, '', 0),
     onPreviewImage: setPreviewImage,
     onSeen: () => setUnreadChatCount(0),
-    onCreateGame: () => setShowGameCreate(true),
+    onCreateGame: handleOpenGameCreate,
     onJoinGame: handleJoinGame,
     activeSession: session,
     replyTo,
@@ -561,10 +621,18 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           <ImagePreviewModal imageUrl={previewImage} onClose={() => setPreviewImage(null)} />
         )}
 
-        {session?.status === 'active' && (
+        {(session?.status === 'active' || sudokuSession?.status === 'active') && (
           <button
             className="pop wobble flex items-center gap-3"
-            onClick={() => setActiveGameId(session.id)}
+            onClick={() => {
+              if (sudokuSession?.status === 'active') {
+                setActiveGameId(sudokuSession.id);
+                setActiveGameType('sudoku');
+              } else if (session) {
+                setActiveGameId(session.id);
+                setActiveGameType('minesweeper');
+              }
+            }}
             style={{
               position: 'fixed',
               right: isMobile ? 16 : 24,
@@ -583,16 +651,20 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             <span style={{ fontSize: 20 }}>🎮</span>
             <span className="col" style={{ gap: 2 }}>
               <span className="display" style={{ fontSize: 13 }}>Active Game</span>
-              <span className="mono" style={{ fontSize: 10 }}>Minesweeper · Match #{session.match_number ?? 1}</span>
+              <span className="mono" style={{ fontSize: 10 }}>
+                {sudokuSession?.status === 'active'
+                  ? `Sudoku Race · Match #${sudokuSession.match_number ?? 1}`
+                  : `Minesweeper · Match #${session?.match_number ?? 1}`}
+              </span>
             </span>
           </button>
         )}
 
         {showGameCreate && (
-          <GameCreateModal onClose={() => setShowGameCreate(false)} onCreateGame={handleCreateGame} />
+          <GameCreateModal gameType={pendingGameType} onClose={() => setShowGameCreate(false)} onCreateGame={handleCreateGame} />
         )}
 
-        {activeGameId && session && (
+        {activeGameId && activeGameType === 'minesweeper' && session && (
           <div className="scrim" style={{ zIndex: 1000 }} onClick={() => setActiveGameId(null)}>
             <div onClick={e => e.stopPropagation()}>
               {board && (
@@ -617,8 +689,42 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                     setActiveGameId(null);
                     handleSendChat(undefined, 'game_summary', {
                       id: session.id,
+                      game_type: 'minesweeper',
                       level: session.level,
                       scores: session.scores ?? [],
+                    });
+                  }}
+                  onClose={() => setActiveGameId(null)}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeGameId && activeGameType === 'sudoku' && sudokuSession && (
+          <div className="scrim" style={{ zIndex: 1000 }} onClick={() => setActiveGameId(null)}>
+            <div onClick={e => e.stopPropagation()}>
+              {sudokuGrid && (
+                <SudokuBoard
+                  grid={sudokuGrid}
+                  scores={sudokuScores}
+                  matchNumber={sudokuSession.match_number ?? 1}
+                  currentUserId={currentUser?.user_id ?? ''}
+                  playerColors={sudokuPlayerColors}
+                  onSubmitCell={submitCell}
+                  gameOver={sudokuSession.winner_id ? {
+                    won: sudokuSession.winner_id === currentUser?.user_id,
+                    winnerUsername: sudokuScores.find(s => s.user_id === sudokuSession.winner_id)?.username,
+                  } : null}
+                  onPlayAgain={() => playSudokuAgain(sudokuSession.id)}
+                  onFinish={() => {
+                    finishSudokuSession(sudokuSession.id);
+                    setActiveGameId(null);
+                    handleSendChat(undefined, 'game_summary', {
+                      id: sudokuSession.id,
+                      game_type: 'sudoku',
+                      level: sudokuSession.level,
+                      scores: sudokuScores,
                     });
                   }}
                   onClose={() => setActiveGameId(null)}
