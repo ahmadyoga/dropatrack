@@ -1,9 +1,10 @@
 'use client';
 
 import type { Level } from '@/lib/types';
-import { LEVEL_CONFIG } from '@/lib/types';
+import { LEVEL_CONFIG, SUDOKU_LEVEL_CONFIG } from '@/lib/types';
 
 interface GameCreateModalProps {
+  gameType: 'minesweeper' | 'sudoku';
   onClose: () => void;
   onCreateGame: (level: Level) => void;
 }
@@ -20,8 +21,22 @@ const LEVEL_ACCENT: Record<Level, string> = {
   hard:   'var(--pop-coral)',
 };
 
-export default function GameCreateModal({ onClose, onCreateGame }: GameCreateModalProps) {
+const GAME_META = {
+  minesweeper: { icon: '💣', title: 'New Minesweeper Game' },
+  sudoku:      { icon: '🔢', title: 'New Sudoku Race' },
+};
+
+function levelSummary(gameType: 'minesweeper' | 'sudoku', level: Level): string {
+  if (gameType === 'sudoku') {
+    return `9×9 grid · ${SUDOKU_LEVEL_CONFIG[level].givens} givens`;
+  }
+  const cfg = LEVEL_CONFIG[level];
+  return `${cfg.cols}×${cfg.rows} grid · ${cfg.mines} mines`;
+}
+
+export default function GameCreateModal({ gameType, onClose, onCreateGame }: GameCreateModalProps) {
   const levels: Level[] = ['easy', 'medium', 'hard'];
+  const meta = GAME_META[gameType];
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -41,8 +56,8 @@ export default function GameCreateModal({ onClose, onCreateGame }: GameCreateMod
           }}
         >
           <div className="flex items-center gap-3">
-            <span style={{ fontSize: 22 }}>💣</span>
-            <div className="display" style={{ fontSize: 20 }}>New Minesweeper Game</div>
+            <span style={{ fontSize: 22 }}>{meta.icon}</span>
+            <div className="display" style={{ fontSize: 20 }}>{meta.title}</div>
           </div>
           <button
             className="btn pop-sm btn-icon"
@@ -93,7 +108,6 @@ export default function GameCreateModal({ onClose, onCreateGame }: GameCreateMod
                   (e.currentTarget as HTMLButtonElement).style.boxShadow = '5px 5px 0 var(--shadow)';
                 }}
               >
-                {/* icon */}
                 <span
                   style={{
                     fontSize: 32,
@@ -111,39 +125,13 @@ export default function GameCreateModal({ onClose, onCreateGame }: GameCreateMod
                   {icon}
                 </span>
 
-                {/* text */}
                 <div className="col" style={{ gap: 4, flex: 1 }}>
                   <div className="display" style={{ fontSize: 18, color: 'var(--ink)' }}>
                     {cfg.label}
                   </div>
                   <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', lineHeight: 1.4 }}>
-                    {cfg.cols}×{cfg.rows} grid · {cfg.mines} mines
+                    {levelSummary(gameType, level)}
                   </div>
-                </div>
-
-                {/* grid preview */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: `repeat(${Math.min(cfg.cols, 6)}, 8px)`,
-                    gridTemplateRows: `repeat(${Math.min(cfg.rows, 6)}, 8px)`,
-                    gap: 2,
-                    opacity: 0.55,
-                    flexShrink: 0,
-                  }}
-                >
-                  {Array.from({ length: Math.min(cfg.rows, 6) * Math.min(cfg.cols, 6) }).map((_, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        width: 8,
-                        height: 8,
-                        background: Math.random() > 0.85 ? accent : 'var(--panel-3)',
-                        border: '1px solid var(--outline)',
-                        borderRadius: 2,
-                      }}
-                    />
-                  ))}
                 </div>
               </button>
             );
