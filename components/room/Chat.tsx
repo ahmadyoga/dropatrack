@@ -30,14 +30,17 @@ interface ChatProps {
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
   onSeen: () => void;
-  onCreateGame: () => void;
+  onCreateGame: (gameType: 'minesweeper' | 'sudoku') => void;
   onJoinGame: (sessionId: string) => void;
   activeSession?: GameSession | null;
   replyTo: ChatMessage | null;
   setReplyTo: (msg: ChatMessage | null) => void;
 }
 
-function isGameSummaryPayload(payload: unknown): payload is { scores: Array<{ user_id: string; username?: string; wins: number; losses: number }> } {
+function isGameSummaryPayload(payload: unknown): payload is {
+  game_type?: 'minesweeper' | 'sudoku';
+  scores: Array<{ user_id: string; username?: string; wins: number; losses: number }>;
+} {
   return Boolean(
     payload &&
     typeof payload === 'object' &&
@@ -293,7 +296,7 @@ export default function Chat({
               className="flex items-center gap-3"
               onClick={() => {
                 setShowGameMenu(false);
-                onCreateGame();
+                onCreateGame('minesweeper');
               }}
               style={{
                 padding: '16px',
@@ -309,6 +312,27 @@ export default function Chat({
               <span className="col" style={{ gap: 2 }}>
                 <span style={{ fontWeight: 800 }}>Minesweeper</span>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>Multiplayer mine hunt</span>
+              </span>
+            </button>
+            <button
+              className="flex items-center gap-3"
+              onClick={() => {
+                setShowGameMenu(false);
+                onCreateGame('sudoku');
+              }}
+              style={{
+                padding: '16px',
+                background: 'var(--panel)',
+                border: 0,
+                cursor: 'pointer',
+                color: 'var(--ink)',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 24 }}>🔢</span>
+              <span className="col" style={{ gap: 2 }}>
+                <span style={{ fontWeight: 800 }}>Sudoku Race</span>
+                <span className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>First correct fill wins the cell</span>
               </span>
             </button>
           </div>
@@ -400,9 +424,13 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
             }}
           >
             <div className="flex items-center gap-2">
-              <span style={{ fontSize: 22 }}>🎮</span>
+              <span style={{ fontSize: 22 }}>
+                {isGameSummaryPayload(msg.payload) && msg.payload.game_type === 'sudoku' ? '🔢' : '💣'}
+              </span>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 13 }}>Minesweeper Finished</div>
+                <div style={{ fontWeight: 800, fontSize: 13 }}>
+                  {isGameSummaryPayload(msg.payload) && msg.payload.game_type === 'sudoku' ? 'Sudoku Race Finished' : 'Minesweeper Finished'}
+                </div>
                 <div className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>Final Score</div>
               </div>
             </div>
