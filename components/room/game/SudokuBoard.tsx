@@ -34,7 +34,18 @@ function CloseButton({ onClose }: { onClose?: () => void }) {
 function ScoreStrip({ scores }: { scores: SudokuPlayerScore[] }) {
   if (!scores.length) return null;
   return (
-    <div className="flex items-center gap-2 mono" style={{ padding: '8px 14px', borderBottom: '2px solid var(--line)', fontSize: 11, overflowX: 'auto' }}>
+    <div
+      className="flex items-center gap-2 mono"
+      style={{
+        padding: '8px 14px',
+        borderBottom: '2px solid var(--line)',
+        fontSize: 11,
+        overflowX: 'auto',
+        maxWidth: '100%',
+        minWidth: 0,
+        scrollbarWidth: 'thin',
+      }}
+    >
       {scores.map((score) => (
         <span key={score.user_id} className="chip" style={{ whiteSpace: 'nowrap', background: 'var(--panel-2)' }}>
           {score.username ?? score.user_id}: {score.correct}✓ / {score.wrong}✗
@@ -217,7 +228,7 @@ export default function SudokuBoard({
         .sudoku-cell-empty:hover { background: var(--accent) !important; cursor: pointer; }
       `}</style>
 
-      <div className="pop wobble-2 col" style={{ overflow: 'hidden', boxShadow: '9px 9px 0 var(--shadow)', maxWidth: '96vw', width: 'fit-content', position: 'relative' }}>
+      <div className="pop wobble-2 col" style={{ overflow: 'hidden', boxShadow: '9px 9px 0 var(--shadow)', maxWidth: '96vw', width: 'min(692px, 96vw)', position: 'relative' }}>
         <CloseButton onClose={onClose} />
 
         <div className="flex items-center gap-4 mono" style={{ padding: '12px 16px', borderBottom: '2px solid var(--line)', fontSize: 14 }}>
