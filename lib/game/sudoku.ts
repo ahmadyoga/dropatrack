@@ -105,3 +105,41 @@ export function cellRowsToGrid(cells: SudokuCellRow[]): SudokuGrid {
 export function isBoardComplete(grid: SudokuGrid): boolean {
   return grid.every((row) => row.every((cell) => cell.value !== null));
 }
+
+export function clearLineNotes(
+  notes: Record<string, number[]>,
+  grid: SudokuGrid
+): Record<string, number[]> {
+  let next: Record<string, number[]> | null = null;
+
+  for (const [key, marks] of Object.entries(notes)) {
+    const [row, col] = key.split(',').map(Number);
+    const blocked = new Set<number>();
+
+    for (let i = 0; i < 9; i++) {
+      const rowValue = grid[row]?.[i]?.value;
+      const colValue = grid[i]?.[col]?.value;
+      if (rowValue !== null && rowValue !== undefined) blocked.add(rowValue);
+      if (colValue !== null && colValue !== undefined) blocked.add(colValue);
+    }
+
+    const kept = marks.filter((mark) => !blocked.has(mark));
+    if (kept.length !== marks.length) {
+      next ??= { ...notes };
+      if (kept.length) next[key] = kept;
+      else delete next[key];
+    }
+  }
+
+  return next ?? notes;
+}
+
+export function completedDigits(grid: SudokuGrid): Set<number> {
+  const counts = Array(10).fill(0) as number[];
+  for (const row of grid) {
+    for (const cell of row) {
+      if (cell.value !== null) counts[cell.value]++;
+    }
+  }
+  return new Set(counts.flatMap((count, digit) => (digit > 0 && count >= 9 ? [digit] : [])));
+}

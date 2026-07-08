@@ -57,6 +57,19 @@ interface RoomClientProps {
 
 type MobileTab = 'player' | 'queue' | 'discover' | 'chat';
 
+const sudokuFallbackColors = [
+  '#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6',
+  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
+  '#6366f1', '#d946ef', '#0ea5e9', '#10b981', '#e11d48',
+  '#a855f7', '#eab308', '#64748b', '#dc2626', '#2563eb',
+];
+
+function sudokuColorForUser(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) hash = (hash * 31 + userId.charCodeAt(i)) >>> 0;
+  return sudokuFallbackColors[hash % sudokuFallbackColors.length];
+}
+
 export default function RoomClient({ initialRoom, initialQueue }: RoomClientProps) {
   useAntiDebug();
 
@@ -288,12 +301,16 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const sudokuPlayerColors = useMemo(() => {
     if (!sudokuSession) return {};
     const colors: Record<string, string> = {};
-    for (const pid of sudokuSession.players) {
+    const playerIds = new Set(sudokuSession.players);
+    for (const row of sudokuGrid ?? []) {
+      for (const cell of row) if (cell.filledBy) playerIds.add(cell.filledBy);
+    }
+    for (const pid of playerIds) {
       const presenceUser = users.find(u => u.user_id === pid);
-      colors[pid] = presenceUser?.avatar_color ?? 'var(--panel-3)';
+      colors[pid] = presenceUser?.avatar_color ?? sudokuColorForUser(pid);
     }
     return colors;
-  }, [sudokuSession, users]);
+  }, [sudokuGrid, sudokuSession, users]);
 
   useEffect(() => { broadcastRef.current = broadcast; }, [broadcast]);
 
@@ -504,6 +521,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onCreateGame: handleOpenGameCreate,
     onJoinGame: handleJoinGame,
     activeSession: session,
+    activeSudokuSession: sudokuSession,
     replyTo,
     setReplyTo,
   };

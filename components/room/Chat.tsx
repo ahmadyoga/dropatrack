@@ -33,6 +33,7 @@ interface ChatProps {
   onCreateGame: (gameType: 'minesweeper' | 'sudoku') => void;
   onJoinGame: (sessionId: string) => void;
   activeSession?: GameSession | null;
+  activeSudokuSession?: GameSession | null;
   replyTo: ChatMessage | null;
   setReplyTo: (msg: ChatMessage | null) => void;
 }
@@ -78,6 +79,7 @@ export default function Chat({
   onCreateGame,
   onJoinGame,
   activeSession,
+  activeSudokuSession,
   replyTo,
   setReplyTo,
 }: ChatProps) {
@@ -190,6 +192,7 @@ export default function Chat({
             onPreviewImage={onPreviewImage}
             onJoinGame={onJoinGame}
             activeSession={activeSession}
+            activeSudokuSession={activeSudokuSession}
             onReply={setReplyTo}
             onJumpToMessage={jumpToMessage}
           />
@@ -342,12 +345,13 @@ export default function Chat({
   );
 }
 
-function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, activeSession, onReply, onJumpToMessage }: {
+function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, activeSession, activeSudokuSession, onReply, onJumpToMessage }: {
   msg: ChatMessage; isMe: boolean;
   onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
   onPreviewImage: (url: string) => void;
   onJoinGame: (sessionId: string) => void;
   activeSession?: GameSession | null;
+  activeSudokuSession?: GameSession | null;
   onReply: (msg: ChatMessage) => void;
   onJumpToMessage: (id: string) => void;
 }) {
@@ -402,8 +406,14 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
 
         {msg.type === 'game_invite' && isGameInvitePayload(msg.payload) && (
           <GameInviteMessage
-            session={activeSession?.id === msg.payload.id ? activeSession : msg.payload}
-            onJoin={onJoinGame} 
+            session={
+              activeSession?.id === msg.payload.id
+                ? activeSession
+                : activeSudokuSession?.id === msg.payload.id
+                  ? activeSudokuSession
+                  : msg.payload
+            }
+            onJoin={onJoinGame}
             currentUserId={currentUser?.user_id || ''} 
           />
         )}

@@ -5,6 +5,8 @@ import {
   puzzleToCellRows,
   cellRowsToGrid,
   isBoardComplete,
+  clearLineNotes,
+  completedDigits,
 } from './sudoku';
 
 function isValidSudoku(grid: number[][]): boolean {
@@ -139,5 +141,38 @@ describe('isBoardComplete', () => {
       ).flat()
     );
     expect(isBoardComplete(grid)).toBe(true);
+  });
+});
+
+describe('clearLineNotes', () => {
+  it('removes notes that match a filled value in the same row or column', () => {
+    const grid = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => ({ value: null, given: false, filledBy: null }))
+    );
+    grid[1][4] = { value: 8, given: false, filledBy: 'user-a' };
+
+    expect(clearLineNotes({
+      '1,0': [2, 8],
+      '1,8': [8],
+      '0,4': [1, 8],
+      '8,4': [8],
+      '0,0': [8],
+    }, grid)).toEqual({
+      '1,0': [2],
+      '0,4': [1],
+      '0,0': [8],
+    });
+  });
+});
+
+describe('completedDigits', () => {
+  it('returns digits that already appear 9 times on the board', () => {
+    const grid = Array.from({ length: 9 }, () =>
+      Array.from({ length: 9 }, () => ({ value: null, given: false, filledBy: null }))
+    );
+    for (let row = 0; row < 9; row++) grid[row][0] = { value: 7, given: false, filledBy: 'user-a' };
+    for (let row = 0; row < 8; row++) grid[row][1] = { value: 3, given: false, filledBy: 'user-a' };
+
+    expect(completedDigits(grid)).toEqual(new Set([7]));
   });
 });

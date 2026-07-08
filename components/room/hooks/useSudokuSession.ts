@@ -244,6 +244,12 @@ export function useSudokuSession(roomId: string, currentUser: UserPresence | nul
     const currentSession = sessionRef.current;
     if (!currentSession?.match_id || !currentUser) return 'taken' as const;
 
+    await supabase.from('sudoku_players').upsert({
+      session_id: currentSession.id,
+      user_id: currentUser.user_id,
+      username: currentUser.username,
+    }, { onConflict: 'session_id,user_id' });
+
     const { data, error } = await supabase.rpc('submit_sudoku_cell', {
       p_match_id: currentSession.match_id,
       p_x: col,
