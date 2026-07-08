@@ -278,9 +278,9 @@ export default function SudokuBoard({
                   const highlightFill = isSameNumber
                     ? 'rgba(250,204,21,0.18)'
                     : isAxisHighlight
-                      ? 'rgba(255,255,255,0.09)'
+                      ? 'rgba(0,229,255,0.16)'
                       : isBoxHighlight
-                        ? 'rgba(255,255,255,0.05)'
+                        ? 'rgba(0,229,255,0.08)'
                         : 'transparent';
 
                   return (
