@@ -275,6 +275,13 @@ export default function SudokuBoard({
                     Math.floor(focusedCell.col / 3) === Math.floor(cIdx / 3);
                   const isSameNumber = !isSelected && focusedValue != null && cell.value === focusedValue;
                   const cellNotes = isEmpty ? notes[`${rIdx},${cIdx}`] : undefined;
+                  const highlightFill = isSameNumber
+                    ? 'rgba(250,204,21,0.18)'
+                    : isAxisHighlight
+                      ? 'rgba(255,255,255,0.09)'
+                      : isBoxHighlight
+                        ? 'rgba(255,255,255,0.05)'
+                        : 'transparent';
 
                   return (
                     <div
@@ -298,24 +305,29 @@ export default function SudokuBoard({
                         borderLeft: cIdx % 3 === 0 ? '3px solid var(--outline)' : '1px solid var(--line)',
                         borderRight: cIdx === 8 ? '3px solid var(--outline)' : undefined,
                         borderBottom: rIdx === 8 ? '3px solid var(--outline)' : undefined,
-                        background: cell.given
-                          ? 'var(--panel-2)'
-                          : fillColor
-                            ? `linear-gradient(${fillColor}24, ${fillColor}24), var(--panel-3)`
-                            : 'var(--panel-3)',
+                        background: cell.given ? 'var(--panel-2)' : 'var(--panel-3)',
                         boxShadow: isSelected
-                          ? 'inset 0 0 0 2.5px var(--accent)'
-                          : isSameNumber
-                            ? 'inset 0 0 0 100px rgba(250,204,21,0.16)'
-                            : isAxisHighlight
-                              ? 'inset 0 0 0 100px rgba(34,197,94,0.07)'
-                              : isBoxHighlight
-                                ? 'inset 0 0 0 100px rgba(59,130,246,0.055)'
-                                : undefined,
+                          ? 'inset 0 0 0 3px var(--accent), inset 0 0 0 100px rgba(0,229,255,0.12)'
+                          : `inset 0 0 0 100px ${highlightFill}`,
                         color: cell.given ? 'var(--ink)' : cell.filledBy === currentUserId ? 'var(--ink)' : 'var(--ink)',
                         userSelect: 'none',
                       }}
                     >
+                      {fillColor && !cell.given && (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            position: 'absolute',
+                            left: 5,
+                            right: 5,
+                            bottom: 4,
+                            height: 3,
+                            borderRadius: 999,
+                            background: fillColor,
+                            opacity: 0.9,
+                          }}
+                        />
+                      )}
                       {cell.value ?? (cellNotes?.length ? <NoteGrid marks={cellNotes} /> : '')}
                     </div>
                   );
