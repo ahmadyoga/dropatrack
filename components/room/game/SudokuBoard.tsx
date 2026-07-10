@@ -31,7 +31,7 @@ function CloseButton({ onClose }: { onClose?: () => void }) {
   );
 }
 
-function ScoreStrip({ scores }: { scores: SudokuPlayerScore[] }) {
+function ScoreStrip({ scores, playerColors }: { scores: SudokuPlayerScore[]; playerColors: Record<string, string> }) {
   if (!scores.length) return null;
   return (
     <div
@@ -48,6 +48,7 @@ function ScoreStrip({ scores }: { scores: SudokuPlayerScore[] }) {
     >
       {scores.map((score) => (
         <span key={score.user_id} className="chip" style={{ whiteSpace: 'nowrap', background: 'var(--panel-2)' }}>
+          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: playerColors[score.user_id], flexShrink: 0 }} />
           {score.username ?? score.user_id}: {score.correct}✓ / {score.wrong}✗
         </span>
       ))}
@@ -237,7 +238,7 @@ export default function SudokuBoard({
           <span>Match #{matchNumber}</span>
         </div>
 
-        <ScoreStrip scores={scores} />
+        <ScoreStrip scores={scores} playerColors={playerColors} />
 
         <div className="flex" style={{ position: 'relative', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
           {gameOver && (
