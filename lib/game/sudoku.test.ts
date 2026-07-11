@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   generateSolvedGrid,
   generatePuzzle,
+  gradeDifficulty,
+  hasUniqueSolution,
   puzzleToCellRows,
   cellRowsToGrid,
   isBoardComplete,
@@ -49,22 +51,41 @@ describe('generateSolvedGrid', () => {
 });
 
 describe('generatePuzzle', () => {
-  it('easy level keeps 40 given cells', () => {
+  // Dig-holes makes the configured given count a floor: uniqueness may block
+  // further removal, so a level can end up with a few extra givens.
+  it('easy level keeps at least 40 given cells', () => {
     const { puzzle } = generatePuzzle('easy');
     const given = puzzle.flat().filter((v) => v !== 0).length;
-    expect(given).toBe(40);
+    expect(given).toBeGreaterThanOrEqual(40);
+    expect(given).toBeLessThan(81);
   });
 
-  it('medium level keeps 32 given cells', () => {
+  it('medium level keeps at least 32 given cells', () => {
     const { puzzle } = generatePuzzle('medium');
     const given = puzzle.flat().filter((v) => v !== 0).length;
-    expect(given).toBe(32);
+    expect(given).toBeGreaterThanOrEqual(32);
   });
 
-  it('hard level keeps 24 given cells', () => {
+  it('hard level keeps at least 24 given cells', () => {
     const { puzzle } = generatePuzzle('hard');
     const given = puzzle.flat().filter((v) => v !== 0).length;
-    expect(given).toBe(24);
+    expect(given).toBeGreaterThanOrEqual(24);
+  });
+
+  it('grades each level to its target difficulty', () => {
+    // Retry cap means a rare fallback can miss the exact tier; check the bulk.
+    for (const level of ['easy', 'medium', 'hard'] as const) {
+      const grades = Array.from({ length: 5 }, () =>
+        gradeDifficulty(generatePuzzle(level).puzzle)
+      );
+      expect(grades.filter((g) => g === level).length).toBeGreaterThanOrEqual(4);
+    }
+  });
+
+  it('always produces a puzzle with a unique solution', () => {
+    for (const level of ['easy', 'medium', 'hard'] as const) {
+      expect(hasUniqueSolution(generatePuzzle(level).puzzle)).toBe(true);
+    }
   });
 
   it('every non-zero puzzle cell matches the solution', () => {
