@@ -108,7 +108,7 @@ function AddSongModal({ onClose, onAdd }: {
             </button>
           </form>
 
-          <div className="scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, overflowY: 'auto', flex: 1, paddingRight: 4, alignContent: 'start' }}>
+          <div className="scroll" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 10, overflowY: 'auto', flex: 1, paddingRight: 4, alignContent: 'start' }}>
             {searching && <div className="mono" style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--ink-dim)', padding: 28 }}>searching the cosmos…</div>}
             {!searching && results.length === 0 && input.trim() && <div className="mono" style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--ink-dim)', padding: 28, fontSize: 13 }}>no signal out here… try another search 🛰️</div>}
             {!searching && results.length === 0 && !input.trim() && <div className="mono" style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--ink-dim)', padding: 28, fontSize: 13 }}>type to search ✨</div>}

@@ -599,17 +599,17 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 </div>
               )}
               {mobileTab === 'queue' && (
-                <div style={{ display: 'flex', minHeight: 460, flex: 1 }}>
+                <div style={{ minHeight: 460, flex: 1 }}>
                   <Queue {...queueProps} />
                 </div>
               )}
               {mobileTab === 'discover' && (
-                <div style={{ display: 'flex', minHeight: 460, flex: 1 }}>
+                <div style={{ minHeight: 460, flex: 1 }}>
                   <Discover {...discoverProps} />
                 </div>
               )}
               {mobileTab === 'chat' && (
-                <div style={{ display: 'flex', minHeight: 520, flex: 1 }}>
+                <div style={{ minHeight: 520, flex: 1 }}>
                   <Chat {...chatProps} />
                 </div>
               )}
