@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
-import { useAntiDebug } from '@/lib/antiDebug';
 import UsernameModal from './modals/UsernameModal';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
@@ -71,8 +70,6 @@ function sudokuColorForUser(userId: string): string {
 }
 
 export default function RoomClient({ initialRoom, initialQueue }: RoomClientProps) {
-  useAntiDebug();
-
   const { theme, toggleTheme } = useTheme();
 
   const [usernameState, setUsernameState] = useState<'loading' | 'modal' | 'ready'>('loading');

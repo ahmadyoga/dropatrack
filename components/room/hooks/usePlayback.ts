@@ -169,6 +169,24 @@ export function usePlayback({
     }
   }, [handlePlayPause, handleNext, handlePrev, queue, room.current_song_index, room.is_playing]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Screen Wake Lock — keeps the screen (and thus the tab) alive while playing.
+  // Released automatically by the browser on tab-hide; re-acquired on visibility return.
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  useEffect(() => {
+    if (!('wakeLock' in navigator)) return;
+    const release = () => { wakeLockRef.current?.release().catch(() => {}); wakeLockRef.current = null; };
+    const acquire = () => {
+      if (!room.is_playing || document.visibilityState !== 'visible' || wakeLockRef.current) return;
+      navigator.wakeLock.request('screen').then((lock) => { wakeLockRef.current = lock; }).catch(() => {});
+    };
+    if (room.is_playing) acquire(); else release();
+    document.addEventListener('visibilitychange', acquire);
+    return () => {
+      document.removeEventListener('visibilitychange', acquire);
+      release();
+    };
+  }, [room.is_playing]);
+
   return {
     broadcastPlayback,
     handlePlayPause,

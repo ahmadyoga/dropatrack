@@ -47,6 +47,11 @@ export const metadata: Metadata = {
       "Collaborative music rooms. Same queue, same beat — drop tracks and listen together in real time.",
     images: ["/twitter-image.png"],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "DropATrack",
+  },
 };
 
 export const viewport: Viewport = {
@@ -79,6 +84,11 @@ export default function RootLayout({
           {children}
           <Analytics />
         </ThemeProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if ('serviceWorker' in navigator) { window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js')); }`,
+          }}
+        />
       </body>
     </html>
   );
