@@ -1,6 +1,7 @@
 'use client';
 
 import { useRoom } from '../RoomContext';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 import type { UserRole } from '@/lib/types';
 
 interface SettingsModalProps {
@@ -41,6 +42,8 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
   const { room, theme, toggleTheme } = useRoom();
   const currentRole = room.default_role || 'dj';
   const isPrivate = !room.is_public;
+  const { canInstall, installed, promptInstall } = usePwaInstall();
+  const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -117,6 +120,29 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
             label="Lights"
             sub={theme === 'dark' ? 'deep space' : 'daylight cosmos'}
           />
+
+          {/* PWA install */}
+          <div style={{ padding: '14px 0', borderBottom: '2px solid var(--line)' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>Install app</div>
+            <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', marginBottom: 12 }}>
+              add DropATrack to your home screen
+            </div>
+            {installed ? (
+              <div className="mono" style={{ fontSize: 12 }}>✅ Installed</div>
+            ) : canInstall ? (
+              <button
+                className="btn pop-sm"
+                onClick={promptInstall}
+                style={{ width: '100%', background: 'var(--accent)', color: '#140f1f', justifyContent: 'center' }}
+              >
+                📲 INSTALL APP
+              </button>
+            ) : (
+              <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)' }}>
+                {isIos ? 'tap Share ⬆️ then "Add to Home Screen"' : 'use your browser menu → "Install app" / "Add to Home Screen"'}
+              </div>
+            )}
+          </div>
 
           {/* Extension download */}
           <div style={{ padding: '14px 0', borderBottom: '2px solid var(--line)' }}>

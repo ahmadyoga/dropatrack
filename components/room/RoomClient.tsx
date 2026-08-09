@@ -597,19 +597,20 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <div className="col" style={{ gap: 14, display: mobileTab === 'player' ? 'flex' : 'none' }}>
                 <Player {...playerProps} />
                 <ReactionBar />
+                <CrewStrip onUpdateUserRole={updateUserRole} onRenameMe={renameSelf} />
               </div>
               {mobileTab === 'queue' && (
-                <div style={{ minHeight: 460, flex: 1 }}>
+                <div style={{ minHeight: 0, flex: 1 }}>
                   <Queue {...queueProps} />
                 </div>
               )}
               {mobileTab === 'discover' && (
-                <div style={{ minHeight: 460, flex: 1 }}>
+                <div style={{ minHeight: 0, flex: 1 }}>
                   <Discover {...discoverProps} />
                 </div>
               )}
               {mobileTab === 'chat' && (
-                <div style={{ minHeight: 520, flex: 1 }}>
+                <div style={{ minHeight: 0, flex: 1 }}>
                   <Chat {...chatProps} />
                 </div>
               )}
