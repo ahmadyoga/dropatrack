@@ -36,6 +36,7 @@ import Queue from './Queue';
 import Discover from './Discover';
 import Chat from './Chat';
 import MobileNav from './MobileNav';
+import MiniPlayer from './MiniPlayer';
 import StarField from './ui/StarField';
 import SettingsModal from './modals/SettingsModal';
 import ImagePreviewModal from './modals/ImagePreviewModal';
@@ -556,7 +557,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         <div
           style={{
             flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-            padding: isMobile ? '16px 14px 92px' : '20px 22px 22px',
+            padding: isMobile ? `16px 14px ${mobileTab === 'player' ? 92 : 146}px` : '20px 22px 22px',
             overflow: isMobile ? 'auto' : 'hidden',
             position: 'relative',
           }}
@@ -592,12 +593,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             </div>
           ) : (
             <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-              {mobileTab === 'player' && (
-                <div className="col" style={{ gap: 14 }}>
-                  <Player {...playerProps} />
-                  <ReactionBar />
-                </div>
-              )}
+              {/* Always mounted so the YouTube iframe survives switching mobile tabs — only hidden via CSS */}
+              <div className="col" style={{ gap: 14, display: mobileTab === 'player' ? 'flex' : 'none' }}>
+                <Player {...playerProps} />
+                <ReactionBar />
+              </div>
               {mobileTab === 'queue' && (
                 <div style={{ minHeight: 460, flex: 1 }}>
                   <Queue {...queueProps} />
@@ -616,6 +616,10 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             </div>
           )}
         </div>
+
+        {isMobile && mobileTab !== 'player' && (
+          <MiniPlayer onPlayPause={handlePlayPause} onExpand={() => setMobileTab('player')} />
+        )}
 
         {isMobile && (
           <MobileNav

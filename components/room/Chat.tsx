@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import Avatar from './ui/Avatar';
 import Icon from './ui/Icon';
 import GameInviteMessage from './game/GameInviteMessage';
@@ -85,6 +85,7 @@ export default function Chat({
 }: ChatProps) {
   const { currentUser } = useRoom();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const highlightedElRef = useRef<HTMLElement | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -101,6 +102,14 @@ export default function Chat({
   }, []);
 
   const clearPending = () => { setPendingFile(null); setPendingPreviewUrl(null); };
+
+  // Auto-grow the textarea with content, capped so it doesn't eat the screen
+  useEffect(() => {
+    const el = chatInputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, [chatInput]);
 
   const jumpToMessage = useCallback((id: string) => {
     const el = document.getElementById(`chat-msg-${id}`);
@@ -130,7 +139,7 @@ export default function Chat({
     }
   };
 
-  const handleKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
@@ -259,9 +268,11 @@ export default function Chat({
         >
           <Icon name="gamepad" size={19} />
         </button>
-        <input
+        <textarea
+          ref={chatInputRef}
           className="field"
-          style={{ flex: 1, padding: '11px 14px' }}
+          rows={1}
+          style={{ flex: 1, padding: '11px 14px', resize: 'none', overflowY: 'auto', maxHeight: 120, lineHeight: 1.35 }}
           placeholder="say something stellar…"
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
