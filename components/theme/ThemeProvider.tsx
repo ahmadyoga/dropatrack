@@ -11,6 +11,12 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const STATUS_BAR_COLOR: Record<Theme, string> = { dark: '#14101f', light: '#f7ead0' };
+
+function setStatusBarColor(t: Theme) {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', STATUS_BAR_COLOR[t]);
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('dark');
 
@@ -19,6 +25,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const savedTheme = localStorage.getItem('theme') as Theme | null;
     const resolved = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
     document.documentElement.setAttribute('data-theme', resolved);
+    setStatusBarColor(resolved);
     void Promise.resolve().then(() => {
       if (!cancelled) setTheme(resolved);
     });
@@ -30,6 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(newTheme);
     localStorage.setItem('theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+    setStatusBarColor(newTheme);
   };
 
   return (

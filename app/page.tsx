@@ -3,6 +3,7 @@ import StarField from '@/components/room/ui/StarField';
 import CreateRoom from '@/components/home/CreateRoom';
 import PublicRooms from '@/components/home/PublicRooms';
 import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
+import InstallButton from '@/components/home/InstallButton';
 
 export default function HomePage() {
   return (
@@ -15,7 +16,10 @@ export default function HomePage() {
         {/* top bar */}
         <div className="flex justify-between items-center flex-wrap gap-3 mb-12">
           <Logo size={36} />
-          <ThemeToggleButton />
+          <div className="flex items-center gap-2">
+            <InstallButton />
+            <ThemeToggleButton />
+          </div>
         </div>
 
         {/* hero */}

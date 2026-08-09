@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Collaborative music rooms — drop tracks and listen together in real time.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#000000',
-    theme_color: '#ffd23f',
+    background_color: '#14101f',
+    theme_color: '#14101f',
     icons: [
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
     ],

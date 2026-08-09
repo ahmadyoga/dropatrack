@@ -6,6 +6,14 @@
    DropATrack — cartoon-cosmic design system
    Aurora accent · Sci-Fi type · Wobbly borders
    ============================================================ */
+
+/* 100vh includes the space behind mobile browsers' collapsible URL bar,
+   which is taller than what's actually visible — use dvh where supported
+   so content isn't clipped behind fixed bottom bars. */
+.room-shell {
+  height: 100vh;
+  height: 100dvh;
+}
 :root {
   --pop-yellow: #ffd23f;
   --pop-magenta: #ff5da2;

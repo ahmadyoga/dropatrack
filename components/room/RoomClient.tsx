@@ -550,7 +550,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
 
   return (
     <RoomProvider value={contextValue}>
-      <div style={{ position: 'relative', height: '100vh', display: 'flex', flexDirection: 'column', zIndex: 1 }}>
+      <div className="room-shell" style={{ position: 'relative', display: 'flex', flexDirection: 'column', zIndex: 1 }}>
         <div className="cosmos-bg" />
         <StarField n={24} seed={initialRoom.slug.length + 3} />
 
