@@ -168,7 +168,7 @@ export default function Chat({
   return (
     <div
       className="pop wobble col overflow-hidden"
-      style={{ flex: 1, minHeight: 0, maxHeight: '80%', boxShadow: '7px 7px 0 var(--shadow)' }}
+      style={{ flex: 1, minHeight: 0, maxHeight: '90%', boxShadow: '7px 7px 0 var(--shadow)' }}
       onClick={onSeen}
     >
       {/* header */}
