@@ -372,17 +372,17 @@ export default function Queue({
 
                 <div className="flex gap-1" style={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                   {!isNow && !isSuggested && (
-                    <button className="btn btn-ghost btn-icon" disabled={muted || !canPlayPause} title={isPlayed ? 'Replay' : 'Play now'}
-                      onClick={() => !muted && canPlayPause && onJumpTo(index)}
-                      style={{ padding: 7, opacity: muted || !canPlayPause ? 0.35 : 1, cursor: muted || !canPlayPause ? 'not-allowed' : 'pointer' }}
+                    <button className="btn btn-ghost btn-icon" disabled={!canPlayPause} title={isPlayed ? 'Replay' : 'Play now'}
+                      onClick={() => canPlayPause && onJumpTo(index)}
+                      style={{ padding: 7, opacity: !canPlayPause ? 0.35 : 1, cursor: !canPlayPause ? 'not-allowed' : 'pointer' }}
                     >
                       <Icon name="play" size={16} />
                     </button>
                   )}
                   {!isNow && !isSuggested && canRearrange && (
-                    <button className="btn btn-ghost btn-icon" disabled={muted} title="Move to next"
-                      onClick={(e) => !muted && onMoveSongToNext(e, index)}
-                      style={{ padding: 7, opacity: muted ? 0.35 : 1, cursor: muted ? 'not-allowed' : 'pointer' }}
+                    <button className="btn btn-ghost btn-icon" title="Move to next"
+                      onClick={(e) => onMoveSongToNext(e, index)}
+                      style={{ padding: 7 }}
                     >
                       <Icon name="tonext" size={17} />
                     </button>
