@@ -211,8 +211,6 @@ export default function SudokuBoard({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handlePick, matchNumber]);
 
-  const cellPx = 52;
-
   return (
     <>
       <style>{`
@@ -227,6 +225,21 @@ export default function SudokuBoard({
         .sudoku-cell-wrong { animation: sudoku-wrong-flash .4s ease; }
         .sudoku-cell-correct { animation: sudoku-correct-flash .35s ease; }
         .sudoku-cell-empty:hover { background: var(--accent) !important; cursor: pointer; }
+        .sudoku-board-grid { --sudoku-cell-size: 52px; }
+        @media (max-width: 640px) {
+          .sudoku-game-content { flex-direction: column; }
+          .sudoku-board-scroll { width: 100%; max-height: min(52vh, 500px) !important; }
+          .sudoku-board-grid {
+            --sudoku-cell-size: calc((96vw - 24px) / 9);
+            width: 100% !important;
+            margin: 0;
+          }
+          .sudoku-controls {
+            width: 100% !important;
+            border-left: 0 !important;
+            border-top: 2px solid var(--line);
+          }
+        }
       `}</style>
 
       <div className="pop wobble-2 col" style={{ overflow: 'hidden', boxShadow: '9px 9px 0 var(--shadow)', maxWidth: '96vw', width: 'min(692px, 96vw)', position: 'relative' }}>
@@ -240,7 +253,7 @@ export default function SudokuBoard({
 
         <ScoreStrip scores={scores} playerColors={playerColors} />
 
-        <div className="flex" style={{ position: 'relative', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+        <div className="sudoku-game-content flex" style={{ position: 'relative', flexWrap: 'nowrap', alignItems: 'flex-start' }}>
           {gameOver && (
             <GameOverOverlay
               winnerUsername={gameOver.winnerUsername}
@@ -250,12 +263,13 @@ export default function SudokuBoard({
             />
           )}
 
-          <div className="scroll" style={{ overflow: 'auto', maxHeight: '80vh' }}>
+          <div className="sudoku-board-scroll scroll" style={{ overflow: 'auto', maxHeight: '80vh' }}>
             <div
+              className="sudoku-board-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: `repeat(9, ${cellPx}px)`,
-                gridTemplateRows: `repeat(9, ${cellPx}px)`,
+                gridTemplateColumns: 'repeat(9, var(--sudoku-cell-size))',
+                gridTemplateRows: 'repeat(9, var(--sudoku-cell-size))',
                 gap: 0,
                 padding: 12,
                 width: 'fit-content',
@@ -294,8 +308,8 @@ export default function SudokuBoard({
                       ].filter(Boolean).join(' ')}
                       onClick={() => setFocusedCellState({ matchNumber, cell: { row: rIdx, col: cIdx } })}
                       style={{
-                        width: cellPx,
-                        height: cellPx,
+                        width: 'var(--sudoku-cell-size)',
+                        height: 'var(--sudoku-cell-size)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -338,7 +352,7 @@ export default function SudokuBoard({
           </div>
 
           <div
-            className="col"
+            className="sudoku-controls col"
             style={{
               width: 168,
               padding: 14,
