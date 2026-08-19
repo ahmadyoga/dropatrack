@@ -182,6 +182,22 @@ export function useQueue({
     broadcast('queue_update', { type: 'removed', item_id: item.id, removed_index: removedIndex });
   }, [queueRef, roomRef, setQueue, setRoom, broadcast]);
 
+  const promoteSuggestion = useCallback(async (item: QueueItem) => {
+    const regularItems = queueRef.current.filter((q) => !q.is_suggested);
+    const newPosition = regularItems.length > 0
+      ? Math.max(...regularItems.map((q) => q.position)) + 1
+      : 0;
+    const updated: Partial<QueueItem> = { is_suggested: false, suggested_position: null, position: newPosition };
+    const { error } = await supabase.from('queue_items').update(updated).eq('id', item.id);
+    if (error) return;
+    setQueue((prev) => {
+      const rest = prev.filter((q) => q.id !== item.id);
+      const insertAt = rest.filter((q) => !q.is_suggested).length;
+      return [...rest.slice(0, insertAt), { ...item, ...updated }, ...rest.slice(insertAt)];
+    });
+    broadcast('queue_update', { type: 'promoted', item_id: item.id });
+  }, [queueRef, setQueue, broadcast]);
+
   const handleShuffle = useCallback(async () => {
     if (queue.length <= 2 || shuffling) return;
     setShuffling(true);
@@ -257,7 +273,7 @@ export function useQueue({
     queueSearchQuery, setQueueSearchQuery,
     searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
     handleSearch, handleLoadMore, addSongToQueue,
-    removeSong, handleShuffle,
+    removeSong, promoteSuggestion, handleShuffle,
     handleDragStart, handleDragOver, handleDragLeave, handleDrop, moveSongToNext,
   };
 }

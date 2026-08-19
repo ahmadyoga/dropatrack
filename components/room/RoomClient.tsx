@@ -331,7 +331,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     searching, searchQuery, setSearchQuery, searchResults, setSearchResults,
     nextPageToken, loadingMore, addingUrl, shuffling, dragOverIndex,
     queueSearchQuery, setQueueSearchQuery, searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
-    handleSearch, handleLoadMore, addSongToQueue, removeSong, handleShuffle,
+    handleSearch, handleLoadMore, addSongToQueue, removeSong, promoteSuggestion, handleShuffle,
     handleDragStart, handleDragOver, handleDragLeave, handleDrop, moveSongToNext,
   } = useQueue({
     room, roomRef, queue, queueRef, setQueue, setRoom, currentUser,
@@ -466,6 +466,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     shuffling, dragOverIndex,
     onJumpTo: handleJumpTo,
     onRemoveSong: removeSong,
+    onPromoteSuggestion: promoteSuggestion,
     onMoveSongToNext: (e: React.MouseEvent, sourceIndex: number) => moveSongToNext(e, sourceIndex),
     onShuffle: handleShuffle,
     onDragStart: handleDragStart,

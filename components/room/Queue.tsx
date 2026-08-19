@@ -158,6 +158,7 @@ interface QueueProps {
   dragOverIndex: number | null;
   onJumpTo: (index: number) => void;
   onRemoveSong: (item: QueueItem) => Promise<void>;
+  onPromoteSuggestion: (item: QueueItem) => Promise<void>;
   onMoveSongToNext: (e: React.MouseEvent, sourceIndex: number) => void;
   onShuffle: () => void;
   onDragStart: (index: number) => void;
@@ -174,7 +175,7 @@ export default function Queue({
   queueSearchQuery, setQueueSearchQuery,
   searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
   shuffling, dragOverIndex,
-  onJumpTo, onRemoveSong, onMoveSongToNext, onShuffle,
+  onJumpTo, onRemoveSong, onPromoteSuggestion, onMoveSongToNext, onShuffle,
   onDragStart, onDragOver, onDragLeave, onDrop, onAdd, onToggleRepeat, onToggleAutoSuggest,
   openAddSignal = 0,
 }: QueueProps) {
@@ -385,6 +386,11 @@ export default function Queue({
                       style={{ padding: 7 }}
                     >
                       <Icon name="tonext" size={17} />
+                    </button>
+                  )}
+                  {isSuggested && (
+                    <button className="btn btn-ghost btn-icon" title="Add to playlist" onClick={() => onPromoteSuggestion(item)} style={{ padding: 7 }}>
+                      <Icon name="plus" size={17} />
                     </button>
                   )}
                   {!isNow && (
