@@ -108,11 +108,11 @@ export default function Player({
           {!isSpeaker && (
             <div style={{
               position: 'absolute', inset: 0, overflow: 'hidden',
-              display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: 'var(--bg-2)',
               containerType: 'size', // definite box (inset 0), so cqw/cqh always resolve
             }}>
-              <div style={{ width: 'min(80cqw, 170cqh)', aspectRatio: '1 / 1', flexShrink: 0, transform: 'translateY(50%)' }}>
+              <div style={{ width: 'min(80cqw, 80cqh)', aspectRatio: '1 / 1', flexShrink: 0 }}>
                 <VinylRecord
                   thumbnail={currentSong?.thumbnail_url}
                   isPlaying={room.is_playing}
