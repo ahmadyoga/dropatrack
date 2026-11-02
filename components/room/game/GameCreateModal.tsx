@@ -2,6 +2,7 @@
 
 import type { Level } from '@/lib/types';
 import { LEVEL_CONFIG, SUDOKU_LEVEL_CONFIG } from '@/lib/types';
+import Modal from '../ui/Modal';
 
 interface GameCreateModalProps {
   gameType: 'minesweeper' | 'sudoku';
@@ -39,35 +40,11 @@ export default function GameCreateModal({ gameType, onClose, onCreateGame }: Gam
   const meta = GAME_META[gameType];
 
   return (
-    <div className="scrim" onClick={onClose}>
-      <div
-        className="pop wobble-2 col popin"
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: 'min(500px, 94vw)', overflow: 'hidden', boxShadow: '9px 9px 0 var(--shadow)' }}
-      >
-        {/* header */}
-        <div
-          className="flex justify-between items-center"
-          style={{
-            padding: '16px 20px',
-            borderBottom: '3px solid var(--outline)',
-            background: 'var(--accent)',
-            color: '#140f1f',
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <span style={{ fontSize: 22 }}>{meta.icon}</span>
-            <div className="display" style={{ fontSize: 20 }}>{meta.title}</div>
-          </div>
-          <button
-            className="btn pop-sm btn-icon"
-            onClick={onClose}
-            style={{ color: '#140f1f', background: 'transparent', border: '2.5px solid #140f1f', boxShadow: 'none' }}
-          >
-            ✕
-          </button>
-        </div>
-
+    <Modal
+      onClose={onClose}
+      width="min(500px, 94vw)"
+      title={<span className="flex items-center gap-3"><span aria-hidden="true" style={{ fontSize: 22 }}>{meta.icon}</span>{meta.title}</span>}
+    >
         {/* level cards */}
         <div className="col" style={{ padding: '20px', gap: 12 }}>
           <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', letterSpacing: '.05em', marginBottom: 4 }}>
@@ -82,6 +59,7 @@ export default function GameCreateModal({ gameType, onClose, onCreateGame }: Gam
             return (
               <button
                 key={level}
+                type="button"
                 onClick={() => { onCreateGame(level); }}
                 style={{
                   display: 'flex',
@@ -98,7 +76,7 @@ export default function GameCreateModal({ gameType, onClose, onCreateGame }: Gam
                   transition: 'transform .08s ease, box-shadow .08s ease, background .15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = accent;
+                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--panel-2)';
                   (e.currentTarget as HTMLButtonElement).style.transform = 'translate(-2px, -2px)';
                   (e.currentTarget as HTMLButtonElement).style.boxShadow = '7px 7px 0 var(--shadow)';
                 }}
@@ -116,7 +94,7 @@ export default function GameCreateModal({ gameType, onClose, onCreateGame }: Gam
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    background: 'var(--panel-2)',
+                    background: accent,
                     border: '2.5px solid var(--outline)',
                     borderRadius: 14,
                     flexShrink: 0,
@@ -137,7 +115,6 @@ export default function GameCreateModal({ gameType, onClose, onCreateGame }: Gam
             );
           })}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -46,11 +46,13 @@ export default function ShareButton() {
     <button
       className="btn pop-sm flex items-center gap-1.5"
       onClick={handleShare}
-      disabled={busy}
-      title={copied ? 'Link copied!' : 'Share room'}
+      aria-busy={busy}
+      aria-label={copied ? 'Room link copied' : 'Share room link'}
+      title={copied ? 'Link copied!' : 'Share room link'}
+      style={{ height: 44, padding: '0 14px' }}
     >
       <Icon name={copied ? 'check' : 'link'} size={19} />
-      <span className="hidden sm:inline">{copied ? 'Copied!' : 'Share'}</span>
+      <span className="hidden sm:inline" aria-live="polite">{copied ? 'Copied!' : 'Share'}</span>
     </button>
   );
 }

@@ -22,6 +22,11 @@ const PATHS: Record<string, React.ReactNode> = {
   trash:   <g fill="none"><path d="M5 7h14M10 7V5h4v2M6.5 7l1 12h9l1-12"/></g>,
   tonext:  <g fill="none"><path d="M5 12h11"/><path d="M12 7l5 5-5 5"/><path d="M21 6v12"/></g>,
   replay:  <g fill="none"><path d="M19 9a8 8 0 1 0 1.4 5"/><path d="M20 3v6h-6"/></g>,
+  repeat:  <g fill="none"><path d="M4 11V9a3 3 0 0 1 3-3h12"/><path d="M16 3l3 3-3 3"/><path d="M20 13v2a3 3 0 0 1-3 3H5"/><path d="M8 21l-3-3 3-3"/></g>,
+  wand:    <g fill="none"><path d="M4 20 15 9"/><path d="M15 9l2-2"/><path d="M18 3v3M16.5 4.5h3M20 10v2M19 11h2M11 3v2M10 4h2"/></g>,
+  compass: <g fill="none"><circle cx="12" cy="12" r="8.5"/><polygon points="15.5,8.5 13.2,13.2 8.5,15.5 10.8,10.8"/></g>,
+  up:      <g fill="none"><path d="M12 19V5M6 11l6-6 6 6"/></g>,
+  down:    <g fill="none"><path d="M12 5v14M6 13l6 6 6-6"/></g>,
   edit:    <g fill="none"><path d="M5 19h3l9-9-3-3-9 9z"/><path d="M14 7l3 3"/></g>,
   link:    <g fill="none"><path d="M9 15l6-6"/><path d="M11 7l1.5-1.5a3.5 3.5 0 0 1 5 5L16 12"/><path d="M13 17l-1.5 1.5a3.5 3.5 0 0 1-5-5L8 12"/></g>,
   check:   <g fill="none"><path d="M5 12l4 4 10-10"/></g>,
@@ -47,6 +52,8 @@ interface IconProps {
 export default function Icon({ name, size = 22, sw = 2.4, style, className }: IconProps) {
   return (
     <svg
+      aria-hidden="true"
+      focusable="false"
       viewBox="0 0 24 24"
       width={size}
       height={size}

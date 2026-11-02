@@ -26,6 +26,7 @@
   --accent: var(--pop-cyan);
   --accent-2: var(--pop-lime);
   --accent-3: var(--pop-violet);
+  --on-pop: #140f1f;
 
   /* Sci-Fi type personality */
   --font-display: 'Bungee', system-ui, sans-serif;
@@ -50,7 +51,8 @@
   --panel-3: #352a55;
   --ink: #f7eeda;
   --ink-soft: #b9acd6;
-  --ink-dim: #8a7db0;
+  --ink-dim: #a397c9;
+  --accent-ink: var(--accent);
   --outline: #0b0814;
   --line: rgba(247,238,218,.14);
   --shadow: #070510;
@@ -68,7 +70,8 @@
   --panel-3: #f8ead0;
   --ink: #1c1326;
   --ink-soft: #5a4a6e;
-  --ink-dim: #897a98;
+  --ink-dim: #66587a;
+  --accent-ink: #0a6a63;
   --outline: #1c1326;
   --line: rgba(28,19,38,.16);
   --shadow: #1c1326;
@@ -150,10 +153,68 @@ body {
 }
 .btn:hover  { transform: translate(-1px,-1px); box-shadow: 6px 6px 0 var(--shadow); }
 .btn:active { transform: translate(3px,3px);   box-shadow: 1px 1px 0 var(--shadow); }
-.btn-accent { background: var(--accent);     color: #140f1f; }
+.btn-accent { background: var(--accent);     color: var(--on-pop); }
 .btn-ghost  { background: transparent; box-shadow: none; border-color: var(--line); }
 .btn-ghost:hover { box-shadow: none; background: var(--panel-2); }
 .btn-icon   { padding: 10px; border-radius: 12px; }
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 2px 2px 0 var(--shadow);
+}
+.btn-ghost:disabled { box-shadow: none; }
+
+/* ---- add-to-queue: quiet in lists, cyan only on intent, confirmed once added ---- */
+.add-btn { border-color: var(--line); color: var(--ink); }
+.add-btn:hover:not(:disabled) { background: var(--accent); color: var(--on-pop); border-color: var(--outline); }
+.add-btn[data-queued] { opacity: 1; cursor: default; color: var(--accent-ink); border-color: transparent; }
+.add-btn[data-queued] svg { animation: popin .22s cubic-bezier(.2,1.2,.4,1); }
+
+/* ---- list-row actions: compact with a mouse, thumb-sized on touch ---- */
+.row-btn { height: 36px; min-width: 36px; padding: 0; }
+.touch-only { display: none !important; }
+@media (hover: none) {
+  .row-btn { height: 44px; min-width: 44px; }
+  .touch-only { display: inline-flex !important; }
+  .hover-only { display: none !important; }
+}
+
+/* ---- room header: one compact bar on phones (hide-mobile must beat later display rules) ---- */
+.room-header { margin-bottom: 16px; }
+@media (max-width: 1024px) {
+  .room-header { margin-bottom: 10px; }
+  .hide-mobile { display: none !important; }
+}
+
+/* ---- reaction keys: flat at rest, a sticker only when pressed ---- */
+.reaction-btn { background: transparent; border: 2.5px solid transparent; transition: transform .08s ease, background .12s ease, border-color .12s ease; }
+.reaction-btn:hover { background: var(--panel-2); border-color: var(--line); }
+
+/* ---- public room cards: one shared shadow, lift on hover ---- */
+.room-card { transition: transform .08s ease, box-shadow .08s ease; }
+.room-card:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--shadow); }
+
+/* ---- home hero: two columns on desktop, the record fills the right ---- */
+.home-hero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 40px; align-items: center; }
+.home-hero-art { display: none; }
+@media (min-width: 1024px) {
+  .home-hero { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 56px; }
+  .home-hero-art { display: block; position: relative; padding: 24px 8px; }
+  .home-hero-disc { width: min(100%, 440px); aspect-ratio: 1; margin: 0 auto; }
+  .home-hero-sticker { position: absolute; font-size: 12px; padding: 7px 13px; box-shadow: 3px 3px 0 var(--shadow); }
+}
+
+/* ---- sliders: thin track, thumb-sized hit area on touch ---- */
+@media (pointer: coarse) { .scrubber { height: 44px !important; } }
+
+/* ---- keyboard focus: one visible ring everywhere ---- */
+:where(button, a, [role="button"], [tabindex], summary):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+.field:focus-visible { outline: none; }
 
 /* ---- chips / badges ---- */
 .chip {
@@ -293,3 +354,14 @@ body {
 
 /* ---- role aliases ---- */
 .role-moderator { background: var(--pop-violet); color: #140f1f; }
+
+/* ---- reduced motion: keep state changes, drop ambient movement ---- */
+@media (prefers-reduced-motion: reduce) {
+  .spin, .twinkle, .vinyl-disc { animation: none !important; }
+  .live-dot { animation: none; }
+  .popin { animation-duration: .01s; }
+  .float-emoji { display: none; }
+  .chat-msg-highlight { animation: none; outline: 3px solid var(--accent-2); }
+  .btn { transition: background .15s ease; }
+  .btn:hover, .btn:active { transform: none; }
+}

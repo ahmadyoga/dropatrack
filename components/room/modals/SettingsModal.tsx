@@ -3,6 +3,7 @@
 import { useRoom } from '../RoomContext';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import type { UserRole } from '@/lib/types';
+import Modal from '../ui/Modal';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -18,11 +19,15 @@ function Toggle({ on, onToggle, label, sub }: { on: boolean; onToggle: () => voi
         <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)' }}>{sub}</div>
       </div>
       <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
         onClick={onToggle}
         style={{
           width: 54, height: 30, borderRadius: 20,
           border: '3px solid var(--outline)',
-          background: on ? 'var(--accent)' : 'var(--panel-3)',
+          background: on ? 'var(--accent-2)' : 'var(--panel-3)',
           position: 'relative', cursor: 'pointer', flexShrink: 0,
           transition: 'background .15s',
         }}
@@ -46,19 +51,8 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
   const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   return (
-    <div className="scrim" onClick={onClose}>
-      <div
-        className="pop wobble-2 popin"
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: 'min(480px, 94vw)', overflow: 'hidden', boxShadow: '9px 9px 0 var(--accent)' }}
-      >
-        {/* header */}
-        <div className="flex justify-between items-center" style={{ padding: '16px 18px', borderBottom: '3px solid var(--outline)', background: 'var(--accent-2)', color: '#140f1f' }}>
-          <div className="display" style={{ fontSize: 21 }}>Room settings</div>
-          <button className="btn pop-sm btn-icon" onClick={onClose} style={{ color: '#140f1f', background: 'transparent' }}>✕</button>
-        </div>
-
-        <div style={{ padding: '8px 18px 18px' }}>
+    <Modal title="Room settings" onClose={onClose}>
+        <div className="scroll" style={{ padding: '8px 20px 20px', overflowY: 'auto' }}>
 
           {/* Private room */}
           <Toggle
@@ -76,12 +70,14 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
               {(['moderator', 'dj'] as UserRole[]).map((role) => (
                 <button
                   key={role}
+                  type="button"
+                  aria-pressed={currentRole === role}
                   style={{
                     flex: 1, padding: '8px 14px', fontSize: 13,
                     cursor: 'pointer', border: '2.5px solid var(--outline)',
                     borderRadius: 12, fontWeight: 700,
-                    background: currentRole === role ? 'var(--accent)' : 'var(--panel)',
-                    color: currentRole === role ? '#140f1f' : 'var(--ink)',
+                    background: currentRole === role ? 'var(--accent-2)' : 'var(--panel)',
+                    color: currentRole === role ? 'var(--on-pop)' : 'var(--ink)',
                     boxShadow: currentRole === role ? '3px 3px 0 var(--shadow)' : '2px 2px 0 var(--shadow)',
                   }}
                   onClick={() => onUpdateDefaultRole(role)}
@@ -96,18 +92,21 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
           <div style={{ padding: '12px 0', borderBottom: '2px solid var(--line)' }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Permissions</div>
             <div className="mono" style={{ fontSize: 11 }}>
-              <div className="flex" style={{ gap: 8, marginBottom: 4, color: 'var(--ink-dim)' }}>
+              {/* Mirrors the real checks: canPlayPause/canRearrange (RoomClient) and canRemove (Queue). */}
+              <div className="flex" style={{ gap: 6, marginBottom: 4, color: 'var(--ink-soft)' }}>
                 <span style={{ flex: 1 }} />
-                <span style={{ width: 40, textAlign: 'center' }}>Add</span>
-                <span style={{ width: 40, textAlign: 'center' }}>Play</span>
-                <span style={{ width: 48, textAlign: 'center' }}>Reorder</span>
+                <span style={{ width: 44, textAlign: 'center' }}>Add</span>
+                <span style={{ width: 52, textAlign: 'center' }}>Play/skip</span>
+                <span style={{ width: 52, textAlign: 'center' }}>Reorder</span>
+                <span style={{ width: 52, textAlign: 'center' }}>Remove</span>
               </div>
               {(['admin', 'moderator', 'dj'] as UserRole[]).map((r) => (
-                <div key={r} className="flex items-center" style={{ gap: 8, padding: '3px 0' }}>
-                  <span className={`chip role-${r}`} style={{ flex: 1, fontSize: 10, padding: '2px 8px' }}>{r}</span>
-                  <span style={{ width: 40, textAlign: 'center' }}>✅</span>
-                  <span style={{ width: 40, textAlign: 'center' }}>{r !== 'dj' ? '✅' : '❌'}</span>
-                  <span style={{ width: 48, textAlign: 'center' }}>{r !== 'dj' ? '✅' : '❌'}</span>
+                <div key={r} className="flex items-center" style={{ gap: 6, padding: '3px 0' }}>
+                  <span style={{ flex: 1 }}><span className={`chip role-${r}`} style={{ padding: '2px 8px' }}>{r}</span></span>
+                  <span style={{ width: 44, textAlign: 'center' }}>✅</span>
+                  <span style={{ width: 52, textAlign: 'center' }}>{r !== 'dj' ? '✅' : '❌'}</span>
+                  <span style={{ width: 52, textAlign: 'center' }}>{r !== 'dj' ? '✅' : '❌'}</span>
+                  <span style={{ width: 52, textAlign: 'center' }}>{r !== 'dj' ? '✅' : 'own'}</span>
                 </div>
               ))}
             </div>
@@ -117,8 +116,8 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
           <Toggle
             on={theme === 'dark'}
             onToggle={toggleTheme}
-            label="Lights"
-            sub={theme === 'dark' ? 'deep space' : 'daylight cosmos'}
+            label="Dark mode"
+            sub={theme === 'dark' ? 'deep space' : 'off: daylight paper'}
           />
 
           {/* PWA install */}
@@ -133,7 +132,7 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
               <button
                 className="btn pop-sm"
                 onClick={promptInstall}
-                style={{ width: '100%', background: 'var(--accent)', color: '#140f1f', justifyContent: 'center' }}
+                style={{ width: '100%', justifyContent: 'center' }}
               >
                 📲 INSTALL APP
               </button>
@@ -154,28 +153,13 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
               className="btn pop-sm"
               href="/extension.zip"
               download
-              style={{
-                width: '100%',
-                background: 'var(--accent)',
-                color: '#140f1f',
-                justifyContent: 'center',
-                textDecoration: 'none',
-              }}
+              style={{ width: '100%', justifyContent: 'center', textDecoration: 'none' }}
             >
               📦 DOWNLOAD EXTENSION ZIP
             </a>
           </div>
 
-          {/* Leave */}
-          <button
-            className="btn pop-sm"
-            onClick={() => window.history.back()}
-            style={{ width: '100%', marginTop: 18, background: 'var(--pop-coral)', color: '#140f1f', justifyContent: 'center' }}
-          >
-            ← LEAVE ROOM
-          </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -37,6 +37,13 @@ export function useChat({
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialChatLoadedRef = useRef(false);
 
+  // Ask for notification permission once — the chat notification below is a no-op without it
+  useEffect(() => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   // Load initial messages + subscribe
   useEffect(() => {
     if (!roomId) return;

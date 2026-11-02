@@ -10,7 +10,17 @@ interface UseIdentityProps {
   room: Room;
   broadcast: (event: string, payload: Record<string, unknown>) => void;
   onShowExtensionPopup: () => void;
-  onUpdateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
+}
+
+/**
+ * Legacy fallback: rooms created before creators were stored in user_roles only
+ * know the creator by username. Honour that ONLY while the room has no admin at
+ * all, otherwise renaming yourself to the creator's name would grant admin.
+ */
+function isLegacyCreator(room: Room, username: string | undefined): boolean {
+  const roles = room.user_roles || {};
+  const hasAdmin = Object.values(roles).includes('admin');
+  return !hasAdmin && !!username && room.created_by === username;
 }
 
 export function useIdentity({
@@ -18,7 +28,6 @@ export function useIdentity({
   room,
   broadcast,
   onShowExtensionPopup,
-  onUpdateUserRole,
 }: UseIdentityProps) {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [myRole, setMyRole] = useState<UserRole>('dj');
@@ -47,7 +56,7 @@ export function useIdentity({
 
     if (user && userRoles[user.user_id]) {
       setMyRole(userRoles[user.user_id]);
-    } else if (user && initialRoom.created_by === user.username) {
+    } else if (user && isLegacyCreator(initialRoom, user.username)) {
       setMyRole('admin');
     } else if (user && Object.keys(userRoles).length === 0 && initialRoom.created_by === 'system') {
       // First joiner auto-becomes admin
@@ -71,26 +80,13 @@ export function useIdentity({
     const defaultRole = room.default_role || 'dj';
     if (userRoles[currentUser.user_id]) {
       setMyRole(userRoles[currentUser.user_id]);
-    } else if (room.created_by === currentUser.username) {
+    } else if (isLegacyCreator(room, currentUser.username)) {
       setMyRole('admin');
     } else {
       setMyRole(defaultRole as UserRole);
     }
-  }, [room.user_roles, room.default_role, room.created_by, currentUser]);
+  }, [room, currentUser]); // setMyRole bails out when the role is unchanged
 
-  // ?r=admin backdoor
-  useEffect(() => {
-    if (!currentUser) return;
-    if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('r') === 'admin') {
-      const currentRole = room.user_roles?.[currentUser.user_id];
-      if (currentRole !== 'admin') {
-        onUpdateUserRole(currentUser.user_id, 'admin');
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    }
-  }, [currentUser, room.user_roles, onUpdateUserRole]);
 
   const handleUsernameChange = useCallback(async () => {
     if (!currentUser) return;

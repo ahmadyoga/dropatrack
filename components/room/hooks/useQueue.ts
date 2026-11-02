@@ -103,7 +103,9 @@ export function useQueue({
       .insert(newItem)
       .select()
       .single();
-    if (!error && data) {
+    // Surface failures to the caller (Add dialog shows the message) instead of failing silently.
+    if (error || !data) throw new Error(error?.message ?? 'Could not add song');
+    if (data) {
       setQueue((prev) => [...prev, data]);
       broadcast('queue_update', { type: 'added', item: data as unknown as Record<string, unknown> });
       if (queue.length === 0 && canPlayPause) {

@@ -59,18 +59,18 @@ export default function GameInviteMessage({ session, onJoin, currentUserId }: Ga
         <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>
           {isHost ? 'You' : session.host_username} started {meta.name}
         </div>
-        <div className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
+        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
           {summaryLine(session)}
         </div>
       </div>
 
       <div style={{ flexShrink: 0 }}>
         {isFinished ? (
-          <span className="mono" style={{ fontSize: 10, padding: '4px 8px', borderRadius: 6, background: 'var(--panel-3)', color: 'var(--ink-soft)', fontWeight: 700 }}>
+          <span className="mono" style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'var(--panel-3)', color: 'var(--ink-soft)', fontWeight: 700 }}>
             FINISHED
           </span>
         ) : isJoined ? (
-          <span className="mono" style={{ fontSize: 10, padding: '4px 8px', borderRadius: 6, background: 'var(--pop-lime)', color: '#140f1f', fontWeight: 700 }}>
+          <span className="mono" style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'var(--pop-lime)', color: '#140f1f', fontWeight: 700 }}>
             {isPlaying ? 'PLAYING' : 'JOINED'}
           </span>
         ) : (

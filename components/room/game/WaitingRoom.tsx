@@ -68,7 +68,7 @@ export default function WaitingRoom({ session, players, isHost, onStart, onLeave
           </div>
           <span
             className="chip"
-            style={{ background: 'var(--panel-3)', fontSize: 10 }}
+            style={{ background: 'var(--panel-3)', fontSize: 11 }}
           >
             {session.level.toUpperCase()}
           </span>

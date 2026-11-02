@@ -10,9 +10,9 @@ export default function InstallButton() {
     <button
       className="btn pop-sm"
       onClick={promptInstall}
-      style={{ background: 'var(--accent)', color: '#140f1f' }}
+      style={{ height: 44, padding: '0 14px' }}
     >
-      📲 INSTALL APP
+      📲 Install app
     </button>
   );
 }

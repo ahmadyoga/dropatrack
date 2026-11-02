@@ -113,6 +113,23 @@
     };
   }
 
+  // YTM lazily renders queue items as the panel scrolls, so a fresh page
+  // load only has the first ~20 in the DOM. Scroll to force-load the rest
+  // before reading — otherwise +Queue/+Auto silently miss whatever hasn't
+  // rendered yet.
+  async function ensureQueueFullyLoaded(maxAttempts = 15) {
+    const queue = document.querySelector('ytmusic-player-queue');
+    if (!queue) return;
+    let lastCount = -1;
+    for (let i = 0; i < maxAttempts; i++) {
+      const items = queue.querySelectorAll('ytmusic-player-queue-item');
+      if (items.length === lastCount) return;
+      lastCount = items.length;
+      items[items.length - 1]?.scrollIntoView({ block: 'end' });
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+
   // Extract from the "Up Next" queue panel — excludes autoplay recommendations
   function extractQueueVideos() {
     const videos = [];
@@ -385,15 +402,17 @@
         return;
       }
 
+      btn.disabled = true;
+      btn.textContent = '⏳';
+
+      if (isWatchPage()) await ensureQueueFullyLoaded();
       const tracks = isWatchPage() ? extractQueueVideos() : extractShelfVideos();
       if (tracks.length === 0) {
+        btn.disabled = false;
         btn.textContent = '⚠️';
         setTimeout(() => { btn.textContent = '🎵'; }, 2000);
         return;
       }
-
-      btn.disabled = true;
-      btn.textContent = '⏳';
 
       try {
         await addVideosToRoom(tracks);
@@ -472,6 +491,7 @@
     if (addAllBtn) {
       addAllBtn.addEventListener('click', async () => {
         if (!selectedRoom) return;
+        if (isWatchPage()) await ensureQueueFullyLoaded();
         const info = extractVideoInfo();
         if (!info.playlistVideos.length) {
           addAllBtn.textContent = '⚠️';
@@ -505,6 +525,7 @@
     if (addAutoBtn) {
       addAutoBtn.addEventListener('click', async () => {
         if (!selectedRoom) return;
+        await ensureQueueFullyLoaded();
         const tracks = extractAutoplayVideos();
         if (!tracks.length) {
           addAutoBtn.textContent = '⚠️';

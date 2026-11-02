@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getOrCreateUser } from '@/lib/names';
-import UsernameModal from './modals/UsernameModal';
+import Modal from './ui/Modal';
+import { useUnplayableSkip } from './hooks/useUnplayableSkip';
 import type { Room, QueueItem, UserRole } from '@/lib/types';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 import { electTimeSource, type PlaybackAnchor } from '@/lib/playbackSync';
@@ -55,7 +56,7 @@ interface RoomClientProps {
   initialQueue: QueueItem[];
 }
 
-type MobileTab = 'player' | 'queue' | 'discover' | 'chat';
+type MobileTab = 'player' | 'queue' | 'chat';
 
 const sudokuFallbackColors = [
   '#22c55e', '#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6',
@@ -73,20 +74,16 @@ function sudokuColorForUser(userId: string): string {
 export default function RoomClient({ initialRoom, initialQueue }: RoomClientProps) {
   const { theme, toggleTheme } = useTheme();
 
-  const [usernameState, setUsernameState] = useState<'loading' | 'modal' | 'ready'>('loading');
-  const [defaultUsername, setDefaultUsername] = useState('');
+  // No name gate: everyone walks straight in with their generated name and can
+  // rename from the crew strip (PRODUCT.md: one link is the whole onboarding).
+  const [usernameState, setUsernameState] = useState<'loading' | 'ready'>('loading');
 
   useEffect(() => {
     let cancelled = false;
     void Promise.resolve().then(() => {
       if (cancelled) return;
-      const user = getOrCreateUser();
-      if (user?.is_default_username) {
-        setDefaultUsername(user.username);
-        setUsernameState('modal');
-      } else {
-        setUsernameState('ready');
-      }
+      getOrCreateUser();
+      setUsernameState('ready');
     });
     return () => { cancelled = true; };
   }, []);
@@ -120,6 +117,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const handleNextRef = useRef<() => void>(() => {});
   const isChatVisibleRef = useRef(false);
   const playerContainerRef = useRef<HTMLDivElement>(null!);
+  const onPlayerErrorRef = useRef<(code: number, youtubeId: string | null) => void>(() => {});
+  const onTrackUnplayableRef = useRef<(payload: Record<string, unknown>) => void>(() => {});
 
   // Stable broadcast ref — populated after useRoomSync runs
   const broadcastRef = useRef<(event: string, payload: Record<string, unknown>) => void>(() => {});
@@ -151,7 +150,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     initialRoom, room,
     broadcast: (e, p) => broadcastRef.current(e, p),
     onShowExtensionPopup: () => {},
-    onUpdateUserRole: async (userId, newRole) => updateUserRole(userId, newRole),
   });
 
   // ── YouTube player ────────────────────────────────────────────────────────
@@ -162,7 +160,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     room, roomRef,
     currentSong: queue[room.current_song_index] || null,
     isSpeakerRef, handleNextRef, isTransitioningRef, isLoadingVideoRef,
-    playerRef, anchorRef,
+    playerRef, anchorRef, onPlayerErrorRef,
   });
   useEffect(() => { isSpeakerRef.current = isSpeaker; }, [isSpeaker]);
 
@@ -188,7 +186,17 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     setRoom, setQueue, setCurrentUser, setChatMessages,
     currentUserRef, isChatVisibleRef,
     isSpeaker, myRole, room,
+    onTrackUnplayableRef,
   });
+
+  // ── Unplayable tracks: detect, tell the room, count down, server skips ────
+  const { notice: unplayableNotice, reportPlayerError, onTrackUnplayable } = useUnplayableSkip({
+    room, queue, users, myId: currentUser?.user_id, isSpeaker, broadcast, setRoom,
+  });
+  useEffect(() => {
+    onPlayerErrorRef.current = reportPlayerError;
+    onTrackUnplayableRef.current = onTrackUnplayable;
+  }, [reportPlayerError, onTrackUnplayable]);
 
   // ── Game Session ──────────────────────────────────────────────────────────
   const {
@@ -486,8 +494,9 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onPlayPause: handlePlayPause,
     onNext: handleNext,
     onPrev: handlePrev,
-    onShuffle: handleShuffle,
     onToggleSpeaker: toggleSpeaker,
+    onAddSong: openAddSongSearch,
+    unplayableNotice,
     onSeek: handleSeek,
     volume: (room.volume ?? 80) / 100,
     onVolumeChange: handleVolumeChange,
@@ -503,6 +512,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onAddSong: addSongToQueue,
     queuedVideoIds,
   };
+  const discoverEl = (onAdd: typeof addSongToQueue) => <Discover {...discoverProps} onAddSong={onAdd} embedded />;
 
   const chatProps = {
     chatMessages, chatInput, setChatInput,
@@ -513,8 +523,12 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onLoadOlderChat: loadOlderChat,
     onSendChat: handleSendChat,
     onUploadImage: uploadImage,
-    onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) =>
-      addSongToQueue(youtubeId, title, '', 0),
+    onAddSongFromChat: (youtubeId: string, title: string, _artist: string, duration: string) => {
+      // "m:ss" or "h:mm:ss" → seconds, so the queue shows a real length
+      const secs = (duration || '').split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0);
+      return addSongToQueue(youtubeId, title, `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`, secs)
+        .catch((err) => console.error('Add from chat failed:', err));
+    },
     onPreviewImage: setPreviewImage,
     onSeen: () => setUnreadChatCount(0),
     onCreateGame: handleOpenGameCreate,
@@ -536,19 +550,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     );
   }
 
-  if (usernameState === 'modal') {
-    return (
-      <UsernameModal
-        currentName={defaultUsername}
-        onConfirm={(updatedUser) => {
-          setCurrentUser(updatedUser);
-          setUsernameState('ready');
-        }}
-        onSkip={() => setUsernameState('ready')}
-      />
-    );
-  }
-
   return (
     <RoomProvider value={contextValue}>
       <div className="room-shell" style={{ position: 'relative', display: 'flex', flexDirection: 'column', zIndex: 1 }}>
@@ -558,7 +559,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         <div
           style={{
             flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-            padding: isMobile ? `16px 14px ${mobileTab === 'player' ? 92 : 146}px` : '20px 22px 22px',
+            padding: isMobile ? `10px 12px ${mobileTab === 'player' ? 96 : 166}px` : '20px 22px 22px',
             overflow: isMobile ? 'auto' : 'hidden',
             position: 'relative',
           }}
@@ -574,21 +575,20 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                 gap: 18,
               }}
             >
-              {/* Left col: Player + ReactionBar + Discover */}
+              {/* Left col: what's playing, then who's here */}
               <div className="col noscb" style={{ gap: 14, minHeight: 0, overflowY: 'auto', padding: '2px 10px 10px 2px' }}>
                 <Player {...playerProps} />
                 <ReactionBar />
-                <Discover {...discoverProps} />
-              </div>
-
-              {/* Mid col: Queue */}
-              <div className="col" style={{ minHeight: 0 }}>
-                <Queue {...queueProps} />
-              </div>
-
-              {/* Right col: CrewStrip + Chat */}
-              <div className="col" style={{ minHeight: 0, gap: 14 }}>
                 <CrewStrip onUpdateUserRole={updateUserRole} onRenameMe={renameSelf} />
+              </div>
+
+              {/* Mid col: Queue (Discover lives inside its Add a song dialog) */}
+              <div className="col" style={{ minHeight: 0, paddingBottom: 10 }}>
+                <Queue {...queueProps} discover={discoverEl} />
+              </div>
+
+              {/* Right col: Chat, full height */}
+              <div className="col" style={{ minHeight: 0, paddingBottom: 10 }}>
                 <Chat {...chatProps} />
               </div>
             </div>
@@ -602,12 +602,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               </div>
               {mobileTab === 'queue' && (
                 <div style={{ minHeight: 0, flex: 1 }}>
-                  <Queue {...queueProps} />
-                </div>
-              )}
-              {mobileTab === 'discover' && (
-                <div style={{ minHeight: 0, flex: 1 }}>
-                  <Discover {...discoverProps} />
+                  <Queue {...queueProps} discover={discoverEl} />
                 </div>
               )}
               {mobileTab === 'chat' && (
@@ -657,11 +652,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             style={{
               position: 'fixed',
               right: isMobile ? 16 : 24,
-              bottom: isMobile ? 86 : 24,
+              bottom: isMobile ? (mobileTab === 'player' ? 92 : 164) : 24,
               zIndex: 180,
               padding: '10px 14px',
               background: 'var(--accent)',
-              color: '#140f1f',
+              color: 'var(--on-pop)',
               border: '3px solid var(--outline)',
               borderRadius: 14,
               boxShadow: '5px 5px 0 var(--shadow)',
@@ -672,7 +667,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
             <span style={{ fontSize: 20 }}>🎮</span>
             <span className="col" style={{ gap: 2 }}>
               <span className="display" style={{ fontSize: 13 }}>Active Game</span>
-              <span className="mono" style={{ fontSize: 10 }}>
+              <span className="mono" style={{ fontSize: 11 }}>
                 {sudokuSession?.status === 'active'
                   ? `Sudoku Race · Match #${sudokuSession.match_number ?? 1}`
                   : `Minesweeper · Match #${session?.match_number ?? 1}`}
@@ -686,8 +681,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
         )}
 
         {activeGameId && activeGameType === 'minesweeper' && session && (
-          <div className="scrim" style={{ zIndex: 1000 }} onClick={() => setActiveGameId(null)}>
-            <div onClick={e => e.stopPropagation()}>
+          <Modal onClose={() => setActiveGameId(null)} label="Minesweeper" zIndex={1000}>
               {board && (
                 <MinesweeperBoard
                   board={board}
@@ -718,13 +712,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                   onClose={() => setActiveGameId(null)}
                 />
               )}
-            </div>
-          </div>
+          </Modal>
         )}
 
         {activeGameId && activeGameType === 'sudoku' && sudokuSession && (
-          <div className="scrim" style={{ zIndex: 1000 }} onClick={() => setActiveGameId(null)}>
-            <div onClick={e => e.stopPropagation()}>
+          <Modal onClose={() => setActiveGameId(null)} label="Sudoku race" zIndex={1000}>
               {sudokuGrid && (
                 <SudokuBoard
                   grid={sudokuGrid}
@@ -751,8 +743,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
                   onClose={() => setActiveGameId(null)}
                 />
               )}
-            </div>
-          </div>
+          </Modal>
         )}
 
         {/* Chat toast */}
@@ -760,7 +751,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
           <div
             className="pop wobble popin"
             style={{
-              position: 'fixed', bottom: isMobile ? 80 : 20, right: 20, zIndex: 250,
+              position: 'fixed', bottom: isMobile ? 164 : 20, right: 20, zIndex: 250,
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '10px 14px', cursor: 'pointer', maxWidth: 300,
             }}
@@ -774,7 +765,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
               background: chatToast.color, border: '2px solid var(--outline)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 700, color: '#140f1f', fontSize: 14,
+              fontWeight: 700, color: 'var(--on-pop)', fontSize: 14,
             }}>
               {chatToast.username.charAt(0).toUpperCase()}
             </div>
@@ -785,7 +776,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               </div>
             </div>
             <button
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-dim)', flexShrink: 0 }}
+              aria-label="Dismiss message preview"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-dim)', flexShrink: 0, width: 36, height: 36 }}
               onClick={(e) => { e.stopPropagation(); setChatToast(null); }}
             >✕</button>
           </div>

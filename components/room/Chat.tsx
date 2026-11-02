@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import Avatar from './ui/Avatar';
 import Icon from './ui/Icon';
+import Modal from './ui/Modal';
 import GameInviteMessage from './game/GameInviteMessage';
 import { useRoom } from './RoomContext';
 import type { ChatMessage, GameSession } from '@/lib/types';
@@ -167,29 +168,30 @@ export default function Chat({
 
   return (
     <div
-      className="pop wobble col overflow-hidden"
-      style={{ flex: 1, minHeight: 0, maxHeight: '90%', boxShadow: '7px 7px 0 var(--shadow)' }}
+      className="pop col overflow-hidden"
+      style={{ flex: 1, minHeight: 0, height: '100%', borderRadius: 16 }}
       onClick={onSeen}
+      aria-label="Room chat"
+      role="region"
     >
       {/* header */}
       <div className="flex items-center justify-between" style={{ padding: '13px 15px', borderBottom: '3px solid var(--outline)', background: 'var(--panel)', flexShrink: 0 }}>
         <div className="flex items-center gap-2">
-          <Icon name="chat" size={20} />
-          <div className="display" style={{ fontSize: 18 }}>Chat</div>
+          <h2 className="display" style={{ fontSize: 18, margin: 0 }}>Chat</h2>
         </div>
         {unreadChatCount > 0 && (
-          <span className="chip" style={{ background: 'var(--accent)', color: '#140f1f' }}>{unreadChatCount} new</span>
+          <span className="chip" style={{ background: 'var(--pop-magenta)', color: 'var(--on-pop)' }}>{unreadChatCount} new</span>
         )}
       </div>
 
       {/* messages */}
-      <div className="scroll col" onScroll={handleScroll} style={{ flex: 1, overflowY: 'auto', padding: 14, gap: 13 }}>
+      <div className="scroll col" onScroll={handleScroll} role="log" aria-live="polite" aria-relevant="additions" style={{ flex: 1, overflowY: 'auto', padding: 14, gap: 13 }}>
         {loadingOlderChat && (
-          <div className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)', textAlign: 'center' }}>loading…</div>
+          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', textAlign: 'center' }}>Loading older messages…</div>
         )}
         {chatMessages.length === 0 && (
-          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', textAlign: 'center', margin: 'auto', lineHeight: 1.7 }}>
-            no messages yet —<br />say something stellar ✨
+          <div className="mono" style={{ fontSize: 12, color: 'var(--ink-dim)', textAlign: 'center', margin: 'auto', lineHeight: 1.7 }}>
+            No messages yet.<br />Say hi to the room ✨
           </div>
         )}
         {chatMessages.map((msg) => (
@@ -214,16 +216,17 @@ export default function Chat({
         <div className="flex items-center gap-2" style={{ padding: '10px 13px', borderTop: '3px solid var(--outline)', background: 'var(--panel-2)', flexShrink: 0 }}>
           <img
             src={pendingPreviewUrl}
-            alt="pending"
+            alt="Image to send"
             style={{ width: 48, height: 48, borderRadius: 9, border: '2.5px solid var(--outline)', objectFit: 'cover', flexShrink: 0 }}
           />
-          <div className="mono" style={{ fontSize: 11, flex: 1, color: 'var(--ink-soft)' }}>image ready to send</div>
+          <div className="mono" style={{ fontSize: 12, flex: 1, color: 'var(--ink-soft)' }}>Image ready to send</div>
           <button
             className="btn btn-ghost btn-icon"
             onClick={clearPending}
-            style={{ boxShadow: 'none', border: 'none', flexShrink: 0, padding: 6 }}
+            aria-label="Remove image"
+            style={{ border: 'none', flexShrink: 0, width: 40, height: 40, padding: 0 }}
           >
-            ✕
+            <Icon name="close" size={16} />
           </button>
         </div>
       )}
@@ -232,7 +235,7 @@ export default function Chat({
         <div className="flex items-center gap-2" style={{ padding: '10px 13px', borderTop: '3px solid var(--outline)', background: 'var(--panel-2)', flexShrink: 0 }}>
           <div style={{ width: 3, alignSelf: 'stretch', background: 'var(--accent)', borderRadius: 2, flexShrink: 0 }} />
           <div className="col" style={{ flex: 1, minWidth: 0, gap: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 11 }}>{replyTo.username}</div>
+            <div style={{ fontWeight: 700, fontSize: 12 }}>Replying to {replyTo.username}</div>
             <div className="mono" style={{ fontSize: 11, color: 'var(--ink-soft)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {replyTo.image_url && !replyTo.message ? '📷 Photo' : replyTo.message}
             </div>
@@ -240,9 +243,10 @@ export default function Chat({
           <button
             className="btn btn-ghost btn-icon"
             onClick={() => setReplyTo(null)}
-            style={{ boxShadow: 'none', border: 'none', flexShrink: 0, padding: 6 }}
+            aria-label="Cancel reply"
+            style={{ border: 'none', flexShrink: 0, width: 40, height: 40, padding: 0 }}
           >
-            ✕
+            <Icon name="close" size={16} />
           </button>
         </div>
       )}
@@ -254,8 +258,9 @@ export default function Chat({
           className="btn pop-sm btn-icon"
           onClick={() => fileInputRef.current?.click()}
           disabled={busy}
-          title="Attach image"
-          style={{ flexShrink: 0 }}
+          aria-label="Attach an image"
+          title="Attach an image"
+          style={{ flexShrink: 0, width: 44, height: 44, padding: 0 }}
         >
           <Icon name="image" size={19} />
         </button>
@@ -263,8 +268,10 @@ export default function Chat({
           className="btn pop-sm btn-icon"
           onClick={() => setShowGameMenu((open) => !open)}
           disabled={busy}
-          title="Games"
-          style={{ flexShrink: 0 }}
+          aria-label="Start a game"
+          aria-haspopup="dialog"
+          title="Start a game"
+          style={{ flexShrink: 0, width: 44, height: 44, padding: 0 }}
         >
           <Icon name="gamepad" size={19} />
         </button>
@@ -273,7 +280,8 @@ export default function Chat({
           className="field"
           rows={1}
           style={{ flex: 1, padding: '11px 14px', resize: 'none', overflowY: 'auto', maxHeight: 120, lineHeight: 1.35 }}
-          placeholder="say something stellar…"
+          placeholder="Message the room…"
+          aria-label="Message the room"
           value={chatInput}
           onChange={(e) => setChatInput(e.target.value)}
           onKeyDown={handleKey}
@@ -284,28 +292,16 @@ export default function Chat({
           className="btn btn-accent pop-sm btn-icon"
           onClick={handleSend}
           disabled={busy || (!chatInput.trim() && !pendingFile)}
+          aria-label="Send message"
           title="Send"
-          style={{ flexShrink: 0 }}
+          style={{ flexShrink: 0, width: 44, height: 44, padding: 0 }}
         >
           {busy ? '…' : <Icon name="send" size={19} />}
         </button>
       </div>
 
       {showGameMenu && (
-        <div
-          className="scrim"
-          style={{ zIndex: 900 }}
-          onClick={() => setShowGameMenu(false)}
-        >
-          <div
-            className="pop wobble-2 col popin"
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: 'min(340px, 92vw)', overflow: 'hidden', boxShadow: '9px 9px 0 var(--shadow)' }}
-          >
-            <div className="flex items-center justify-between" style={{ padding: '14px 16px', borderBottom: '3px solid var(--outline)', background: 'var(--panel-2)' }}>
-              <div className="display" style={{ fontSize: 18 }}>Games</div>
-              <button className="btn btn-icon pop-sm" onClick={() => setShowGameMenu(false)} style={{ boxShadow: 'none' }}>✕</button>
-            </div>
+        <Modal title="Play a game" onClose={() => setShowGameMenu(false)} zIndex={900} width="min(360px, 92vw)">
             <button
               className="flex items-center gap-3"
               onClick={() => {
@@ -325,7 +321,7 @@ export default function Chat({
               <span style={{ fontSize: 24 }}>💣</span>
               <span className="col" style={{ gap: 2 }}>
                 <span style={{ fontWeight: 800 }}>Minesweeper</span>
-                <span className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>Multiplayer mine hunt</span>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--ink-dim)' }}>Multiplayer mine hunt</span>
               </span>
             </button>
             <button
@@ -346,11 +342,10 @@ export default function Chat({
               <span style={{ fontSize: 24 }}>🔢</span>
               <span className="col" style={{ gap: 2 }}>
                 <span style={{ fontWeight: 800 }}>Sudoku Race</span>
-                <span className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>First correct fill wins the cell</span>
+                <span className="mono" style={{ fontSize: 12, color: 'var(--ink-dim)' }}>First correct fill wins the cell</span>
               </span>
             </button>
-          </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
@@ -378,15 +373,16 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
           <span style={{ fontWeight: 700, fontSize: 12, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {isMe ? 'You' : msg.username}
           </span>
-          <span className="mono" style={{ fontSize: 9, color: 'var(--ink-dim)', flexShrink: 0 }}>
+          <span className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', flexShrink: 0 }}>
             {relTime(msg.created_at)}
           </span>
           {canReply && (
             <button
               className="btn btn-ghost btn-icon chat-reply-trigger"
               onClick={() => onReply(msg)}
+              aria-label={`Reply to ${isMe ? 'your message' : msg.username}`}
               title="Reply"
-              style={{ boxShadow: 'none', border: 'none', padding: 3, flexShrink: 0 }}
+              style={{ border: 'none', width: 28, height: 28, padding: 0, flexShrink: 0 }}
             >
               <Icon name="reply" size={13} />
             </button>
@@ -399,7 +395,7 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
             className="mono"
             style={{
               cursor: 'pointer',
-              fontSize: 10,
+              fontSize: 11,
               color: 'var(--ink-dim)',
               borderLeft: '3px solid var(--accent)',
               padding: '3px 8px',
@@ -452,7 +448,7 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
                 <div style={{ fontWeight: 800, fontSize: 13 }}>
                   {isGameSummaryPayload(msg.payload) && msg.payload.game_type === 'sudoku' ? 'Sudoku Race Finished' : 'Minesweeper Finished'}
                 </div>
-                <div className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>Final Score</div>
+                <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)' }}>Final Score</div>
               </div>
             </div>
             {(isGameSummaryPayload(msg.payload) ? msg.payload.scores : []).map((score) => (
@@ -471,8 +467,8 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
             style={{
               padding: msg.image_url && !msg.message ? 5 : '9px 12px',
               borderRadius: 13, fontSize: 14, fontWeight: 500, lineHeight: 1.4,
-              background: isMe ? 'var(--accent)' : 'var(--panel-2)',
-              color: isMe ? '#140f1f' : 'var(--ink)',
+              background: isMe ? 'var(--panel-3)' : 'var(--panel-2)',
+              color: 'var(--ink)',
               wordBreak: 'break-word',
             }}
           >
@@ -481,7 +477,7 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
                 src={msg.image_url}
                 onClick={() => onPreviewImage(msg.image_url!)}
                 style={{ display: 'block', maxWidth: 220, maxHeight: 200, borderRadius: 9, border: '2px solid var(--outline)', cursor: 'zoom-in', objectFit: 'cover' }}
-                alt=""
+                alt={`Image from ${isMe ? 'you' : msg.username}`}
               />
             )}
             {msg.message && <div style={{ padding: msg.image_url ? '6px 4px 2px' : 0 }}>{msg.message}</div>}
@@ -489,20 +485,27 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
         )}
 
         {msg.song_ref && (
-          <div className="flex items-center gap-2 pop-sm" style={{ marginTop: 7, borderRadius: 11, padding: 8, maxWidth: 300, boxShadow: '3px 3px 0 var(--accent-2)' }}>
+          <div className="flex items-center gap-2 pop-sm" style={{ marginTop: 7, borderRadius: 11, padding: 8, maxWidth: 300 }}>
             <div style={{ width: 46, height: 46, borderRadius: 9, overflow: 'hidden', border: '2.5px solid var(--outline)', flexShrink: 0 }}>
-              <div className="ph" style={{ width: '100%', height: '100%' }} />
+              {/* same thumbnail convention the server uses when YouTube gives none */}
+              <img
+                src={`https://img.youtube.com/vi/${msg.song_ref.youtube_id}/mqdefault.jpg`}
+                alt=""
+                loading="lazy"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
             </div>
             <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div className="mono" style={{ fontSize: 8, color: 'var(--ink-dim)', letterSpacing: '.1em' }}>YOUTUBE</div>
+              <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)', letterSpacing: '.08em' }}>YOUTUBE</div>
               <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.song_ref.title}</div>
-              <div className="mono" style={{ fontSize: 10, color: 'var(--ink-dim)' }}>{msg.song_ref.artist} · {msg.song_ref.duration}</div>
+              <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)' }}>{msg.song_ref.artist} · {msg.song_ref.duration}</div>
             </div>
             <button
               className="btn btn-accent btn-icon pop-sm"
               onClick={() => onAddSongFromChat(msg.song_ref!.youtube_id, msg.song_ref!.title, msg.song_ref!.artist, msg.song_ref!.duration)}
-              style={{ flexShrink: 0, padding: 8 }}
-            >+</button>
+              aria-label={`Add ${msg.song_ref.title} to queue`}
+              style={{ flexShrink: 0, width: 44, height: 44, padding: 0 }}
+            ><Icon name="plus" size={18} /></button>
           </div>
         )}
       </div>

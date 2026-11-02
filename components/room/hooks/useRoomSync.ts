@@ -26,6 +26,8 @@ interface UseRoomSyncProps {
   isSpeaker: boolean;
   myRole: UserRole;
   room: Room;
+  /** 'track_unplayable' broadcasts — handled by useUnplayableSkip. */
+  onTrackUnplayableRef: React.RefObject<(payload: Record<string, unknown>) => void>;
 }
 
 export function useRoomSync({
@@ -45,6 +47,7 @@ export function useRoomSync({
   isSpeaker,
   myRole,
   room,
+  onTrackUnplayableRef,
 }: UseRoomSyncProps) {
   const [users, setUsers] = useState<RoomUser[]>([]);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -73,6 +76,10 @@ export function useRoomSync({
           event.type === 'jump',
       }));
       if (event.current_time !== undefined) setStoreTime(event.current_time);
+    });
+
+    channel.on('broadcast', { event: 'track_unplayable' }, ({ payload }) => {
+      onTrackUnplayableRef.current?.(payload);
     });
 
     channel.on('broadcast', { event: 'queue_update' }, ({ payload }) => {
@@ -111,7 +118,7 @@ export function useRoomSync({
 
     channel.on('broadcast', { event: 'reaction' }, ({ payload }) => {
       if (payload && typeof payload.emoji === 'string') {
-        const count = Math.floor(Math.random() * 51) + 50;
+        const count = 6 + Math.floor(Math.random() * 3);
         spawnReactions(payload.emoji, count);
       }
     });

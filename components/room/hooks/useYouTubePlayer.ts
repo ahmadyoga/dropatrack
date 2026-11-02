@@ -60,6 +60,8 @@ interface UseYouTubePlayerProps {
   isLoadingVideoRef: React.RefObject<boolean>;
   playerRef: React.RefObject<YTPlayer | null>;
   anchorRef: React.RefObject<PlaybackAnchor>;
+  /** YouTube onError(code, videoId) — handled by useUnplayableSkip. */
+  onPlayerErrorRef: React.RefObject<(code: number, youtubeId: string | null) => void>;
 }
 
 export function useYouTubePlayer({
@@ -72,6 +74,7 @@ export function useYouTubePlayer({
   isLoadingVideoRef,
   playerRef,
   anchorRef,
+  onPlayerErrorRef,
 }: UseYouTubePlayerProps) {
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
@@ -235,6 +238,9 @@ export function useYouTubePlayer({
               if (isLoadingVideoRef.current) return;
               handleNextRef.current();
             }
+          },
+          onError: (event: YTEvent) => {
+            onPlayerErrorRef.current?.(event.data, loadedVideoIdRef.current);
           },
           onReady: () => {
             setPlayerReady(true);

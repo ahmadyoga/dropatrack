@@ -1,6 +1,13 @@
+// ponytail: hard cap per burst, not per-user rate limiting. A room of people
+// tapping at once still stays readable; add a per-sender limiter if it isn't.
+const MAX_PER_BURST = 10;
+
 export function spawnReactions(emoji: string, n: number): void {
   const layer = document.getElementById('react-layer');
   if (!layer) return;
+  // Reduced motion: no floating emoji at all (the .float-emoji rule also hides them).
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  n = Math.min(n, MAX_PER_BURST);
 
   for (let i = 0; i < n; i++) {
     const el = document.createElement('div');

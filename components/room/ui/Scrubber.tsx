@@ -9,6 +9,11 @@ interface ScrubberProps {
   color?: string;
   height?: number;
   knob?: boolean;
+  label?: string;
+  valueText?: string;
+  disabled?: boolean;
+  /** Arrow-key increment, in the same units as value. */
+  step?: number;
 }
 
 export default function Scrubber({
@@ -18,11 +23,26 @@ export default function Scrubber({
   color = 'var(--accent)',
   height = 14,
   knob = true,
+  label,
+  valueText,
+  disabled = false,
+  step,
 }: ScrubberProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState(false);
 
   const pct = max ? Math.max(0, Math.min(1, value / max)) : 0;
+  const inc = step ?? max / 20;
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    const next =
+      e.key === 'ArrowRight' || e.key === 'ArrowUp' ? value + inc :
+      e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? value - inc :
+      e.key === 'Home' ? 0 : e.key === 'End' ? max : null;
+    if (next === null) return;
+    e.preventDefault();
+    onChange(Math.max(0, Math.min(max, next)));
+  };
 
   const setFromX = (clientX: number) => {
     if (!ref.current) return;
@@ -45,10 +65,21 @@ export default function Scrubber({
   return (
     <div
       ref={ref}
-      onPointerDown={(e) => { setDrag(true); setFromX(e.clientX); }}
+      className="scrubber"
+      role="slider"
+      tabIndex={disabled ? -1 : 0}
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={Number(max.toFixed(2))}
+      aria-valuenow={Number(value.toFixed(2))}
+      aria-valuetext={valueText}
+      aria-disabled={disabled || undefined}
+      onKeyDown={onKeyDown}
+      onPointerDown={(e) => { if (disabled) return; setDrag(true); setFromX(e.clientX); }}
       style={{
         position: 'relative',
-        height,
+        height: Math.max(height, 24),
+        borderRadius: 12,
         flex: 1,
         cursor: 'pointer',
         display: 'flex',

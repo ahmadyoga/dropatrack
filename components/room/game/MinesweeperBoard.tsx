@@ -111,12 +111,12 @@ function TurnBar({
           {myTurn ? 'Your turn!' : `${currentTurnUser}'s turn`}
         </span>
         {secondsRemaining !== null && (
-          <span className="mono" style={{ fontSize: 10, marginLeft: 8, opacity: 0.75 }}>
+          <span className="mono" style={{ fontSize: 11, marginLeft: 8, opacity: 0.75 }}>
             {secondsRemaining}s left
           </span>
         )}
         {myTurn && (
-          <span className="mono" style={{ fontSize: 10, marginLeft: 8, opacity: 0.75 }}>
+          <span className="mono" style={{ fontSize: 11, marginLeft: 8, opacity: 0.75 }}>
             click a covered cell to reveal it
           </span>
         )}
@@ -131,7 +131,7 @@ function TurnBar({
               key={idx}
               className="mono"
               style={{
-                fontSize: 10,
+                fontSize: 11,
                 padding: '2px 8px',
                 borderRadius: 20,
                 border: '2px solid var(--outline)',

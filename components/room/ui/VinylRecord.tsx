@@ -4,15 +4,18 @@ interface VinylRecordProps {
   thumbnail?: string | null;
   isPlaying: boolean;
   size?: number | string;
+  /** Printed on the centre label when there is no artwork. */
+  label?: React.ReactNode;
 }
 
-export default function VinylRecord({ thumbnail, isPlaying, size = 220 }: VinylRecordProps) {
+export default function VinylRecord({ thumbnail, isPlaying, size = 220, label }: VinylRecordProps) {
   const isStr = typeof size === 'string';
   const dim = isStr ? size : `${size}px`;
   const holeRel = 0.28; // hole radius as fraction of disc radius
 
   return (
     <div
+      className="vinyl-disc"
       style={{
         width: dim,
         height: dim,
@@ -65,7 +68,15 @@ export default function VinylRecord({ thumbnail, isPlaying, size = 220 }: VinylR
       >
         {thumbnail
           ? <img src={thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : <div style={{ width: '100%', height: '100%', background: `radial-gradient(circle, var(--accent-3), var(--panel-3))` }} />
+          : (
+            <div style={{
+              width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center',
+              background: 'radial-gradient(circle, var(--accent-3), color-mix(in srgb, var(--accent-3) 70%, var(--panel-3)))',
+              color: 'var(--on-pop)',
+            }}>
+              {label}
+            </div>
+          )
         }
       </div>
 
