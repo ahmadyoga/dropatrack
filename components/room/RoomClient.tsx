@@ -365,11 +365,6 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     broadcast('role_update', { default_role: room.default_role, user_roles: updatedRoles });
   }, [room.id, room.user_roles, room.default_role, broadcast]);
 
-  // Kick = the kicked client leaves on this broadcast; they can rejoin. Mute them first to stop re-adds.
-  const kickUser = useCallback((userId: string) => {
-    broadcast('kick', { user_id: userId });
-  }, [broadcast]);
-
   const updateDefaultRole = useCallback(async (newRole: UserRole) => {
     setRoom((prev) => ({ ...prev, default_role: newRole }));
     await supabase.from('rooms').update({ default_role: newRole }).eq('id', room.id);
@@ -588,7 +583,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <div className="col noscb" style={{ gap: 14, minHeight: 0, overflowY: 'auto', padding: '2px 10px 10px 2px' }}>
                 <Player {...playerProps} />
                 <ReactionBar />
-                <CrewStrip onUpdateUserRole={updateUserRole} onKick={kickUser} onRenameMe={renameSelf} />
+                <CrewStrip onUpdateUserRole={updateUserRole} onRenameMe={renameSelf} />
               </div>
 
               {/* Mid col: Queue (Discover lives inside its Add a song dialog) */}
@@ -607,7 +602,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <div className="col" style={{ gap: 14, display: mobileTab === 'player' ? 'flex' : 'none' }}>
                 <Player {...playerProps} />
                 <ReactionBar />
-                <CrewStrip onUpdateUserRole={updateUserRole} onKick={kickUser} onRenameMe={renameSelf} />
+                <CrewStrip onUpdateUserRole={updateUserRole} onRenameMe={renameSelf} />
               </div>
               {mobileTab === 'queue' && (
                 <div style={{ minHeight: 0, flex: 1 }}>

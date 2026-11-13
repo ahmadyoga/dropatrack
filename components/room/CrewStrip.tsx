@@ -12,23 +12,20 @@ const ASSIGNABLE_ROLES: UserRole[] = ['moderator', 'dj', 'muted'];
 
 interface CrewStripProps {
   onUpdateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
-  onKick: (userId: string) => void;
   onRenameMe: (newName: string) => void;
 }
 
-function RoleMenu({ anchorEl, role, userId, onSelect, onKick, onClose }: {
+function RoleMenu({ anchorEl, role, userId, onSelect, onClose }: {
   anchorEl: HTMLElement;
   role: UserRole;
   userId: string;
   onSelect: (userId: string, r: UserRole) => Promise<void>;
-  onKick: (userId: string) => void;
   onClose: () => void;
 }) {
-  const [confirmKick, setConfirmKick] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const rect = anchorEl.getBoundingClientRect();
   // Keep the menu on screen: flip above the chip when there's no room below, clamp sideways.
-  const MENU_W = 160, MENU_H = 230, GAP = 6, EDGE = 8;
+  const MENU_W = 160, MENU_H = 180, GAP = 6, EDGE = 8;
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
   const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
   const openUp = rect.bottom + GAP + MENU_H > vh && rect.top - GAP - MENU_H >= EDGE;
@@ -55,7 +52,7 @@ function RoleMenu({ anchorEl, role, userId, onSelect, onKick, onClose }: {
     <div
       ref={ref}
       role="menu"
-      aria-label="Set role or kick"
+      aria-label="Set role"
       className="pop wobble popin col"
       style={{
         position: 'fixed', zIndex: 500,
@@ -84,21 +81,6 @@ function RoleMenu({ anchorEl, role, userId, onSelect, onKick, onClose }: {
           {role === r && <Icon name="check" size={14} style={{ marginLeft: 'auto' }} />}
         </button>
       ))}
-      <div style={{ borderTop: '2px solid var(--line)', margin: '3px 0' }} />
-      {/* two-step, like Remove in the queue */}
-      <button
-        type="button"
-        role="menuitem"
-        style={{
-          padding: '0 9px', minHeight: 40, borderRadius: 8, border: 'none', cursor: 'pointer',
-          textAlign: 'left', width: '100%', fontWeight: 700, fontSize: 13,
-          background: confirmKick ? 'var(--pop-coral)' : 'transparent',
-          color: confirmKick ? 'var(--on-pop)' : 'var(--ink)',
-        }}
-        onClick={() => { if (!confirmKick) { setConfirmKick(true); return; } onKick(userId); onClose(); }}
-      >
-        {confirmKick ? 'Kick? Tap again' : 'Kick from room'}
-      </button>
     </div>
   );
 }
@@ -227,7 +209,7 @@ function CrewChip({ userId, username, role, isMe, isAdmin, isSpeaker, onUpdateUs
   );
 }
 
-export default function CrewStrip({ onUpdateUserRole, onKick, onRenameMe }: CrewStripProps) {
+export default function CrewStrip({ onUpdateUserRole, onRenameMe }: CrewStripProps) {
   const { users, currentUser, myRole, room, isSpeaker } = useRoom();
   const isAdmin = myRole === 'admin';
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
@@ -291,7 +273,6 @@ export default function CrewStrip({ onUpdateUserRole, onKick, onRenameMe }: Crew
           role={menuTarget.role}
           userId={menuTarget.userId}
           onSelect={onUpdateUserRole}
-          onKick={onKick}
           onClose={() => setMenuTarget(null)}
         />
       )}
