@@ -100,15 +100,18 @@ export default function SettingsModal({ onClose, onUpdateDefaultRole, onUpdatePr
                 <span style={{ width: 52, textAlign: 'center' }}>Reorder</span>
                 <span style={{ width: 52, textAlign: 'center' }}>Remove</span>
               </div>
-              {(['admin', 'moderator', 'dj'] as UserRole[]).map((r) => (
+              {(['admin', 'moderator', 'dj', 'muted'] as UserRole[]).map((r) => {
+                const mod = r === 'admin' || r === 'moderator';
+                return (
                 <div key={r} className="flex items-center" style={{ gap: 6, padding: '3px 0' }}>
                   <span style={{ flex: 1 }}><span className={`chip role-${r}`} style={{ padding: '2px 8px' }}>{r}</span></span>
-                  <span style={{ width: 44, textAlign: 'center' }}>✅</span>
-                  <span style={{ width: 52, textAlign: 'center' }}>{r !== 'dj' ? '✅' : '❌'}</span>
-                  <span style={{ width: 52, textAlign: 'center' }}>{r !== 'dj' ? '✅' : '❌'}</span>
-                  <span style={{ width: 52, textAlign: 'center' }}>{r !== 'dj' ? '✅' : 'own'}</span>
+                  <span style={{ width: 44, textAlign: 'center' }}>{r !== 'muted' ? '✅' : '❌'}</span>
+                  <span style={{ width: 52, textAlign: 'center' }}>{mod ? '✅' : '❌'}</span>
+                  <span style={{ width: 52, textAlign: 'center' }}>{mod ? '✅' : '❌'}</span>
+                  <span style={{ width: 52, textAlign: 'center' }}>{mod ? '✅' : 'own'}</span>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

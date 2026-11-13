@@ -16,6 +16,7 @@ interface UseQueueProps {
   currentUser: CurrentUser | null;
   canAddSongs: boolean;
   canPlayPause: boolean;
+  canRearrange: boolean;
   broadcast: (event: string, payload: Record<string, unknown>) => void;
   broadcastPlayback: (type: PlaybackSyncEvent['type'], songIndex: number) => void;
 }
@@ -30,6 +31,7 @@ export function useQueue({
   currentUser,
   canAddSongs,
   canPlayPause,
+  canRearrange,
   broadcast,
   broadcastPlayback,
 }: UseQueueProps) {
@@ -85,7 +87,8 @@ export function useQueue({
     thumbnail: string,
     durationSeconds: number
   ) => {
-    if (!currentUser || !canAddSongs) return;
+    if (!currentUser) return;
+    if (!canAddSongs) throw new Error('You’re muted in this room');
     const newPosition = queue.length > 0
       ? Math.max(...queue.map((q) => q.position)) + 1
       : 0;
@@ -96,6 +99,7 @@ export function useQueue({
       thumbnail_url: thumbnail,
       duration_seconds: durationSeconds,
       added_by: currentUser.username,
+      added_by_id: currentUser.user_id,
       position: newPosition,
     };
     const { data, error } = await supabase
@@ -184,7 +188,25 @@ export function useQueue({
     broadcast('queue_update', { type: 'removed', item_id: item.id, removed_index: removedIndex });
   }, [queueRef, roomRef, setQueue, setRoom, broadcast]);
 
+  // Undo a removal: put the exact row back (same id and position; removal never
+  // renumbers), then keep whatever is playing as the current song.
+  const restoreSong = useCallback(async (item: QueueItem) => {
+    const playingId = queueRef.current[roomRef.current.current_song_index]?.id;
+    const { error } = await supabase.from('queue_items').insert(item);
+    if (error) throw new Error(error.message);
+    const order = (q: QueueItem) => (q.is_suggested ? 1e9 + (q.suggested_position ?? 0) : q.position);
+    const next = [...queueRef.current.filter((q) => q.id !== item.id), item].sort((x, y) => order(x) - order(y));
+    setQueue(next);
+    const newIndex = next.findIndex((q) => q.id === playingId);
+    if (playingId && newIndex !== -1 && newIndex !== roomRef.current.current_song_index) {
+      setRoom((prev) => ({ ...prev, current_song_index: newIndex }));
+      await supabase.from('rooms').update({ current_song_index: newIndex }).eq('id', roomRef.current.id);
+    }
+    // Others refetch the ordered queue from the queue_items realtime change.
+  }, [queueRef, roomRef, setQueue, setRoom]);
+
   const promoteSuggestion = useCallback(async (item: QueueItem) => {
+    if (!canAddSongs) return;
     const regularItems = queueRef.current.filter((q) => !q.is_suggested);
     const newPosition = regularItems.length > 0
       ? Math.max(...regularItems.map((q) => q.position)) + 1
@@ -198,10 +220,10 @@ export function useQueue({
       return [...rest.slice(0, insertAt), { ...item, ...updated }, ...rest.slice(insertAt)];
     });
     broadcast('queue_update', { type: 'promoted', item_id: item.id });
-  }, [queueRef, setQueue, broadcast]);
+  }, [queueRef, setQueue, broadcast, canAddSongs]);
 
   const handleShuffle = useCallback(async () => {
-    if (queue.length <= 2 || shuffling) return;
+    if (!canPlayPause || queue.length <= 2 || shuffling) return;
     setShuffling(true);
     try {
       await fetch('/api/queue/shuffle', {
@@ -211,11 +233,13 @@ export function useQueue({
       });
     } catch (err) { console.error('Shuffle failed:', err); }
     finally { setShuffling(false); }
-  }, [queue.length, room.id, room.current_song_index, shuffling]);
+  }, [canPlayPause, queue.length, room.id, room.current_song_index, shuffling]);
 
+  // Reorder guard lives here, not only in the UI: a row's <img> is natively
+  // draggable, so its dragstart bubbles to the row even when the row isn't.
   const handleDragStart = useCallback((index: number) => {
-    dragItemRef.current = index;
-  }, []);
+    dragItemRef.current = canRearrange ? index : null;
+  }, [canRearrange]);
 
   const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
     e.preventDefault();
@@ -228,7 +252,7 @@ export function useQueue({
     const dragIndex = dragItemRef.current;
     setDragOverIndex(null);
     dragItemRef.current = null;
-    if (dragIndex === null || dragIndex === dropIndex) return;
+    if (!canRearrange || dragIndex === null || dragIndex === dropIndex) return;
 
     const newQueue = [...queue];
     const [draggedItem] = newQueue.splice(dragIndex, 1);
@@ -254,7 +278,7 @@ export function useQueue({
       await supabase.from('rooms').update({ current_song_index: newSongIndex }).eq('id', room.id);
     }
     broadcast('queue_update', { type: 'reordered' });
-  }, [queue, room.current_song_index, room.id, setQueue, setRoom, broadcast]);
+  }, [canRearrange, queue, room.current_song_index, room.id, setQueue, setRoom, broadcast]);
 
   const moveSongToNext = useCallback((e: React.MouseEvent, sourceIndex: number) => {
     e.stopPropagation();
@@ -268,6 +292,7 @@ export function useQueue({
   }, [room.current_song_index, handleDrop]);
 
   return {
+    restoreSong,
     searching, searchQuery, setSearchQuery,
     searchResults, setSearchResults,
     nextPageToken, loadingMore, addingUrl,

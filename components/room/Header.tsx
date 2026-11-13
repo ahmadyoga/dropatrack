@@ -4,6 +4,7 @@ import LiveDot from './ui/LiveDot';
 import Icon from './ui/Icon';
 import { useRoom } from './RoomContext';
 import ShareButton from './ShareButton';
+import { activeSpeakerNames } from '@/lib/playbackSync';
 
 interface HeaderProps {
   onLeave: () => void;
@@ -14,7 +15,9 @@ interface HeaderProps {
 const slugOf = (s: string) => s.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_]+/g, '-').replace(/-+/g, '-');
 
 export default function Header({ onLeave, onOpenSettings, canOpenSettings }: HeaderProps) {
-  const { room, users, theme, toggleTheme } = useRoom();
+  const { room, users, theme, toggleTheme, currentUser, isSpeaker } = useRoom();
+  // The live dot means "music is audible in the room", not just "the clock is running".
+  const audible = room.is_playing && activeSpeakerNames(users, currentUser?.user_id, isSpeaker).length > 0;
   const showSlug = slugOf(room.name) !== room.slug;
 
   return (
@@ -33,7 +36,7 @@ export default function Header({ onLeave, onOpenSettings, canOpenSettings }: Hea
               {room.name}
             </h1>
             <span className="chip hide-mobile" style={{ flexShrink: 0 }} title={`${users.length} in the room`}>
-              {room.is_playing && <LiveDot />}
+              {audible && <LiveDot />}
               <Icon name="users" size={13} />
               <span>{users.length}<span className="hide-mobile"> here</span></span>
             </span>

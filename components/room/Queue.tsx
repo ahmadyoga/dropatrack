@@ -177,6 +177,7 @@ interface QueueProps {
   dragOverIndex: number | null;
   onJumpTo: (index: number) => void;
   onRemoveSong: (item: QueueItem) => Promise<void>;
+  onRestoreSong: (item: QueueItem) => Promise<void>;
   onPromoteSuggestion: (item: QueueItem) => Promise<void>;
   onMoveSongToNext: (e: React.MouseEvent, sourceIndex: number) => void;
   onShuffle: () => void;
@@ -195,13 +196,14 @@ export default function Queue({
   queueSearchQuery, setQueueSearchQuery,
   searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
   shuffling, dragOverIndex,
-  onJumpTo, onRemoveSong, onPromoteSuggestion, onMoveSongToNext, onShuffle,
+  onJumpTo, onRemoveSong, onRestoreSong, onPromoteSuggestion, onMoveSongToNext, onShuffle,
   onDragStart, onDragOver, onDragLeave, onDrop, onAdd, onToggleRepeat, onToggleAutoSuggest,
   openAddSignal = 0, discover,
 }: QueueProps) {
-  const { queue, room, canRearrange, canPlayPause, canAutoSuggest, currentUser } = useRoom();
+  const { queue, room, canRearrange, canPlayPause, canAutoSuggest, canAddSongs, currentUser } = useRoom();
   // DJs are add-only: they may take back their own songs; moderators/admin remove any.
-  const canRemove = (item: QueueItem) => canRearrange || (!!currentUser && item.added_by === currentUser.username);
+  // Keyed on user id, not the editable display name, so renaming can't grant or lose this.
+  const canRemove = (item: QueueItem) => canRearrange || (!!currentUser && !!item.added_by_id && item.added_by_id === currentUser.user_id);
   const [showAdd, setShowAdd] = useState(false);
   const [dragSrcIdx, setDragSrcIdx] = useState<number | null>(null);
   // Two-step remove: anyone can remove, so make it deliberate.
@@ -212,6 +214,27 @@ export default function Queue({
     return () => clearTimeout(t);
   }, [confirmRemoveId]);
   const moveBy = (index: number, delta: number) => { onDragStart(index); onDrop(index + delta); };
+
+  // "Removed X · Undo" for 5 s after a removal.
+  const [removed, setRemoved] = useState<QueueItem | null>(null);
+  const [undoFailed, setUndoFailed] = useState(false);
+  useEffect(() => {
+    if (!removed) return;
+    const t = setTimeout(() => setRemoved(null), 5000);
+    return () => clearTimeout(t);
+  }, [removed]);
+  const remove = async (item: QueueItem) => {
+    setConfirmRemoveId(null);
+    await onRemoveSong(item);
+    setUndoFailed(false);
+    setRemoved(item);
+  };
+  const undoRemove = async () => {
+    if (!removed) return;
+    const item = removed;
+    setRemoved(null);
+    try { await onRestoreSong(item); } catch { setUndoFailed(true); }
+  };
   const modHint = 'Moderators and the admin can do this';
   const currentIndex = room.current_song_index;
   const upNext = Math.max(0, queue.length - currentIndex - 1);
@@ -275,10 +298,10 @@ export default function Queue({
           >
             <Icon name="shuffle" size={18} />
           </button>
-          <button className="btn btn-accent pop-sm" onClick={() => setShowAdd(true)} aria-keyshortcuts="Control+K Meta+K" title="Add a song (Ctrl+K)" style={{ gap: 6, height: 44, padding: '0 14px' }}>
+          {canAddSongs && <button className="btn btn-accent pop-sm" onClick={() => setShowAdd(true)} aria-keyshortcuts="Control+K Meta+K" title="Add a song (Ctrl+K)" style={{ gap: 6, height: 44, padding: '0 14px' }}>
             <Icon name="plus" size={18} />
             <span style={{ fontSize: 13 }}>Add</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -320,9 +343,9 @@ export default function Queue({
           <div className="col items-center" style={{ margin: 'auto', padding: '20px 12px', gap: 12, textAlign: 'center' }}>
             <div style={{ fontWeight: 700, fontSize: 15 }}>The queue is empty</div>
             <div className="mono" style={{ fontSize: 12, color: 'var(--ink-dim)', lineHeight: 1.6 }}>Anyone in the room can add songs ✨</div>
-            <button className="btn btn-accent" onClick={() => setShowAdd(true)} style={{ gap: 6 }}>
+            {canAddSongs && <button className="btn btn-accent" onClick={() => setShowAdd(true)} style={{ gap: 6 }}>
               <Icon name="plus" size={18} /> Add the first song
-            </button>
+            </button>}
           </div>
         )}
 
@@ -439,13 +462,13 @@ export default function Queue({
                       </button>
                     </>
                   )}
-                  {isSuggested && (
+                  {isSuggested && canAddSongs && (
                     <button className="btn btn-ghost btn-icon row-btn" aria-label={`Keep in queue: ${item.title}`} title="Keep in queue" onClick={() => onPromoteSuggestion(item)}>
                       <Icon name="plus" size={17} />
                     </button>
                   )}
                   {!isNow && canRemove(item) && (confirmRemoveId === item.id ? (
-                    <button className="btn btn-ghost row-btn" onClick={() => { setConfirmRemoveId(null); void onRemoveSong(item); }}
+                    <button className="btn btn-ghost row-btn" onClick={() => { void remove(item); }}
                       style={{ padding: '0 10px', fontSize: 12, background: 'var(--pop-coral)', color: 'var(--on-pop)', borderColor: 'var(--outline)' }}>
                       Remove?
                     </button>
@@ -462,7 +485,20 @@ export default function Queue({
         })}
       </div>
 
-      {showAdd && <AddSongModal onClose={() => setShowAdd(false)} onAdd={onAdd} discover={discover} />}
+      {(removed || undoFailed) && (
+        <div role="status" className="flex items-center justify-between pop-sm" style={{ margin: '0 12px 12px', padding: '6px 6px 6px 12px', borderRadius: 12, gap: 10, background: 'var(--panel-2)' }}>
+          <span style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {undoFailed ? '⚠️ Couldn’t restore the song. Add it again from search.' : <>Removed “{removed?.title}”</>}
+          </span>
+          {removed ? (
+            <button type="button" className="btn btn-ghost" onClick={undoRemove} style={{ height: 36, padding: '0 12px', fontSize: 12, flexShrink: 0 }}>Undo</button>
+          ) : (
+            <button type="button" className="btn btn-ghost btn-icon" aria-label="Dismiss" onClick={() => setUndoFailed(false)} style={{ width: 36, height: 36, padding: 0, flexShrink: 0 }}><Icon name="close" size={14} /></button>
+          )}
+        </div>
+      )}
+
+      {showAdd && canAddSongs && <AddSongModal onClose={() => setShowAdd(false)} onAdd={onAdd} discover={discover} />}
     </section>
   );
 }

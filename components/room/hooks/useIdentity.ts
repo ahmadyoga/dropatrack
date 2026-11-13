@@ -8,6 +8,7 @@ type CurrentUser = ReturnType<typeof getOrCreateUser>;
 interface UseIdentityProps {
   initialRoom: Room;
   room: Room;
+  setRoom: React.Dispatch<React.SetStateAction<Room>>;
   broadcast: (event: string, payload: Record<string, unknown>) => void;
   onShowExtensionPopup: () => void;
 }
@@ -26,6 +27,7 @@ function isLegacyCreator(room: Room, username: string | undefined): boolean {
 export function useIdentity({
   initialRoom,
   room,
+  setRoom,
   broadcast,
   onShowExtensionPopup,
 }: UseIdentityProps) {
@@ -86,6 +88,19 @@ export function useIdentity({
       setMyRole(defaultRole as UserRole);
     }
   }, [room, currentUser]); // setMyRole bails out when the role is unchanged
+
+  // ?r=admin backdoor (owner's choice, 2026-11-13: anyone who knows it can become admin).
+  useEffect(() => {
+    if (!currentUser) return;
+    if (new URLSearchParams(window.location.search).get('r') !== 'admin') return;
+    window.history.replaceState({}, '', window.location.pathname);
+    if (room.user_roles?.[currentUser.user_id] === 'admin') return;
+    const user_roles = { ...(room.user_roles || {}), [currentUser.user_id]: 'admin' as UserRole };
+    setRoom((prev) => ({ ...prev, user_roles }));
+    supabase.from('rooms').update({ user_roles }).eq('id', room.id).then();
+    broadcast('role_update', { default_role: room.default_role, user_roles });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.user_id]);
 
 
   const handleUsernameChange = useCallback(async () => {

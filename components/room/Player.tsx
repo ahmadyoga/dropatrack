@@ -6,6 +6,7 @@ import VinylRecord from './ui/VinylRecord';
 import { useState } from 'react';
 import { useRoom } from './RoomContext';
 import { usePlaybackTime } from './hooks/playbackTimeStore';
+import { activeSpeakerNames } from '@/lib/playbackSync';
 import type { YTPlayer } from './hooks/useYouTubePlayer';
 import type { UnplayableNotice } from './hooks/useUnplayableSkip';
 
@@ -28,6 +29,7 @@ interface PlayerProps {
   onToggleSpeaker: () => void;
   onAddSong: () => void;
   unplayableNotice: UnplayableNotice | null;
+  onSkipUnplayableNow: () => void;
   onSeek: (t: number) => void;
   volume: number;
   onVolumeChange: (v: number) => void;
@@ -47,17 +49,18 @@ export default function Player({
   onToggleSpeaker,
   onAddSong,
   unplayableNotice,
+  onSkipUnplayableNow,
   onSeek,
   volume,
   onVolumeChange,
 }: PlayerProps) {
-  const { room, currentSong, canPlayPause, canSeek, canVolume, duration, users, currentUser } = useRoom();
+  const { room, currentSong, canPlayPause, canSeek, canVolume, canAddSongs, duration, users, currentUser } = useRoom();
   const [confirmSecondSpeaker, setConfirmSecondSpeaker] = useState(false);
 
   // Who is actually making sound. Our own device uses local state (presence lags a beat).
   const myId = currentUser?.user_id;
   const otherSpeakers = users.filter((u) => u.is_speaker && u.user_id !== myId);
-  const speakerNames = [...(isSpeaker ? ['this device'] : []), ...otherSpeakers.map((u) => u.username)];
+  const speakerNames = activeSpeakerNames(users, myId, isSpeaker);
   const noSpeaker = speakerNames.length === 0;
 
   const choosePlayHere = () => {
@@ -125,9 +128,9 @@ export default function Player({
           {!currentSong && (
             <div className="ph col" style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', gap: 12, zIndex: 11, padding: 16, textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Nothing playing yet</div>
-              <button className="btn btn-accent" onClick={onAddSong} style={{ gap: 6 }}>
+{canAddSongs && (<button className="btn btn-accent" onClick={onAddSong} style={{ gap: 6 }}>
                 <Icon name="plus" size={18} /> Add a song
-              </button>
+              </button>)}
             </div>
           )}
         </div>
@@ -156,6 +159,11 @@ export default function Player({
           </div>
         )}
 
+        {/* unplayable track: hide YouTube's own error screen so there is one message, not two */}
+        {unplayableNotice && (
+          <div aria-hidden="true" style={{ position: 'absolute', inset: 0, zIndex: 11, background: 'var(--bg-2)' }} />
+        )}
+
         {/* unplayable track: everyone sees why, and the countdown, before the skip */}
         {unplayableNotice && (
           <div
@@ -165,7 +173,7 @@ export default function Player({
             style={{
               position: 'absolute', left: 12, right: 12, bottom: 12, zIndex: 13,
               borderRadius: 12, padding: '10px 12px', background: 'var(--panel)',
-              display: 'flex', alignItems: 'center', gap: 10,
+              display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
             }}
           >
             {unplayableNotice.kind === 'skipping' ? (
@@ -175,15 +183,25 @@ export default function Player({
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: 'var(--pop-coral)', color: 'var(--on-pop)', border: '2.5px solid var(--outline)',
                 }}>{unplayableNotice.secondsLeft}</span>
-                <span style={{ fontSize: 13, lineHeight: 1.35, minWidth: 0 }}>
-                  <b>Can’t play “{unplayableNotice.title}”</b>: {unplayableNotice.reason}.{' '}
-                  {unplayableNotice.secondsLeft > 0 ? `Skipping in ${unplayableNotice.secondsLeft}…` : 'Skipping…'}
+                {/* the circle carries the count; the text says what's happening once */}
+                <span style={{ fontSize: 13, lineHeight: 1.35, minWidth: 0, flex: 1 }}>
+                  <b>Can’t play “{unplayableNotice.title}”</b>: {unplayableNotice.reason}. Skipping…
                 </span>
+                {canPlayPause && (
+                  <button type="button" className="btn btn-ghost" onClick={onSkipUnplayableNow} style={{ flexShrink: 0, height: 40, padding: '0 12px', fontSize: 12 }}>
+                    Skip now
+                  </button>
+                )}
               </>
             ) : (
-              <span style={{ fontSize: 13, lineHeight: 1.35 }}>
-                <b>No playable songs left.</b> “{unplayableNotice.title}” can’t play on YouTube. Add another song and the room carries on.
-              </span>
+              <>
+                <span style={{ fontSize: 13, lineHeight: 1.35, flex: 1 }}>
+                  <b>No playable songs left.</b> “{unplayableNotice.title}” can’t play on YouTube. Add another song and the room carries on.
+                </span>
+{canAddSongs && (<button type="button" className="btn btn-accent" onClick={onAddSong} style={{ flexShrink: 0, height: 40, padding: '0 12px', fontSize: 12, gap: 6 }}>
+                  <Icon name="plus" size={16} /> Add a song
+                </button>)}
+              </>
             )}
           </div>
         )}
@@ -253,6 +271,8 @@ export default function Player({
 
         {/* transport */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* DJs can't steer, so they get the hint line below instead of a row of dead buttons */}
+          {canPlayPause && (
           <div className="flex items-center gap-2" role="group" aria-label="Playback for everyone">
             <button className="btn pop-sm btn-icon" onClick={onPrev} disabled={!canPlayPause} aria-label="Previous track" aria-keyshortcuts="Shift+P" title="Previous (Shift+P)" style={{ width: 44, height: 44, padding: 0 }}><Icon name="prev" size={17} /></button>
             <button className="btn btn-accent" onClick={onPlayPause} disabled={!canPlayPause || !currentSong} aria-label={room.is_playing ? 'Pause' : 'Play'} aria-keyshortcuts="Space K" title="Play / pause (Space)" style={{ width: 56, height: 48, padding: 0 }}>
@@ -260,6 +280,7 @@ export default function Player({
             </button>
             <button className="btn pop-sm btn-icon" onClick={onNext} disabled={!canPlayPause} aria-label="Next track" aria-keyshortcuts="Shift+N" title="Next (Shift+N)" style={{ width: 44, height: 44, padding: 0 }}><Icon name="next" size={17} /></button>
           </div>
+          )}
 
           {/* volume — hidden for dj role */}
           {canVolume && (

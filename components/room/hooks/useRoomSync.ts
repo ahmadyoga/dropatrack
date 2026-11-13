@@ -139,6 +139,12 @@ export function useRoomSync({
       }));
     });
 
+    channel.on('broadcast', { event: 'kick' }, ({ payload }) => {
+      if (payload?.user_id !== currentUserRef.current?.user_id) return;
+      // Leave presence explicitly first: a bare navigation leaves a ghost chip until the socket times out.
+      supabase.removeAllChannels().catch(() => {}).finally(() => { window.location.href = '/?kicked=1'; });
+    });
+
     channel.on('broadcast', { event: 'username_changed' }, ({ payload }) => {
       const { user_id, old_username, new_username } = payload as {
         user_id: string; old_username: string; new_username: string;

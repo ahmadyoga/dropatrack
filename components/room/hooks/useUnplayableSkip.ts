@@ -179,5 +179,11 @@ export function useUnplayableSkip({ room, queue, users, myId, isSpeaker, broadca
     notice = { kind: 'skipping', title: activePending.title, reason: activePending.reason, secondsLeft: left };
   }
 
-  return { notice, reportPlayerError, onTrackUnplayable };
+  // A moderator doesn't have to wait out the countdown. Same compare-and-set
+  // server call, so racing the elected device is harmless.
+  const skipNow = useCallback(() => {
+    if (activePending) void requestSkip(activePending.songId);
+  }, [activePending, requestSkip]);
+
+  return { notice, reportPlayerError, onTrackUnplayable, skipNow };
 }

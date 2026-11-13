@@ -2,6 +2,7 @@
 
 import Icon from './ui/Icon';
 import { useRoom } from './RoomContext';
+import { activeSpeakerNames } from '@/lib/playbackSync';
 
 interface MiniPlayerProps {
   onPlayPause: () => void;
@@ -9,7 +10,8 @@ interface MiniPlayerProps {
 }
 
 export default function MiniPlayer({ onPlayPause, onExpand }: MiniPlayerProps) {
-  const { room, currentSong, canPlayPause } = useRoom();
+  const { room, currentSong, canPlayPause, users, currentUser, isSpeaker } = useRoom();
+  const noSpeaker = activeSpeakerNames(users, currentUser?.user_id, isSpeaker).length === 0;
   if (!currentSong) return null;
 
   return (
@@ -34,20 +36,29 @@ export default function MiniPlayer({ onPlayPause, onExpand }: MiniPlayerProps) {
         <div style={{ fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {currentSong.title}
         </div>
-        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
-          {room.is_playing ? 'Playing' : 'Paused'}
-        </div>
+        {/* Speaker Truth: "Playing" only when some device actually makes sound */}
+        {noSpeaker ? (
+          <div className="mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink)' }}>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: 'var(--pop-coral)', border: '1.5px solid var(--outline)', marginRight: 6, verticalAlign: 0 }} aria-hidden="true" />
+            No speaker on
+          </div>
+        ) : (
+          <div className="mono" style={{ fontSize: 11, color: 'var(--ink-soft)' }}>
+            {room.is_playing ? 'Playing' : 'Paused'}
+          </div>
+        )}
       </button>
-      <button
-        onClick={(e) => { e.stopPropagation(); if (canPlayPause) onPlayPause(); }}
-        disabled={!canPlayPause}
-        aria-label={!canPlayPause ? 'Only moderators can control playback' : room.is_playing ? 'Pause' : 'Play'}
-        title={!canPlayPause ? 'Only moderators can control playback' : undefined}
-        className="btn btn-accent btn-icon"
-        style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
-      >
-        <Icon name={room.is_playing ? 'pause' : 'play'} size={16} />
-      </button>
+      {/* DJs can't steer, so no dead button here either (same rule as the player) */}
+      {canPlayPause && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onPlayPause(); }}
+          aria-label={room.is_playing ? 'Pause' : 'Play'}
+          className="btn btn-accent btn-icon"
+          style={{ width: 44, height: 44, padding: 0, flexShrink: 0 }}
+        >
+          <Icon name={room.is_playing ? 'pause' : 'play'} size={16} />
+        </button>
+      )}
     </div>
   );
 }

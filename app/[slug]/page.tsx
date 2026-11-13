@@ -81,7 +81,7 @@ export default async function RoomPage({
       .replace(/-/g, ' ')
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
-    // Note: user identity (localStorage) is not available on the server.
+    // Note (?r=admin is handled in useIdentity): user identity (localStorage) is not available on the server.
     // Admin role assignment happens client-side via the ?r=admin URL param
     // or when the first user joins.
     const { data: created } = await supabase

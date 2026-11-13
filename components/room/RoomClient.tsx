@@ -147,7 +147,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     currentUser, setCurrentUser, currentUserRef, myRole, myRoleRef,
     handleUsernameChange, renameSelf,
   } = useIdentity({
-    initialRoom, room,
+    initialRoom, room, setRoom,
     broadcast: (e, p) => broadcastRef.current(e, p),
     onShowExtensionPopup: () => {},
   });
@@ -190,7 +190,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   });
 
   // ── Unplayable tracks: detect, tell the room, count down, server skips ────
-  const { notice: unplayableNotice, reportPlayerError, onTrackUnplayable } = useUnplayableSkip({
+  const { notice: unplayableNotice, reportPlayerError, onTrackUnplayable, skipNow } = useUnplayableSkip({
     room, queue, users, myId: currentUser?.user_id, isSpeaker, broadcast, setRoom,
   });
   useEffect(() => {
@@ -339,12 +339,13 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     searching, searchQuery, setSearchQuery, searchResults, setSearchResults,
     nextPageToken, loadingMore, addingUrl, shuffling, dragOverIndex,
     queueSearchQuery, setQueueSearchQuery, searchMatchIndices, searchMatchCurrentIdx, setSearchMatchCurrentIdx,
-    handleSearch, handleLoadMore, addSongToQueue, removeSong, promoteSuggestion, handleShuffle,
+    handleSearch, handleLoadMore, addSongToQueue, removeSong, restoreSong, promoteSuggestion, handleShuffle,
     handleDragStart, handleDragOver, handleDragLeave, handleDrop, moveSongToNext,
   } = useQueue({
     room, roomRef, queue, queueRef, setQueue, setRoom, currentUser,
-    canAddSongs: true,
+    canAddSongs: myRole !== 'muted',
     canPlayPause: myRole === 'admin' || myRole === 'moderator',
+    canRearrange: myRole === 'admin' || myRole === 'moderator',
     broadcast, broadcastPlayback,
   });
   useEffect(() => { addSongRef.current = addSongToQueue; }, [addSongToQueue]);
@@ -363,6 +364,11 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     await supabase.from('rooms').update({ user_roles: updatedRoles }).eq('id', room.id);
     broadcast('role_update', { default_role: room.default_role, user_roles: updatedRoles });
   }, [room.id, room.user_roles, room.default_role, broadcast]);
+
+  // Kick = the kicked client leaves on this broadcast; they can rejoin. Mute them first to stop re-adds.
+  const kickUser = useCallback((userId: string) => {
+    broadcast('kick', { user_id: userId });
+  }, [broadcast]);
 
   const updateDefaultRole = useCallback(async (newRole: UserRole) => {
     setRoom((prev) => ({ ...prev, default_role: newRole }));
@@ -426,6 +432,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   const canVolume = myRole === 'admin' || myRole === 'moderator';
   const canRearrange = myRole === 'admin' || myRole === 'moderator';
   const canAutoSuggest = myRole === 'admin' || myRole === 'moderator';
+  const canAddSongs = myRole !== 'muted';
   const queuedVideoIds = useMemo(() => new Set(queue.map((q) => q.youtube_id)), [queue]);
 
   const leave = useCallback(() => { window.location.href = '/'; }, []);
@@ -463,7 +470,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
   // ── Context value ─────────────────────────────────────────────────────────
   const contextValue = {
     room, queue, users, currentUser, myRole, currentSong,
-    canPlayPause, canSeek, canVolume, canRearrange, canAutoSuggest, isSpeaker, duration,
+    canPlayPause, canSeek, canVolume, canRearrange, canAutoSuggest, canAddSongs, isSpeaker, duration,
     broadcast, theme, toggleTheme,
   };
 
@@ -474,6 +481,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     shuffling, dragOverIndex,
     onJumpTo: handleJumpTo,
     onRemoveSong: removeSong,
+    onRestoreSong: restoreSong,
     onPromoteSuggestion: promoteSuggestion,
     onMoveSongToNext: (e: React.MouseEvent, sourceIndex: number) => moveSongToNext(e, sourceIndex),
     onShuffle: handleShuffle,
@@ -497,6 +505,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onToggleSpeaker: toggleSpeaker,
     onAddSong: openAddSongSearch,
     unplayableNotice,
+    onSkipUnplayableNow: skipNow,
     onSeek: handleSeek,
     volume: (room.volume ?? 80) / 100,
     onVolumeChange: handleVolumeChange,
@@ -526,8 +535,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
     onAddSongFromChat: (youtubeId: string, title: string, _artist: string, duration: string) => {
       // "m:ss" or "h:mm:ss" → seconds, so the queue shows a real length
       const secs = (duration || '').split(':').reduce((acc, part) => acc * 60 + (Number(part) || 0), 0);
-      return addSongToQueue(youtubeId, title, `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`, secs)
-        .catch((err) => console.error('Add from chat failed:', err));
+      // Rejects on failure so the chat card can show "Failed, retry".
+      return addSongToQueue(youtubeId, title, `https://img.youtube.com/vi/${youtubeId}/mqdefault.jpg`, secs);
     },
     onPreviewImage: setPreviewImage,
     onSeen: () => setUnreadChatCount(0),
@@ -579,7 +588,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <div className="col noscb" style={{ gap: 14, minHeight: 0, overflowY: 'auto', padding: '2px 10px 10px 2px' }}>
                 <Player {...playerProps} />
                 <ReactionBar />
-                <CrewStrip onUpdateUserRole={updateUserRole} onRenameMe={renameSelf} />
+                <CrewStrip onUpdateUserRole={updateUserRole} onKick={kickUser} onRenameMe={renameSelf} />
               </div>
 
               {/* Mid col: Queue (Discover lives inside its Add a song dialog) */}
@@ -598,7 +607,7 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               <div className="col" style={{ gap: 14, display: mobileTab === 'player' ? 'flex' : 'none' }}>
                 <Player {...playerProps} />
                 <ReactionBar />
-                <CrewStrip onUpdateUserRole={updateUserRole} onRenameMe={renameSelf} />
+                <CrewStrip onUpdateUserRole={updateUserRole} onKick={kickUser} onRenameMe={renameSelf} />
               </div>
               {mobileTab === 'queue' && (
                 <div style={{ minHeight: 0, flex: 1 }}>
@@ -655,8 +664,8 @@ export default function RoomClient({ initialRoom, initialQueue }: RoomClientProp
               bottom: isMobile ? (mobileTab === 'player' ? 92 : 164) : 24,
               zIndex: 180,
               padding: '10px 14px',
-              background: 'var(--accent)',
-              color: 'var(--on-pop)',
+              background: 'var(--panel)',
+              color: 'var(--ink)',
               border: '3px solid var(--outline)',
               borderRadius: 14,
               boxShadow: '5px 5px 0 var(--shadow)',

@@ -6,23 +6,33 @@ import Icon from './ui/Icon';
 import { useRoom } from './RoomContext';
 import type { UserRole } from '@/lib/types';
 
-const ROLE_ORDER: Record<UserRole, number> = { admin: 0, moderator: 1, dj: 2 };
-const ASSIGNABLE_ROLES: UserRole[] = ['moderator', 'dj'];
+const ROLE_ORDER: Record<UserRole, number> = { admin: 0, moderator: 1, dj: 2, muted: 3 };
+// muted = can't add songs (can still listen and chat)
+const ASSIGNABLE_ROLES: UserRole[] = ['moderator', 'dj', 'muted'];
 
 interface CrewStripProps {
   onUpdateUserRole: (userId: string, newRole: UserRole) => Promise<void>;
+  onKick: (userId: string) => void;
   onRenameMe: (newName: string) => void;
 }
 
-function RoleMenu({ anchorEl, role, userId, onSelect, onClose }: {
+function RoleMenu({ anchorEl, role, userId, onSelect, onKick, onClose }: {
   anchorEl: HTMLElement;
   role: UserRole;
   userId: string;
   onSelect: (userId: string, r: UserRole) => Promise<void>;
+  onKick: (userId: string) => void;
   onClose: () => void;
 }) {
+  const [confirmKick, setConfirmKick] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const rect = anchorEl.getBoundingClientRect();
+  // Keep the menu on screen: flip above the chip when there's no room below, clamp sideways.
+  const MENU_W = 160, MENU_H = 230, GAP = 6, EDGE = 8;
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 768;
+  const openUp = rect.bottom + GAP + MENU_H > vh && rect.top - GAP - MENU_H >= EDGE;
+  const left = Math.min(Math.max(rect.left + rect.width / 2 - MENU_W / 2, EDGE), vw - MENU_W - EDGE);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -45,14 +55,14 @@ function RoleMenu({ anchorEl, role, userId, onSelect, onClose }: {
     <div
       ref={ref}
       role="menu"
-      aria-label="Set role"
+      aria-label="Set role or kick"
       className="pop wobble popin col"
       style={{
         position: 'fixed', zIndex: 500,
-        top: rect.bottom + 6,
-        left: rect.left + rect.width / 2,
-        transform: 'translateX(-50%)',
-        padding: 6, gap: 3, width: 140,
+        ...(openUp ? { bottom: vh - rect.top + GAP } : { top: rect.bottom + GAP }),
+        left,
+        maxHeight: `calc(100vh - ${EDGE * 2}px)`, overflowY: 'auto',
+        padding: 6, gap: 3, width: MENU_W,
       }}
     >
       <div className="mono" style={{ fontSize: 11, color: 'var(--ink-soft)', padding: '4px 9px 2px' }}>Set role</div>
@@ -74,6 +84,21 @@ function RoleMenu({ anchorEl, role, userId, onSelect, onClose }: {
           {role === r && <Icon name="check" size={14} style={{ marginLeft: 'auto' }} />}
         </button>
       ))}
+      <div style={{ borderTop: '2px solid var(--line)', margin: '3px 0' }} />
+      {/* two-step, like Remove in the queue */}
+      <button
+        type="button"
+        role="menuitem"
+        style={{
+          padding: '0 9px', minHeight: 40, borderRadius: 8, border: 'none', cursor: 'pointer',
+          textAlign: 'left', width: '100%', fontWeight: 700, fontSize: 13,
+          background: confirmKick ? 'var(--pop-coral)' : 'transparent',
+          color: confirmKick ? 'var(--on-pop)' : 'var(--ink)',
+        }}
+        onClick={() => { if (!confirmKick) { setConfirmKick(true); return; } onKick(userId); onClose(); }}
+      >
+        {confirmKick ? 'Kick? Tap again' : 'Kick from room'}
+      </button>
     </div>
   );
 }
@@ -202,7 +227,7 @@ function CrewChip({ userId, username, role, isMe, isAdmin, isSpeaker, onUpdateUs
   );
 }
 
-export default function CrewStrip({ onUpdateUserRole, onRenameMe }: CrewStripProps) {
+export default function CrewStrip({ onUpdateUserRole, onKick, onRenameMe }: CrewStripProps) {
   const { users, currentUser, myRole, room, isSpeaker } = useRoom();
   const isAdmin = myRole === 'admin';
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
@@ -266,6 +291,7 @@ export default function CrewStrip({ onUpdateUserRole, onRenameMe }: CrewStripPro
           role={menuTarget.role}
           userId={menuTarget.userId}
           onSelect={onUpdateUserRole}
+          onKick={onKick}
           onClose={() => setMenuTarget(null)}
         />
       )}

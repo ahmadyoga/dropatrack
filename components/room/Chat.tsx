@@ -6,6 +6,7 @@ import Icon from './ui/Icon';
 import Modal from './ui/Modal';
 import GameInviteMessage from './game/GameInviteMessage';
 import { useRoom } from './RoomContext';
+import { AddButton } from './Discover';
 import type { ChatMessage, GameSession } from '@/lib/types';
 
 function relTime(iso: string): string {
@@ -28,7 +29,7 @@ interface ChatProps {
   onLoadOlderChat: () => Promise<void>;
   onSendChat: (imageUrl?: string, type?: string, payload?: unknown) => Promise<void>;
   onUploadImage: (file: File) => Promise<string | null>;
-  onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
+  onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => Promise<void>;
   onPreviewImage: (url: string) => void;
   onSeen: () => void;
   onCreateGame: (gameType: 'minesweeper' | 'sudoku') => void;
@@ -353,7 +354,7 @@ export default function Chat({
 
 function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, activeSession, activeSudokuSession, onReply, onJumpToMessage }: {
   msg: ChatMessage; isMe: boolean;
-  onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => void;
+  onAddSongFromChat: (youtubeId: string, title: string, artist: string, duration: string) => Promise<void>;
   onPreviewImage: (url: string) => void;
   onJoinGame: (sessionId: string) => void;
   activeSession?: GameSession | null;
@@ -500,15 +501,38 @@ function Bubble({ msg, isMe, onAddSongFromChat, onPreviewImage, onJoinGame, acti
               <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{msg.song_ref.title}</div>
               <div className="mono" style={{ fontSize: 11, color: 'var(--ink-dim)' }}>{msg.song_ref.artist} · {msg.song_ref.duration}</div>
             </div>
-            <button
-              className="btn btn-accent btn-icon pop-sm"
-              onClick={() => onAddSongFromChat(msg.song_ref!.youtube_id, msg.song_ref!.title, msg.song_ref!.artist, msg.song_ref!.duration)}
-              aria-label={`Add ${msg.song_ref.title} to queue`}
-              style={{ flexShrink: 0, width: 44, height: 44, padding: 0 }}
-            ><Icon name="plus" size={18} /></button>
+            <ChatSongAdd songRef={msg.song_ref} onAdd={onAddSongFromChat} />
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Song card add: same quiet button as Discover, with queued / adding / failed states. */
+function ChatSongAdd({ songRef, onAdd }: {
+  songRef: NonNullable<ChatMessage['song_ref']>;
+  onAdd: (youtubeId: string, title: string, artist: string, duration: string) => Promise<void>;
+}) {
+  const { queue, canAddSongs } = useRoom();
+  const [adding, setAdding] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const queued = queue.some((q) => q.youtube_id === songRef.youtube_id);
+  if (!canAddSongs) return null;
+  return (
+    <div className="col items-center" style={{ flexShrink: 0, gap: 2 }}>
+      <AddButton
+        queued={queued}
+        adding={adding}
+        title={songRef.title}
+        onAdd={async () => {
+          setAdding(true); setFailed(false);
+          try { await onAdd(songRef.youtube_id, songRef.title, songRef.artist, songRef.duration); }
+          catch { setFailed(true); }
+          finally { setAdding(false); }
+        }}
+      />
+      {failed && <span role="alert" className="mono" style={{ fontSize: 11, color: 'var(--ink)' }}>⚠️ Failed, retry</span>}
     </div>
   );
 }

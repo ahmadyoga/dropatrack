@@ -354,6 +354,7 @@ body {
 
 /* ---- role aliases ---- */
 .role-moderator { background: var(--pop-violet); color: #140f1f; }
+.role-muted     { background: var(--panel-3); color: var(--ink-dim); text-decoration: line-through; }
 
 /* ---- reduced motion: keep state changes, drop ambient movement ---- */
 @media (prefers-reduced-motion: reduce) {

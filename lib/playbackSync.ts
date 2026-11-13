@@ -26,3 +26,15 @@ export function electTimeSource(
   if (speakers.length === 0) return null;
   return speakers.reduce((min, id) => (id < min ? id : min));
 }
+
+// Who is actually making sound right now. Our own device uses its local state
+// (presence lags a beat behind a toggle). Shared by every "is it playing?" surface
+// so the player chip, mini-player and header never disagree.
+export function activeSpeakerNames(
+  users: { user_id: string; username: string; is_speaker: boolean }[],
+  myId: string | undefined,
+  iAmSpeaker: boolean,
+): string[] {
+  const others = users.filter((u) => u.is_speaker && u.user_id !== myId).map((u) => u.username);
+  return [...(iAmSpeaker ? ['this device'] : []), ...others];
+}

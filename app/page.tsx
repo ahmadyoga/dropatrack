@@ -6,7 +6,8 @@ import ThemeToggleButton from '@/components/theme/ThemeToggleButton';
 import InstallButton from '@/components/home/InstallButton';
 import VinylRecord from '@/components/room/ui/VinylRecord';
 
-export default function HomePage() {
+export default async function HomePage({ searchParams }: PageProps<'/'>) {
+  const { kicked } = await searchParams;
   return (
     <main style={{ position: 'relative', minHeight: '100vh', zIndex: 1 }}>
       <div className="cosmos-bg" />
@@ -22,6 +23,12 @@ export default function HomePage() {
             <ThemeToggleButton />
           </div>
         </header>
+
+        {kicked && (
+          <div role="status" className="pop-sm" style={{ padding: '10px 14px', borderRadius: 12, background: 'var(--panel-2)', marginBottom: 20, fontSize: 14 }}>
+            You were removed from the room by its admin.
+          </div>
+        )}
 
         {/* hero: the pitch and the form on the left, the record that is the product on the right */}
         <section className="home-hero" style={{ marginBottom: 56 }}>

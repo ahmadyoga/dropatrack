@@ -191,7 +191,9 @@ Text on any pop colour is always `on-pop` (near-black purple), never white.
 
 **The Lime Means On Rule.** Every on/selected state (toggles, switches, the device-mode segment, the selected role, the current phone tab, repeat and auto-suggest) uses Booster Lime with `--on-pop` text. Violet and cyan never signal "on".
 
-**The Speaker Truth Rule.** The player's status chip always says where sound is coming from: "🔊 Playing on {device}" or, in Ember Coral, "🔇 No speaker on". Never show a reassuring sync state when no device is playing.
+**The Speaker Truth Rule.** Every "is it playing?" surface (player chip, mini-player, header live dot) says where sound is coming from: "🔊 Playing on {device}", or in Ember Coral "🔇 No speaker on" / "⏭ Skipping unplayable track". They share one source (`activeSpeakerNames` in `lib/playbackSync.ts`). Never show a reassuring sync state when nothing is audible.
+
+**The No Dead Controls Rule.** A role that can't use a control doesn't see it (DJs get no transport, volume or mini-player play button); one plain-words line explains what they can do instead.
 
 **The One Working Accent Rule.** Nebula Cyan is the only colour that means "press this" or "this has focus". Pop colours label things (roles, live status, emphasis). They are not alternate button colours.
 
@@ -296,6 +298,9 @@ A 9px Flare Magenta circle with a 2px ink outline and a 1.6s pulsing ring. It's 
 
 ### Floating Reactions (signature)
 Emoji rise from the bottom of the room over about 4s, scaling and rotating with a random drift. This is a delight moment; it never covers controls permanently.
+
+### Unplayable Track Notice (signature)
+A Pop Small card pinned to the bottom of the player stage, over an opaque cover that hides YouTube's own error screen. A 36px Ember Coral circle carries the countdown number; the text says "Can't play “X”: {reason}. Skipping…" once. Moderators get a ghost "Skip now"; the "No playable songs left" variant offers a cyan "Add a song".
 
 ### Modals
 A blurred dark scrim, then a Pop Large card that springs in (`popin`: 220ms, cubic-bezier(.2,1.2,.4,1)).

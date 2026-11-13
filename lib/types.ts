@@ -27,6 +27,8 @@ export interface QueueItem {
   thumbnail_url: string | null;
   duration_seconds: number;
   added_by: string;
+  /** Stable user id of whoever added it; null for legacy, extension and Auto-DJ rows. */
+  added_by_id?: string | null;
   position: number;
   played: boolean;
   is_suggested: boolean;
@@ -43,7 +45,7 @@ export interface YouTubeSearchResult {
   durationSeconds: number;
 }
 
-export type UserRole = 'admin' | 'moderator' | 'dj';
+export type UserRole = 'admin' | 'moderator' | 'dj' | 'muted';
 
 export interface RoomUser {
   user_id: string;

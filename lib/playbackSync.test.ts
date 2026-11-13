@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeExpected, electTimeSource, type PlaybackAnchor } from './playbackSync';
+import { activeSpeakerNames, computeExpected, electTimeSource, type PlaybackAnchor } from './playbackSync';
 
 describe('computeExpected', () => {
   it('returns the base when paused', () => {
@@ -37,5 +37,20 @@ describe('electTimeSource', () => {
       { user_id: 'alpha', is_speaker: true },
       { user_id: 'mike', is_speaker: false },
     ])).toBe('alpha');
+  });
+});
+
+
+describe('activeSpeakerNames', () => {
+  const users = [
+    { user_id: 'me', username: 'Me', is_speaker: false }, // stale presence for me
+    { user_id: 'dewi', username: 'Dewi', is_speaker: true },
+    { user_id: 'raka', username: 'Raka', is_speaker: false },
+  ];
+  it('uses local state for this device, presence for others', () => {
+    expect(activeSpeakerNames(users, 'me', true)).toEqual(['this device', 'Dewi']);
+  });
+  it('is empty when nobody plays', () => {
+    expect(activeSpeakerNames(users.map((u) => ({ ...u, is_speaker: false })), 'me', false)).toEqual([]);
   });
 });
